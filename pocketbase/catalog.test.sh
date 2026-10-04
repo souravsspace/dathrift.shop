@@ -40,14 +40,14 @@ create_product() {
 		| python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])'
 }
 
-available_id="$(create_product '{"slug":"published-piece","title":"Published piece","price_taka":1800,"published":true,"stock_state":"available","reservation_ref":"private-hold"}')"
+available_id="$(create_product '{"slug":"published-piece","title":"Published piece","description":"Vintage cotton shirt with a repaired cuff.","price_taka":1800,"published":true,"stock_state":"available","reservation_ref":"private-hold"}')"
 sold_id="$(create_product '{"slug":"sold-piece","title":"Sold piece","price_taka":1600,"published":true,"stock_state":"sold"}')"
 draft_id="$(create_product '{"slug":"draft-piece","title":"Draft piece","price_taka":2000,"published":false,"stock_state":"available"}')"
 
 curl --fail --silent --show-error "$base?perPage=20" \
 	| python3 -c 'import json,sys; items=json.load(sys.stdin)["items"]; assert {r["slug"] for r in items} == {"published-piece", "sold-piece"}; assert all("reservation_ref" not in r and "reserved_until" not in r for r in items)'
 curl --fail --silent --show-error "$base/$available_id" \
-	| python3 -c 'import json,sys; item=json.load(sys.stdin); assert item["slug"] == "published-piece"; assert "reservation_ref" not in item and "reserved_until" not in item'
+	| python3 -c 'import json,sys; item=json.load(sys.stdin); assert item["slug"] == "published-piece"; assert item["description"] == "Vintage cotton shirt with a repaired cuff."; assert "reservation_ref" not in item and "reserved_until" not in item'
 curl --fail --silent --show-error "$base/$sold_id" \
 	| python3 -c 'import json,sys; assert json.load(sys.stdin)["stock_state"] == "sold"'
 test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$base/$draft_id")" = 404
