@@ -1,18 +1,34 @@
 {
 	"$schema": "./node_modules/wrangler/config-schema.json",
 	"name": "dathrift-phase1-preview",
-	"main": "src/phase1/preview.ts",
+	"main": "src/phase1/entry.ts",
 	"compatibility_date": "2026-10-04",
 	"workers_dev": true,
 	"preview_urls": false,
 	"vars": {
-		"ALLOWED_HOST": "dathrift-phase1-preview.souravsspace.workers.dev"
+		"ALLOWED_HOST": "dathrift-phase1-preview.souravsspace.workers.dev",
+		"ACCOUNT_ID": "ec8d4a8a8415976daf6f8479a89aa529",
+		"DATABASE_ID": "15af6bbd-631f-48e5-80f8-de382d626b50"
 	},
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "dathrift-phase1-primary-test",
 			"database_id": "15af6bbd-631f-48e5-80f8-de382d626b50"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "BACKUP_BUCKET",
+			"bucket_name": "dathrift-phase1-d1-backups-test"
+		}
+	],
+	"workflows": [
+		{
+			"name": "dathrift-phase1-d1-backup",
+			"binding": "BACKUP_WORKFLOW",
+			"class_name": "Phase1BackupWorkflow",
+			"schedules": ["0 * * * *"]
 		}
 	]
 }
