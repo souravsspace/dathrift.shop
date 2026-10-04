@@ -1,5 +1,18 @@
 # dathrift.shop — implementation plan
 
+## Verified implementation status (2026-10-05)
+
+| Phase                       | Status          | Evidence and remaining gate                                                                                                                                                                                                                                                 |
+| --------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0. Starter                  | Complete        | Svelte type-check and Vitest server/browser tests passed after the starter fixes.                                                                                                                                                                                           |
+| 1. Durable deployment spike | **Incomplete**  | Local PocketBase mounted-volume restart/restore and local Worker preview passed. Remote authenticated HTTPS or private Worker-to-PocketBase access, remote admin protection, and off-host backup/recovery have **not** been proven. No production deployment is authorized. |
+| 2. Catalog and schema       | **In progress** | An initial products migration and disposable real-PocketBase public-access test passed. Product detail behavior, full merchandising fields, and Worker catalog reads remain unproven.                                                                                       |
+| 3–8                         | Not started     | No cart, reservation, payment, storefront, SEO, or release gate is complete.                                                                                                                                                                                                |
+
+The application, test, and supported tool configuration sources use TypeScript (`.ts` and `<script lang="ts">`); `tsconfig.json` replaces `jsconfig.json`. PocketBase migration files are an intentional `.js` exception because PocketBase executes JavaScript migrations directly. Generated Worker output is JavaScript and is not source. This conversion changes no storefront visual direction.
+
+**Next local-only slice:** prove one server-side product read through a Worker route, including a published product and a draft/absent product, without building storefront UI or exposing privileged PocketBase credentials. Keep the Phase 1 gate open while the owner chooses the persistent host, region, domain, and acceptable off-host recovery target. Do not start UI until visual direction and real product content are approved.
+
 ## Product thesis and launch scope
 
 A carefully edited thrift drop, not a generic endless catalog. Each product is a photographed, measured, one-off piece with one sellable unit. The site should make condition and fit clear, make price and delivery transparent, and preserve an item's page after sale with an unmistakable **Sold out** state.
