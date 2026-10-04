@@ -1,10 +1,11 @@
-<script>
+<script lang="ts">
 	import './layout.css';
 	import DemoLinks from './demo/DemoLinks.svelte';
 	import favicon from '#lib/assets/favicon.svg';
 
-	/** @type {{children: import('svelte').Snippet}} */
-	let { children } = $props();
+	import type { Snippet } from 'svelte';
+
+	let { children }: { children: Snippet } = $props();
 </script>
 
 <svelte:head>
