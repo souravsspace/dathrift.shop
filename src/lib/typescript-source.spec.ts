@@ -14,7 +14,11 @@ it('keeps application code and supported tooling in TypeScript', () => {
 		'vite.config.js'
 	].filter((file) => existsSync(resolve(file)));
 
-	expect({ appJavaScript, legacyConfig, hasTsconfig: existsSync(resolve('tsconfig.json')) }).toEqual({
+	expect({
+		appJavaScript,
+		legacyConfig,
+		hasTsconfig: existsSync(resolve('tsconfig.json'))
+	}).toEqual({
 		appJavaScript: [],
 		legacyConfig: [],
 		hasTsconfig: true
