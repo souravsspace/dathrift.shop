@@ -14,7 +14,10 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 
-			adapter: adapter({ platformProxy: { persist: false, remoteBindings: false } })
+			adapter:
+				process.env.VITEST === 'true'
+					? undefined
+					: adapter({ platformProxy: { persist: false, remoteBindings: false } })
 		})
 	],
 	test: {
