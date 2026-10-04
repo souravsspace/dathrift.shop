@@ -1,0 +1,18 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "dathrift-phase1-preview",
+	"main": "src/phase1/preview.ts",
+	"compatibility_date": "2026-10-04",
+	"workers_dev": true,
+	"preview_urls": false,
+	"vars": {
+		"ALLOWED_HOST": "dathrift-phase1-preview.souravsspace.workers.dev"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "dathrift-phase1-primary-test",
+			"database_id": "15af6bbd-631f-48e5-80f8-de382d626b50"
+		}
+	]
+}
