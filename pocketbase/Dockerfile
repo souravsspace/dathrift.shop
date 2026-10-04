@@ -12,6 +12,8 @@ RUN apk add --no-cache ca-certificates unzip \
 	&& mkdir -p /pb/pb_data \
 	&& chown -R pocketbase:pocketbase /pb
 
+COPY --chown=pocketbase:pocketbase pb_migrations /pb/pb_migrations
+
 WORKDIR /pb
 USER pocketbase
 EXPOSE 8080
