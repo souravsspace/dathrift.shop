@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { resolve } from '$app/paths';
 
 	const demos = [{ name: 'playwright', href: resolve('/demo/playwright') }];
