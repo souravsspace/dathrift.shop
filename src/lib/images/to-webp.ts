@@ -2,6 +2,7 @@
 // Re-drawing through a canvas also drops EXIF metadata such as GPS location.
 export const MAX_EDGE = 2000;
 export const QUALITY = 0.82;
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export function fitWithin(width: number, height: number, max = MAX_EDGE) {
 	const scale = Math.min(1, max / Math.max(width, height));
@@ -16,7 +17,12 @@ export async function encodeWithWasm(data: ImageData, quality: number): Promise<
 }
 
 export async function toWebp(file: File) {
-	const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+	// Some HEIC files arrive with no MIME type; the decoder decides whether they are readable.
+	if (file.type && !file.type.startsWith('image/')) throw new Error('Choose an image file');
+	if (file.size > MAX_UPLOAD_BYTES) throw new Error('Image is larger than 10 MB');
+	const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => {
+		throw new Error('This browser cannot read that image. Try a JPEG, PNG or WebP.');
+	});
 	const { width, height } = fitWithin(bitmap.width, bitmap.height);
 	const canvas = document.createElement('canvas');
 	canvas.width = width;
