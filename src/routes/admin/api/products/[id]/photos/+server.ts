@@ -1,4 +1,5 @@
 import { env } from 'cloudflare:workers';
+import { databaseFrom } from '../../../../../../lib/server/db/client';
 import { addProductPhoto } from '../../../../../../lib/server/catalog/photos';
 import { staffActorForRequest } from '../../../../../../lib/server/staff-auth';
 import type { RequestHandler } from './$types';
@@ -12,12 +13,9 @@ export const POST: RequestHandler = async ({ request, params }) => {
 		return new Response('Invalid request', { status: 415, headers });
 	if (!(await staffActorForRequest(request, env, import.meta.env.DEV)))
 		return new Response('Forbidden', { status: 403, headers });
-	const binding = env as {
-		DB?: Parameters<typeof addProductPhoto>[0];
-		PRODUCT_IMAGES?: Parameters<typeof addProductPhoto>[1];
-	};
-	if (!binding.DB || !binding.PRODUCT_IMAGES)
-		return new Response('Photo storage unavailable', { status: 503, headers });
+	const db = databaseFrom(env);
+	const bucket = (env as { PRODUCT_IMAGES?: Parameters<typeof addProductPhoto>[1] }).PRODUCT_IMAGES;
+	if (!db || !bucket) return new Response('Photo storage unavailable', { status: 503, headers });
 	try {
 		const form = await request.formData();
 		const photo = form.get('photo');
@@ -25,7 +23,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
 		const position = form.get('position');
 		if (!(photo instanceof File) || typeof altText !== 'string' || typeof position !== 'string')
 			return new Response('Invalid photo', { status: 400, headers });
-		const result = await addProductPhoto(binding.DB, binding.PRODUCT_IMAGES, params.id, {
+		const result = await addProductPhoto(db, bucket, params.id, {
 			bytes: new Uint8Array(await photo.arrayBuffer()),
 			contentType: photo.type,
 			position: Number(position),
