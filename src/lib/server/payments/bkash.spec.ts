@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { localD1 } from '../testing/local-d1';
+import { localDatabase } from '../testing/local-d1';
 import { bkashConfigFrom, bkashProvider, d1TokenStore } from './bkash';
 
 const env = {
@@ -60,7 +60,7 @@ it('accepts only complete sandbox configuration', () => {
 });
 
 it('reuses one stored token and sends the server amount and invoice to create', async () => {
-	const { db, sqlite } = localD1({ seed: false });
+	const { db, sqlite } = localDatabase({ seed: false });
 	const fetcher = fakeBkash();
 	const provider = bkashProvider(bkashConfigFrom(env)!, d1TokenStore(db), fetcher);
 	const created = await provider.create({
@@ -90,7 +90,7 @@ it('reuses one stored token and sends the server amount and invoice to create', 
 });
 
 it('normalizes execute and query results and rejects provider errors', async () => {
-	const { db } = localD1({ seed: false });
+	const { db } = localDatabase({ seed: false });
 	const provider = bkashProvider(bkashConfigFrom(env)!, d1TokenStore(db), fakeBkash());
 	expect(await provider.execute('TR0011abc')).toEqual({
 		paymentId: 'TR0011abc',
