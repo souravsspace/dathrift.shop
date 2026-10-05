@@ -16,6 +16,10 @@
 
 **Next work:** complete Phase 1 one test-first vertical slice at a time. Keep it incomplete until authenticated remote access, D1 persistence, a scheduled private R2 export/alert and an isolated restore meet the measured **≤1-hour RPO / ≤4-hour RTO** targets. A Phase 2 execution handoff should follow only after that gate closes. No storefront UI before approval of a concrete visual concept; no production deployment or live checkout without specific fresh authorization.
 
+### Environment and resource names
+
+The existing `phase1` Worker, Workflow, D1 databases, R2 bucket, SQL marker table, and probe URL are **disposable nonproduction proof fixtures**, not names or schemas to promote into the shop. Keep their existing names while collecting Phase 1 evidence; renaming a Cloudflare resource means creating or migrating a resource, not a cosmetic source edit. Production application code should use domain names such as catalog, inventory, orders, payments and backups rather than phase numbers. Choose distinct dev/staging/production resource names and bindings in their own configuration before those separately approved resources are created. Never point a production Worker at the Phase 1 test database or ship its marker route.
+
 ## Product and customer experience
 
 This is a carefully edited, **one-of-a-kind clothing** drop, not a static catalog or generic marketplace. Every product has one sellable physical unit. Initial categories are tops, bottoms, outerwear and dresses; add accessories only when real stock exists. The owner selected an **editorial thrift archive** direction grounded in `static/brand/dathrift-logo.png`, but must approve a concrete concept before storefront UI code. Use **Impeccable** and **ui-ux-pro-max** when shaping it. Real photos, condition/flaws and centimeter measurements must lead; clearly marked test-only fixtures are allowed in development but never as live merchandise.
