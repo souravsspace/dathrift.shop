@@ -40,6 +40,7 @@
 	let inseam = $state('');
 	let photoFile = $state<File | null>(null);
 	let photoAlt = $state('');
+	let saleReason = $state('');
 
 	function assignProduct(value: Product) {
 		product = value;
@@ -158,6 +159,29 @@
 				reason instanceof Error && reason.message === 'Incomplete product'
 					? 'Complete details, measurements and at least one photo before publishing.'
 					: 'Could not change publication. Refresh and try again.';
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function recordExternalSale(event: SubmitEvent) {
+		event.preventDefault();
+		if (!product || product.stock_state !== 'available') return;
+		busy = true;
+		message = error = '';
+		try {
+			const response = await fetch(`/admin/api/products/${data.id}/external-sale`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ reason: saleReason })
+			});
+			if (!response.ok) throw new Error('Sale unavailable');
+			product = { ...product, stock_state: 'sold' };
+			saleReason = '';
+			message = 'Recorded as sold externally';
+		} catch {
+			error =
+				'Could not record sale. The piece may already be held or sold; refresh before retrying.';
 		} finally {
 			busy = false;
 		}
@@ -363,6 +387,35 @@
 								disabled={busy || product.stock_state !== 'available'}
 								onclick={() => setPublication('draft')}>Unpublish piece</button
 							>{/if}
+					</section>
+					<section class="admin-panel" aria-labelledby="external-sale-title">
+						<div class="admin-panel-heading">
+							<span>04 / Offline sale</span>
+							<h2 id="external-sale-title">Sold elsewhere</h2>
+						</div>
+						<p class="admin-hint">
+							Only use after a completed sale outside this website. This permanently consumes the
+							one sellable unit; it never marks a website order paid.
+						</p>
+						{#if product.stock_state === 'available'}
+							<form onsubmit={recordExternalSale}>
+								<label for="external-sale-reason">External sale reason</label>
+								<input
+									id="external-sale-reason"
+									bind:value={saleReason}
+									required
+									maxlength="1000"
+									placeholder="Where and why this piece sold"
+								/>
+								<button type="submit" disabled={busy}
+									>Mark sold externally <span aria-hidden="true">↗</span></button
+								>
+							</form>
+						{:else}
+							<p class="admin-list-state">
+								This piece is {product.stock_state}; external sale unavailable.
+							</p>
+						{/if}
 					</section>
 				</div>
 			</div>
