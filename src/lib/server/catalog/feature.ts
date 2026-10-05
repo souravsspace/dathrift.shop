@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
-import { homeFeature, inventory, productPhotos, products } from '../db/schema';
+import { categories, homeFeature, inventory, productPhotos, products } from '../db/schema';
 import type { PublicListing } from './public-catalog';
 
 export type HomeHero = PublicListing & { featured: boolean };
@@ -14,6 +14,7 @@ export async function homeHero(db: Database): Promise<HomeHero | null> {
 			slug: products.slug,
 			name: products.name,
 			category: products.category,
+			category_name: categories.name,
 			price_bdt: products.priceBdt,
 			stock_state: inventory.state,
 			size_label: products.sizeLabel,
@@ -24,6 +25,7 @@ export async function homeHero(db: Database): Promise<HomeHero | null> {
 		})
 		.from(products)
 		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.innerJoin(categories, eq(categories.slug, products.category))
 		.leftJoin(
 			productPhotos,
 			and(eq(productPhotos.productId, products.id), eq(productPhotos.position, 1))
