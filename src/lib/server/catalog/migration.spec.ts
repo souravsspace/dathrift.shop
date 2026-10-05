@@ -2,12 +2,19 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { expect, it } from 'vitest';
 
+// D1 applies each migration file in its own transaction; mirror that so deferred keys behave.
+function migrate(db: DatabaseSync, files: string[]) {
+	for (const file of files) {
+		db.exec('BEGIN');
+		db.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
+		db.exec('COMMIT');
+	}
+}
+
 function migratedDb(): DatabaseSync {
 	const db = new DatabaseSync(':memory:');
 	db.exec('PRAGMA foreign_keys = ON');
-	for (const file of readdirSync('db/migrations').sort()) {
-		db.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
-	}
+	migrate(db, readdirSync('db/migrations').sort());
 	return db;
 }
 
@@ -44,7 +51,7 @@ it('keeps one server-owned inventory state per product', () => {
 	db.close();
 });
 
-it('stores only eight ordered photo slots with nonblank alt text', () => {
+it('stores up to ten ordered photo slots with nonblank alt text', () => {
 	const db = migratedDb();
 	db.prepare(
 		"INSERT INTO products (id, slug, name, category, price_bdt) VALUES ('product-1', 'test-only-top', 'Test-only top', 'tops', 1200)"
@@ -55,13 +62,18 @@ it('stores only eight ordered photo slots with nonblank alt text', () => {
 
 	insert.run('product-1', 1, 'test-only/top-front.jpg', 'Front of test-only top');
 	expect(() => insert.run('product-1', 1, 'test-only/duplicate.jpg', 'Duplicate slot')).toThrow();
-	expect(() => insert.run('product-1', 9, 'test-only/ninth.jpg', 'Ninth slot')).toThrow();
+	insert.run('product-1', 10, 'test-only/tenth.jpg', 'Tenth slot');
+	expect(() => insert.run('product-1', 11, 'test-only/eleventh.jpg', 'Eleventh slot')).toThrow();
+	expect(() => insert.run('product-1', 0, 'test-only/zero.jpg', 'Zero slot')).toThrow();
 	expect(() => insert.run('product-1', 2, 'test-only/no-alt.jpg', '   ')).toThrow();
 	expect(
 		db
 			.prepare('SELECT position, alt_text FROM product_photos WHERE product_id = ?')
 			.all('product-1')
-	).toEqual([{ position: 1, alt_text: 'Front of test-only top' }]);
+	).toEqual([
+		{ position: 1, alt_text: 'Front of test-only top' },
+		{ position: 10, alt_text: 'Tenth slot' }
+	]);
 
 	db.close();
 });
@@ -82,7 +94,7 @@ it('stores the garment details needed for an honest product listing', () => {
 		'Cotton top used only in tests',
 		'Small mark on left cuff',
 		'M',
-		'{"chest_cm":52,"length_cm":68}',
+		'{"chest_in":20.5,"length_in":27}',
 		'Fits relaxed'
 	);
 
@@ -91,10 +103,88 @@ it('stores the garment details needed for an honest product listing', () => {
 	).toEqual({
 		description: 'Cotton top used only in tests',
 		condition_notes: 'Small mark on left cuff',
-		measurements_json: '{"chest_cm":52,"length_cm":68}'
+		measurements_json: '{"chest_in":20.5,"length_in":27}'
 	});
 	expect(() =>
 		db.prepare("UPDATE products SET measurements_json = 'not JSON' WHERE id = 'product-1'").run()
 	).toThrow();
+	db.close();
+});
+
+it('keeps staff-managed categories, each with the measurements its pieces need', () => {
+	const db = migratedDb();
+	expect(
+		db.prepare('SELECT slug, name, measurement_set FROM categories ORDER BY slug').all()
+	).toEqual([
+		{ slug: 'bottoms', name: 'Bottoms', measurement_set: 'bottom' },
+		{ slug: 'dresses', name: 'Dresses', measurement_set: 'top' },
+		{ slug: 'outerwear', name: 'Outerwear', measurement_set: 'top' },
+		{ slug: 'tops', name: 'Tops', measurement_set: 'top' }
+	]);
+	const addCategory = db.prepare(
+		'INSERT INTO categories (slug, name, measurement_set) VALUES (?, ?, ?)'
+	);
+	const addProduct = db.prepare(
+		"INSERT INTO products (id, slug, name, category, price_bdt) VALUES (?, ?, 'Test-only piece', ?, 900)"
+	);
+	expect(() => addProduct.run('p1', 'test-only-bag', 'bags')).toThrow();
+	addCategory.run('bags', 'Bags', 'none');
+	addProduct.run('p1', 'test-only-bag', 'bags');
+	expect(() => addCategory.run('Bad Slug', 'Bad', 'none')).toThrow();
+	expect(() => addCategory.run('shoes', 'bags', 'none')).toThrow();
+	expect(() => addCategory.run('shoes', 'Shoes', 'feet')).toThrow();
+	expect(() => addCategory.run('shoes', '  ', 'none')).toThrow();
+	db.close();
+});
+
+it('moves existing pieces onto the category table and their measurements into half inches', () => {
+	const db = new DatabaseSync(':memory:');
+	db.exec('PRAGMA foreign_keys = ON');
+	const files = readdirSync('db/migrations').sort();
+	const before = files.filter((file) => file < '0014');
+	migrate(db, before);
+	db.exec(`INSERT INTO products (id, slug, name, category, price_bdt, measurements_json)
+		VALUES ('a', 'test-only-top', 'Test-only top', 'tops', 900, '{"chest_cm":90,"length_cm":60}'),
+		       ('b', 'test-only-skirt', 'Test-only skirt', 'bottoms', 700, '{"waist_cm":76,"inseam_cm":67}'),
+		       ('c', 'test-only-dress', 'Test-only dress', 'dresses', 1200, NULL);
+		INSERT INTO inventory (product_id) VALUES ('a'), ('b'), ('c');
+		INSERT INTO product_photos (product_id, position, r2_key, alt_text)
+		VALUES ('a', 1, 'test-only/a.webp', 'Test-only top');
+		INSERT INTO slug_redirects (old_slug, product_id) VALUES ('test-only-old-top', 'a');
+		INSERT INTO home_feature (slot, product_id) VALUES ('hero', 'a');`);
+	migrate(
+		db,
+		files.filter((file) => file >= '0014')
+	);
+	expect(
+		db.prepare('SELECT id, category, measurements_json FROM products ORDER BY id').all()
+	).toEqual([
+		{ id: 'a', category: 'tops', measurements_json: '{"chest_in":35.5,"length_in":23.5}' },
+		{ id: 'b', category: 'bottoms', measurements_json: '{"waist_in":30,"inseam_in":26.5}' },
+		{ id: 'c', category: 'dresses', measurements_json: null }
+	]);
+	expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+	const triggers = db
+		.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name")
+		.all()
+		.map((row) => row.name);
+	expect(triggers).toEqual(
+		expect.arrayContaining([
+			'product_slug_change_not_redirected',
+			'product_slug_not_redirected',
+			'reserve_one_off_item',
+			'stamp_new_product',
+			'touch_product',
+			'touch_product_photos',
+			'touch_product_stock'
+		])
+	);
+	expect(() =>
+		db
+			.prepare(
+				"INSERT INTO products (id, slug, name, category, price_bdt) VALUES ('d', 'test-only-old-top', 'X', 'tops', 1)"
+			)
+			.run()
+	).toThrow('Slug unavailable');
 	db.close();
 });
