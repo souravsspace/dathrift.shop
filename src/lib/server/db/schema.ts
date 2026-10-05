@@ -2,11 +2,22 @@
 import { sql } from 'drizzle-orm';
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
+export const categories = sqliteTable('categories', {
+	slug: text('slug').primaryKey(),
+	name: text('name').notNull().unique(),
+	measurementSet: text('measurement_set', { enum: ['top', 'bottom', 'none'] }).notNull(),
+	createdAt: text('created_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`)
+});
+
 export const products = sqliteTable('products', {
 	id: text('id').primaryKey(),
 	slug: text('slug').notNull().unique(),
 	name: text('name').notNull(),
-	category: text('category', { enum: ['tops', 'bottoms', 'outerwear', 'dresses'] }).notNull(),
+	category: text('category')
+		.notNull()
+		.references(() => categories.slug),
 	priceBdt: integer('price_bdt').notNull(),
 	publicationState: text('publication_state', { enum: ['draft', 'published'] })
 		.notNull()
