@@ -14,7 +14,7 @@
 </script>
 
 <svelte:head>
-	<title>Orders — dathrift</title>
+	<title>Orders — daThriftShop</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
