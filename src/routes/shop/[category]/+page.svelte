@@ -3,11 +3,11 @@
 	import ProductGrid from '../../../lib/components/ProductGrid.svelte';
 	import SiteFooter from '../../../lib/components/SiteFooter.svelte';
 	import SiteHeader from '../../../lib/components/SiteHeader.svelte';
-	import { SITE_ORIGIN, categoryLabels } from '../../../lib/site';
+	import { SITE_ORIGIN } from '../../../lib/site';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-	let label = $derived(categoryLabels[data.category] ?? data.category);
+	let label = $derived(data.categoryName);
 	let hasTestPieces = $derived(data.products.some((product) => product.slug.startsWith('test-')));
 </script>
 
