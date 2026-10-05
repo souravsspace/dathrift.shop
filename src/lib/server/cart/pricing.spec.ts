@@ -22,12 +22,16 @@ it('uses current D1 prices and withholds a checkout subtotal when a line is sold
 	};
 
 	expect(await repriceCart(['product-1'], d1)).toEqual({
-		items: [{ id: 'product-1', price_bdt: 1500 }],
+		items: [
+			{ id: 'product-1', slug: 'available', name: 'Available test-only top', price_bdt: 1500 }
+		],
 		unavailable: [],
 		subtotal_bdt: 1500
 	});
 	expect(await repriceCart(['product-1', 'product-2'], d1)).toEqual({
-		items: [{ id: 'product-1', price_bdt: 1500 }],
+		items: [
+			{ id: 'product-1', slug: 'available', name: 'Available test-only top', price_bdt: 1500 }
+		],
 		unavailable: ['product-2'],
 		subtotal_bdt: null
 	});
