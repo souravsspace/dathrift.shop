@@ -3,6 +3,17 @@
 	"main": ".svelte-kit/cloudflare/_worker.js",
 	"compatibility_date": "2026-10-04",
 	"compatibility_flags": ["nodejs_compat"],
+	"workers_dev": false,
+	"preview_urls": false,
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "dathrift-local",
+			"database_id": "00000000-0000-0000-0000-000000000000",
+			"migrations_dir": "db/migrations"
+		}
+	],
+	"r2_buckets": [{ "binding": "PRODUCT_IMAGES", "bucket_name": "dathrift-local-products" }],
 	"assets": {
 		"directory": ".svelte-kit/cloudflare",
 		"binding": "ASSETS"
