@@ -23,7 +23,8 @@ export function publicationErrors(
 	if (!product.description?.trim()) errors.push('description');
 	if (!product.condition_notes?.trim()) errors.push('condition_notes');
 	if (!product.size_label?.trim()) errors.push('size_label');
-	if (!hasMeasurements(product.measurements_json)) errors.push('measurements_json');
+	if (!hasMeasurements(product.measurements_json, product.category))
+		errors.push('measurements_json');
 	if (!product.fit_note?.trim()) errors.push('fit_note');
 	if (
 		photos.length < 1 ||
@@ -34,18 +35,17 @@ export function publicationErrors(
 	return errors;
 }
 
-function hasMeasurements(value: string | null): boolean {
+function hasMeasurements(value: string | null, category: string): boolean {
 	if (!value) return false;
 	try {
 		const measurements: unknown = JSON.parse(value);
-		return (
-			measurements !== null &&
-			typeof measurements === 'object' &&
-			!Array.isArray(measurements) &&
-			Object.values(measurements).some(
-				(measurement) => typeof measurement === 'number' && measurement > 0
-			)
-		);
+		if (measurements === null || typeof measurements !== 'object' || Array.isArray(measurements))
+			return false;
+		const required = category === 'bottoms' ? ['waist_cm', 'inseam_cm'] : ['chest_cm', 'length_cm'];
+		return required.every((key) => {
+			const measurement = (measurements as Record<string, unknown>)[key];
+			return typeof measurement === 'number' && Number.isFinite(measurement) && measurement > 0;
+		});
 	} catch {
 		return false;
 	}
