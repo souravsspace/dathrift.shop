@@ -13,16 +13,25 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	if (!db) error(503, 'Catalog unavailable');
 	const { filters, active } = browseFiltersFrom(url.searchParams);
 	let facets;
+	let category;
 	let products;
 	try {
 		facets = await publicFacets(db);
-		const category = facets.categories.find((value) => value === params.category);
-		products = category ? await listPublicProducts(db, { ...filters, category }) : null;
+		category = facets.categories.find((value) => value.slug === params.category);
+		products = category
+			? await listPublicProducts(db, { ...filters, category: category.slug })
+			: null;
 	} catch {
 		error(503, 'Catalog unavailable');
 	}
 	// Categories without published stock stay 404 so no empty pages are indexed.
-	if (!products) error(404, 'Category not found');
-	const category = params.category as (typeof facets.categories)[number];
-	return { category, products, facets, filters: { ...filters, category }, filtered: active };
+	if (!products || !category) error(404, 'Category not found');
+	return {
+		category: category.slug,
+		categoryName: category.name,
+		products,
+		facets,
+		filters: { ...filters, category: category.slug },
+		filtered: active
+	};
 };
