@@ -62,7 +62,7 @@
 		background: var(--color-gold);
 		color: var(--color-ink);
 		font-family: var(--font-mono);
-		font-size: 0.68rem;
+		font-size: var(--text-label);
 		letter-spacing: 0.04em;
 		text-align: center;
 		text-transform: uppercase;
@@ -86,7 +86,7 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 10px;
-		font-size: 1.45rem;
+		font-size: var(--text-heading);
 		font-stretch: 112%;
 		font-weight: 800;
 		letter-spacing: -0.03em;
@@ -96,7 +96,7 @@
 	.brand img {
 		width: 40px;
 		height: 40px;
-		border-radius: 10px;
+		border-radius: 8px;
 	}
 
 	nav {
@@ -112,7 +112,7 @@
 		min-height: 44px;
 		padding: 0 14px;
 		border-radius: 999px;
-		font-size: 0.9rem;
+		font-size: var(--text-ui);
 		font-weight: 600;
 		text-decoration: none;
 		transition: background-color 200ms var(--ease-out);
@@ -142,13 +142,13 @@
 		background: var(--color-gold);
 		color: var(--color-ink);
 		font-family: var(--font-mono);
-		font-size: 0.7rem;
+		font-size: var(--text-label);
 		font-weight: 700;
 	}
 
 	@media (max-width: 480px) {
 		.brand {
-			font-size: 1.25rem;
+			font-size: var(--text-lead);
 		}
 
 		.brand img {
