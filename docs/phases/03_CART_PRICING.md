@@ -1,8 +1,8 @@
 # Phase 3 — guest cart, validation and server pricing
 
-**Status:** local ID-only cart and repricing slices underway; exit gate open. Remote D1 integration and exact delivery-area/courier coverage from the owner remain prerequisites.
+**Status:** local code complete; exit gate open. Remote D1 integration and the owner's exact delivery-area list and Steadfast terms remain prerequisites.
 
-Local evidence (2026-10-05): `normalizeCartIds` deduplicates product IDs and rejects client quantity/price objects. `repriceCart` reads current published/available product prices from D1's query seam, identifies sold/unavailable lines, and withholds a checkout subtotal whenever any line is unavailable. SQLite-backed tests passed; the latest server suite passed **25 tests in 12 files** with type-check/lint clean. No shipping quote, reservation, payment, remote D1 proof or live delivery claim exists.
+Local evidence (2026-10-06): ID-only bag, server repricing, maintained delivery areas listed from D1 at checkout (TEST ONLY areas appear only in development builds), one delivery charge per order, and clear 409/422 errors for stale pieces and unsupported areas.
 
 ## Contract
 
