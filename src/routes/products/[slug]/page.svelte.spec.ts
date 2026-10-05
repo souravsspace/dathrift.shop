@@ -1,6 +1,7 @@
 import { page } from 'vitest/browser';
 import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import '../../layout.css';
 import ProductPage from './+page.svelte';
 
 const product = {
@@ -70,4 +71,25 @@ it('shows every photo with alt text and publishes canonical product metadata', a
 	expect(document.head.querySelector('meta[property="og:image"]')?.getAttribute('content')).toBe(
 		'https://dathrift.shop/media/products/p/front.webp'
 	);
+});
+
+it('lets a phone swipe through every photo, cover first, with a count and jump thumbnails', async () => {
+	const photos = [1, 2, 3].map((n) => ({
+		key: `test-only/photo-${n}.webp`,
+		alt: `TEST ONLY view ${n}`
+	}));
+	render(ProductPage, { data: { product: { ...product, photos } } });
+	const track = page.getByRole('region', { name: `Photos of ${product.name}` });
+	await expect.element(track).toBeVisible();
+	const images = (track.element() as HTMLElement).querySelectorAll('img');
+	expect([...images].map((image) => image.getAttribute('alt'))).toEqual(
+		photos.map((photo) => photo.alt)
+	);
+	expect(getComputedStyle(track.element()).scrollSnapType).toContain('x');
+	await expect.element(page.getByText('1 / 3')).toBeInTheDocument();
+	await page.getByRole('button', { name: 'Show photo 3: TEST ONLY view 3' }).click();
+	await expect
+		.element(page.getByRole('button', { name: 'Show photo 3: TEST ONLY view 3' }))
+		.toHaveAttribute('aria-pressed', 'true');
+	await expect.element(page.getByText('3 / 3')).toBeInTheDocument();
 });
