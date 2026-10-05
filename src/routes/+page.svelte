@@ -119,8 +119,7 @@
 			</li>
 			<li>
 				<strong>Measurements</strong>
-				<span>Measured on the garment in centimetres, not on a body or guessed from the label.</span
-				>
+				<span>Measured on the garment in inches, not on a body or guessed from the label.</span>
 			</li>
 			<li>
 				<strong>Condition</strong>
