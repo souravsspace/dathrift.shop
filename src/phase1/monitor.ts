@@ -19,7 +19,8 @@ export async function runMonitoredBackup(
 	env: MonitorEnv,
 	step: Parameters<typeof runScheduledBackup>[1],
 	scheduledAt: Date,
-	fetcher: typeof fetch = fetch
+	fetcher: typeof fetch = fetch,
+	observedAt: Date = new Date()
 ): Promise<string[]> {
 	if (!env.ALERT_EMAIL?.trim() || !env.ALERT_FROM_EMAIL?.trim() || !env.EMAIL) {
 		throw new Error('Missing backup alert configuration');
@@ -59,14 +60,14 @@ export async function runMonitoredBackup(
 	}
 	if (
 		latestPreviousBackup === null ||
-		scheduledAt.getTime() - latestPreviousBackup > 60 * 60 * 1000
+		observedAt.getTime() - latestPreviousBackup > 60 * 60 * 1000
 	) {
 		await step.do('Email stale backup alert', () =>
 			env.EMAIL.send({
 				to: env.ALERT_EMAIL,
 				from: env.ALERT_FROM_EMAIL,
 				subject: 'dathrift Phase 1 backup stale',
-				text: `The latest previous nonproduction D1 backup was over one hour old at ${scheduledAt.toISOString()}. Inspect the Phase 1 Workflow and private R2 bucket.`
+				text: `The latest previous nonproduction D1 backup was over one hour old at ${observedAt.toISOString()}. Inspect the Phase 1 Workflow and private R2 bucket.`
 			})
 		);
 	}
