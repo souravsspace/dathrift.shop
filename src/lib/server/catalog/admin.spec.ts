@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { expect, it } from 'vitest';
-import { createDraft, updateDraftDetails } from './admin';
+import { createDraft, publishProduct, unpublishProduct, updateDraftDetails } from './admin';
 
 it('creates one private draft and available unit atomically, rejecting invalid input', async () => {
 	const db = new DatabaseSync(':memory:');
@@ -43,6 +43,43 @@ it('creates one private draft and available unit atomically, rejecting invalid i
 	).toEqual([{ slug: input.slug, publication_state: 'draft', state: 'available' }]);
 	await expect(createDraft(d1, input)).rejects.toThrow();
 	expect(db.prepare('SELECT COUNT(*) AS n FROM inventory').get()).toEqual({ n: 1 });
+	db.close();
+});
+
+it('publishes only a complete photographed draft and can unpublish an available piece', async () => {
+	const db = new DatabaseSync(':memory:');
+	for (const file of readdirSync('db/migrations').sort()) {
+		db.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
+	}
+	const d1 = {
+		prepare: (sql: string) => ({
+			bind: (...args: (string | number)[]) => ({
+				first: async () => db.prepare(sql).get(...args) ?? null,
+				all: async () => ({ results: db.prepare(sql).all(...args) }),
+				run: async () => db.prepare(sql).run(...args)
+			})
+		})
+	};
+	db.exec(
+		"INSERT INTO products (id, slug, name, category, price_bdt) VALUES ('a', 'test-top', 'TEST ONLY — Top', 'tops', 500)"
+	);
+	db.exec("INSERT INTO inventory (product_id) VALUES ('a')");
+	await expect(publishProduct(d1, 'a')).rejects.toThrow('Incomplete product');
+	db.exec(`UPDATE products SET description = 'Local fixture', condition_notes = 'Small mark',
+		size_label = 'S', measurements_json = '{"chest_cm":90,"length_cm":60}', fit_note = 'Regular'
+		WHERE id = 'a'`);
+	await expect(publishProduct(d1, 'a')).rejects.toThrow('Incomplete product');
+	db.exec(
+		"INSERT INTO product_photos (product_id, position, r2_key, alt_text) VALUES ('a', 1, 'test-only/top.webp', 'TEST ONLY top')"
+	);
+	expect(await publishProduct(d1, 'a')).toEqual({ id: 'a', publication_state: 'published' });
+	expect(db.prepare("SELECT publication_state FROM products WHERE id = 'a'").get()).toEqual({
+		publication_state: 'published'
+	});
+	expect(await unpublishProduct(d1, 'a')).toEqual({ id: 'a', publication_state: 'draft' });
+	db.exec("UPDATE products SET publication_state = 'published' WHERE id = 'a'");
+	db.exec("UPDATE inventory SET state = 'sold' WHERE product_id = 'a'");
+	await expect(unpublishProduct(d1, 'a')).rejects.toThrow('Product not available');
 	db.close();
 });
 
