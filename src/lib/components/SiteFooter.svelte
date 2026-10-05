@@ -1,6 +1,13 @@
 <footer class="site-footer">
-	<p class="footer-mark" aria-hidden="true">dathrift</p>
+	<!-- The page ends on the rack's rail: a gold bar with empty hooks waiting for the next pieces. -->
+	<div class="rail" aria-hidden="true">
+		{#each [1, 2, 3, 4, 5, 6, 7] as hook (hook)}<span class="hook"></span>{/each}
+	</div>
 	<div class="footer-row">
+		<a class="footer-brand" href="/" aria-label="dathrift home">
+			<img src="/brand/dathrift-logo.webp" alt="" width="36" height="36" loading="lazy" />
+			<span>dathrift</span>
+		</a>
 		<p>One piece. One next chapter.</p>
 		<nav aria-label="Footer">
 			<a href="/#shop">Shop the rack</a>
@@ -12,21 +19,27 @@
 
 <style>
 	.site-footer {
-		overflow: hidden;
-		padding: 64px var(--gutter) 28px;
+		padding: 0 var(--gutter) 28px;
 		background: var(--color-ink);
 		color: var(--color-ivory);
 	}
 
-	.footer-mark {
-		margin: 0 0 20px;
-		color: var(--color-bottle);
-		font-size: clamp(5rem, 21vw, 19rem);
-		font-stretch: 62%;
-		font-weight: 900;
-		letter-spacing: -0.04em;
-		line-height: 0.78;
-		user-select: none;
+	.rail {
+		position: relative;
+		display: flex;
+		justify-content: space-around;
+		height: 44px;
+		margin-bottom: 28px;
+		border-top: 4px solid var(--color-gold);
+	}
+
+	.hook {
+		width: 14px;
+		height: 22px;
+		margin-top: -2px;
+		border: 2px solid rgb(211 176 127 / 0.55);
+		border-top: 0;
+		border-radius: 0 0 8px 8px;
 	}
 
 	.footer-row {
@@ -35,9 +48,21 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 16px 28px;
-		padding-top: 20px;
-		border-top: 1px solid rgb(251 235 214 / 0.14);
 		font-size: 0.86rem;
+	}
+
+	.footer-brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		font-size: 1.2rem;
+		font-stretch: 112%;
+		font-weight: 800;
+		text-decoration: none;
+	}
+
+	.footer-brand img {
+		border-radius: 8px;
 	}
 
 	.footer-row p {
@@ -51,7 +76,10 @@
 		gap: 4px 22px;
 	}
 
-	a {
+	nav a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
 		text-underline-offset: 5px;
 	}
 </style>
