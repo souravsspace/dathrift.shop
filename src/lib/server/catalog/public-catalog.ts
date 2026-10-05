@@ -1,3 +1,7 @@
+import { and, desc, eq } from 'drizzle-orm';
+import type { Database } from '../db/client';
+import { inventory, productPhotos, products } from '../db/schema';
+
 export type PublicProduct = {
 	id: string;
 	slug: string;
@@ -14,45 +18,41 @@ export type PublicListing = PublicProduct & {
 	photo_alt: string | null;
 };
 
-type PublicListDb = {
-	prepare(sql: string): { all(): Promise<{ results: Record<string, unknown>[] }> };
+const publicColumns = {
+	id: products.id,
+	slug: products.slug,
+	name: products.name,
+	category: products.category,
+	price_bdt: products.priceBdt,
+	stock_state: inventory.state
 };
 
-export async function listPublicProducts(db: PublicListDb): Promise<PublicListing[]> {
-	const { results } = await db
-		.prepare(
-			`SELECT p.id, p.slug, p.name, p.category, p.price_bdt,
-			        p.size_label, p.condition_notes, i.state AS stock_state,
-			        photo.r2_key AS photo_key, photo.alt_text AS photo_alt
-			 FROM products AS p
-			 JOIN inventory AS i ON i.product_id = p.id
-			 LEFT JOIN product_photos AS photo ON photo.product_id = p.id AND photo.position = 1
-			 WHERE p.publication_state = 'published'
-			 ORDER BY p.created_at DESC, p.id DESC
-			 LIMIT 24`
+export async function listPublicProducts(db: Database): Promise<PublicListing[]> {
+	return db
+		.select({
+			...publicColumns,
+			size_label: products.sizeLabel,
+			condition_notes: products.conditionNotes,
+			photo_key: productPhotos.r2Key,
+			photo_alt: productPhotos.altText
+		})
+		.from(products)
+		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.leftJoin(
+			productPhotos,
+			and(eq(productPhotos.productId, products.id), eq(productPhotos.position, 1))
 		)
-		.all();
-	return results as PublicListing[];
+		.where(eq(products.publicationState, 'published'))
+		.orderBy(desc(products.createdAt), desc(products.id))
+		.limit(24);
 }
 
-type PublicProductDb = {
-	prepare(sql: string): {
-		bind(slug: string): { first(): Promise<Record<string, unknown> | null> };
-	};
-};
-
-export async function getPublicProduct(
-	db: PublicProductDb,
-	slug: string
-): Promise<PublicProduct | null> {
+export async function getPublicProduct(db: Database, slug: string): Promise<PublicProduct | null> {
 	const row = await db
-		.prepare(
-			`SELECT p.id, p.slug, p.name, p.category, p.price_bdt, i.state AS stock_state
-			 FROM products AS p
-			 JOIN inventory AS i ON i.product_id = p.id
-			 WHERE p.slug = ? AND p.publication_state = 'published'`
-		)
-		.bind(slug)
-		.first();
-	return row as PublicProduct | null;
+		.select(publicColumns)
+		.from(products)
+		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.where(and(eq(products.slug, slug), eq(products.publicationState, 'published')))
+		.get();
+	return row ?? null;
 }
