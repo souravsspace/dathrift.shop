@@ -3,8 +3,19 @@ import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import adapter from '@sveltejs/adapter-cloudflare';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
+	resolve: {
+		alias:
+			process.env.VITEST === 'true'
+				? {
+						'cloudflare:workers': fileURLToPath(
+							new URL('./src/lib/server/testing/cloudflare-workers.ts', import.meta.url)
+						)
+					}
+				: {}
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit({
