@@ -1,19 +1,9 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
+import { localDatabase } from '../testing/local-d1';
 import { expect, it } from 'vitest';
 import { markSoldExternally } from './external-sale';
 
 it('atomically sells one available unit and audits actor, while rejecting held or repeat sales', async () => {
-	const db = new DatabaseSync(':memory:');
-	db.exec('PRAGMA foreign_keys = ON');
-	for (const file of readdirSync('db/migrations').sort())
-		db.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
-	db.exec(readFileSync('db/seed/local.sql', 'utf8'));
-	const d1 = {
-		prepare: (sql: string) => ({
-			bind: (...args: (string | number)[]) => ({ run: async () => db.prepare(sql).run(...args) })
-		})
-	};
+	const { db: d1, sqlite: db } = localDatabase({ seed: true });
 	await expect(markSoldExternally(d1, 'test-shirt', 'staff@example.com', '')).rejects.toThrow(
 		'Invalid sale'
 	);
