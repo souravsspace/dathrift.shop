@@ -5,7 +5,7 @@
 	import SiteHeader from '../lib/components/SiteHeader.svelte';
 	import SwingTag from '../lib/components/SwingTag.svelte';
 	import { hang } from '../lib/motion';
-	import { SITE_ORIGIN, categoryLabels, formatBdt } from '../lib/site';
+	import { SITE_ORIGIN, formatBdt } from '../lib/site';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -71,8 +71,7 @@
 				<div class="hero-tag" {@attach hang}>
 					<SwingTag size="hero">
 						<p class="tag-meta">
-							{categoryLabels[hero.category] ?? hero.category} · {hero.size_label ??
-								'Size not listed'}
+							{hero.category_name} · {hero.size_label ?? 'Size not listed'}
 						</p>
 						<p class="tag-price">{formatBdt(hero.price_bdt)}</p>
 						<p class="tag-name">{hero.name}</p>
