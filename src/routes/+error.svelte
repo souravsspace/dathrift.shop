@@ -10,7 +10,7 @@
 </script>
 
 <svelte:head>
-	<title>{title} | dathrift</title>
+	<title>{title} | daThriftShop</title>
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
