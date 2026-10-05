@@ -36,3 +36,9 @@ it('applies query filters server-side and flags the page as a filtered variant',
 	expect(data.filtered).toBe(true);
 	expect(data.facets.categories).toContain('outerwear');
 });
+
+it('loads the owner-featured hero piece for the home page', async () => {
+	(env as { DB?: unknown }).DB = localD1().db;
+	const { hero } = (await load(event())) as { hero: { slug: string; featured: boolean } | null };
+	expect(hero).toMatchObject({ slug: 'test-cream-midi-dress', featured: true });
+});
