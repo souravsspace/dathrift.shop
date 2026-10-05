@@ -38,3 +38,35 @@ it('adds an available piece to the ID-only guest bag without reserving it', asyn
 	await expect.element(page.getByRole('link', { name: 'View bag' })).toBeInTheDocument();
 	expect(window.localStorage.getItem('dathrift-cart')).toBe('["test-sold"]');
 });
+
+it('shows every photo with alt text and publishes canonical product metadata', async () => {
+	render(ProductPage, {
+		data: {
+			product: {
+				...product,
+				slug: 'olive-cotton-shirt',
+				name: 'Olive cotton shirt',
+				stock_state: 'available' as const,
+				photos: [
+					{ key: 'products/p/front.webp', alt: 'Shirt front' },
+					{ key: 'products/p/flaw.webp', alt: 'Close-up of cuff fading' }
+				]
+			}
+		}
+	});
+	await page.getByRole('button', { name: 'Show photo 2: Close-up of cuff fading' }).click();
+	await expect
+		.element(page.getByRole('img', { name: 'Close-up of cuff fading' }).first())
+		.toHaveAttribute('src', '/media/products/p/flaw.webp');
+	expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
+		'https://dathrift.shop/products/olive-cotton-shirt'
+	);
+	const jsonLd = document.head.querySelector('script[type="application/ld+json"]')?.textContent;
+	expect(JSON.parse(jsonLd ?? '{}')).toMatchObject({
+		'@type': 'Product',
+		offers: { priceCurrency: 'BDT', availability: 'https://schema.org/InStock' }
+	});
+	expect(document.head.querySelector('meta[property="og:image"]')?.getAttribute('content')).toBe(
+		'https://dathrift.shop/media/products/p/front.webp'
+	);
+});
