@@ -92,6 +92,12 @@ it('keeps filtered variants out of the index', async () => {
 		}
 	});
 	await expect.element(page.getByText('No pieces match these filters.')).toBeInTheDocument();
+	// Filtering stays in place on the rack instead of jumping back to the top of the page.
+	const form = document.querySelector('form.filters');
+	expect(form?.getAttribute('data-sveltekit-reset')).toBe('false');
+	await expect
+		.element(page.getByRole('link', { name: 'Clear' }))
+		.toHaveAttribute('data-sveltekit-reset', 'false');
 	expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe(
 		'noindex, follow'
 	);
