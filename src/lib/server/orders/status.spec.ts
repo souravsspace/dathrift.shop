@@ -25,7 +25,7 @@ it('shows a scoped order summary without the full address or phone', async () =>
 		shipping_bdt: 80,
 		total_bdt: 930,
 		area: 'TEST ONLY — Central area',
-		phone_hint: '•••••••678',
+		phone_hint: '••••••••678',
 		fulfillment: null,
 		items: [
 			{ name: 'TEST ONLY — Olive cotton shirt', slug: 'test-olive-cotton-shirt', price_bdt: 850 }
