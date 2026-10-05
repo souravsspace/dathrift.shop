@@ -22,7 +22,10 @@ export function localD1({ seed = true } = {}) {
 		const execute = () => {
 			const prepared = sqlite.prepare(sql);
 			if (/^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql))
-				return { results: prepared.all(...args) as Record<string, unknown>[], meta: { changes: 0 } };
+				return {
+					results: prepared.all(...args) as Record<string, unknown>[],
+					meta: { changes: 0 }
+				};
 			const { changes } = prepared.run(...args);
 			return { results: [], meta: { changes: Number(changes) } };
 		};
