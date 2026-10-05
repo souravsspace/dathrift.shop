@@ -69,7 +69,8 @@ export async function runScheduledBackup(
 
 	const stamp = scheduledAt.toISOString().replace('.000Z', 'Z').replaceAll(':', '-');
 	const keys = [`hourly/${stamp}.sql`];
-	if (scheduledAt.getUTCHours() === 0) keys.push(`daily/${stamp}.sql`);
+	if (scheduledAt.getUTCHours() === 0 && scheduledAt.getUTCMinutes() === 0)
+		keys.push(`daily/${stamp}.sql`);
 
 	for (const key of keys) {
 		await step.do(`Store ${key}`, async () => {
