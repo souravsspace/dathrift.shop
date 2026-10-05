@@ -1,13 +1,9 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
+import { localDatabase } from '../testing/local-d1';
 import { expect, it } from 'vitest';
 import { repriceCart } from './pricing';
 
 it('uses current D1 prices and withholds a checkout subtotal when a line is sold', async () => {
-	const db = new DatabaseSync(':memory:');
-	for (const file of readdirSync('db/migrations').sort()) {
-		db.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
-	}
+	const { db: d1, sqlite: db } = localDatabase({ seed: false });
 	db.exec(`
 		INSERT INTO products (id, slug, name, category, price_bdt, publication_state)
 		VALUES ('product-1', 'available', 'Available test-only top', 'tops', 1500, 'published'),
@@ -15,11 +11,6 @@ it('uses current D1 prices and withholds a checkout subtotal when a line is sold
 		INSERT INTO inventory (product_id, state)
 		VALUES ('product-1', 'available'), ('product-2', 'sold');
 	`);
-	const d1 = {
-		prepare: (sql: string) => ({
-			bind: (id: string) => ({ first: async () => db.prepare(sql).get(id) ?? null })
-		})
-	};
 
 	expect(await repriceCart(['product-1'], d1)).toEqual({
 		items: [
