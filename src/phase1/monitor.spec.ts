@@ -4,6 +4,7 @@ import { runMonitoredBackup } from './monitor';
 it('emails the owner when a scheduled D1 backup fails and preserves the failure', async () => {
 	const send = vi.fn(async () => ({ messageId: 'alert-1' }));
 	const put = vi.fn();
+	const list = vi.fn(async () => ({ objects: [], truncated: false }));
 	const fetcher = vi.fn(async () => Response.json({ success: true }));
 	const step = {
 		do: async <T>(_name: string, callback: () => Promise<T>) => callback(),
@@ -16,7 +17,7 @@ it('emails the owner when a scheduled D1 backup fails and preserves the failure'
 				ACCOUNT_ID: 'account-1',
 				DATABASE_ID: 'database-1',
 				D1_REST_API_TOKEN: undefined,
-				BACKUP_BUCKET: { put },
+				BACKUP_BUCKET: { put, list },
 				EMAIL: { send },
 				ALERT_EMAIL: 'owner@example.com',
 				ALERT_FROM_EMAIL: 'alerts@example.com'
@@ -34,4 +35,55 @@ it('emails the owner when a scheduled D1 backup fails and preserves the failure'
 	});
 	expect(fetcher).not.toHaveBeenCalled();
 	expect(put).not.toHaveBeenCalled();
+});
+
+it('emails the owner when the previous private backup is older than one hour', async () => {
+	const send = vi.fn(async () => ({ messageId: 'alert-2' }));
+	const put = vi.fn();
+	const list = vi.fn(async () => ({
+		objects: [{ customMetadata: { scheduled_at: '2026-10-05T00:00:00.000Z' } }],
+		truncated: false
+	}));
+	const fetcher = vi.fn(async (input: string | URL | Request) =>
+		String(input) === 'https://download.example/backup.sql'
+			? new Response('CREATE TABLE phase1_markers (id TEXT);')
+			: Response.json({
+					success: true,
+					result: {
+						success: true,
+						at_bookmark: 'bookmark-2',
+						status: 'complete',
+						result: { signed_url: 'https://download.example/backup.sql' }
+					}
+				})
+	);
+	const step = {
+		do: async <T>(_name: string, callback: () => Promise<T>) => callback(),
+		sleep: vi.fn()
+	};
+
+	await expect(
+		runMonitoredBackup(
+			{
+				ACCOUNT_ID: 'account-1',
+				DATABASE_ID: 'database-1',
+				D1_REST_API_TOKEN: 'test-token',
+				BACKUP_BUCKET: { put, list },
+				EMAIL: { send },
+				ALERT_EMAIL: 'owner@example.com',
+				ALERT_FROM_EMAIL: 'alerts@example.com'
+			},
+			step,
+			new Date('2026-10-05T01:30:00.000Z'),
+			fetcher
+		)
+	).resolves.toEqual(['hourly/2026-10-05T01-30-00Z.sql']);
+	expect(list).toHaveBeenCalledExactlyOnceWith({ prefix: 'hourly/', include: ['customMetadata'] });
+	expect(put).toHaveBeenCalledOnce();
+	expect(send).toHaveBeenCalledExactlyOnceWith({
+		to: 'owner@example.com',
+		from: 'alerts@example.com',
+		subject: 'dathrift Phase 1 backup stale',
+		text: 'The latest previous nonproduction D1 backup was over one hour old at 2026-10-05T01:30:00.000Z. Inspect the Phase 1 Workflow and private R2 bucket.'
+	});
 });
