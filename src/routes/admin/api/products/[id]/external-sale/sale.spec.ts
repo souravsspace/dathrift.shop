@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, expect, it } from 'vitest';
+import { localD1 } from '../../../../../../lib/server/testing/local-d1';
 import { POST } from './+server';
 
 afterEach(() => {
@@ -41,15 +42,8 @@ it('blocks public and cross-origin external-sale writes', async () => {
 });
 
 it('audits a local staff sale through the database', async () => {
-	let values: string[] = [];
-	(env as { DB?: unknown }).DB = {
-		prepare: () => ({
-			bind: (...args: string[]) => {
-				values = args;
-				return { run: async () => ({ meta: { changes: 1 } }) };
-			}
-		})
-	};
+	const local = localD1();
+	(env as { DB?: unknown }).DB = local.db;
 	const response = await POST(
 		event(
 			'http://127.0.0.1:5173/admin/api/products/test-shirt/external-sale',
@@ -59,5 +53,9 @@ it('audits a local staff sale through the database', async () => {
 	expect(response.status).toBe(200);
 	expect(response.headers.get('Cache-Control')).toBe('no-store');
 	expect(await response.json()).toEqual({ product_id: 'test-shirt', state: 'sold' });
-	expect(values.slice(1)).toEqual(['test-shirt', 'local-preview', 'Sold in person']);
+	expect(
+		local.sqlite
+			.prepare("SELECT actor_email, reason FROM external_sales WHERE product_id = 'test-shirt'")
+			.get()
+	).toEqual({ actor_email: 'local-preview', reason: 'Sold in person' });
 });
