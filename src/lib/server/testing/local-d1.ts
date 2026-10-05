@@ -29,8 +29,11 @@ export function localD1({ seed = true, migrations = 'db/migrations' } = {}) {
 					results: prepared.all(...args) as Record<string, unknown>[],
 					meta: { changes: 0 }
 				};
-			const { changes } = prepared.run(...args);
-			return { results: [], meta: { changes: Number(changes) } };
+			// D1 counts rows written by triggers in meta.changes; node:sqlite does not, so use the total.
+			const total = () => Number(sqlite.prepare('SELECT total_changes() AS n').get()?.n);
+			const before = total();
+			prepared.run(...args);
+			return { results: [], meta: { changes: total() - before } };
 		};
 		return {
 			first: async () => execute().results[0] ?? null,
