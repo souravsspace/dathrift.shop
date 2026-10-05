@@ -12,7 +12,7 @@
 </script>
 
 <svelte:head>
-	<title>{label} — one-of-a-kind pre-loved {label.toLowerCase()} | dathrift</title>
+	<title>{label} — one-of-a-kind pre-loved {label.toLowerCase()} | daThriftShop</title>
 	<meta
 		name="description"
 		content="Pre-loved {label.toLowerCase()} with honest condition notes and garment measurements. One of each."
