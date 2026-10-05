@@ -65,3 +65,36 @@ it('stores only eight ordered photo slots with nonblank alt text', () => {
 
 	db.close();
 });
+
+it('stores the garment details needed for an honest product listing', () => {
+	const db = migratedDb();
+	db.prepare(
+		`INSERT INTO products
+		 (id, slug, name, category, price_bdt, brand, description, condition_notes, size_label, measurements_json, fit_note)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	).run(
+		'product-1',
+		'test-only-top',
+		'Test-only top',
+		'tops',
+		1200,
+		null,
+		'Cotton top used only in tests',
+		'Small mark on left cuff',
+		'M',
+		'{"chest_cm":52,"length_cm":68}',
+		'Fits relaxed'
+	);
+
+	expect(
+		db.prepare('SELECT description, condition_notes, measurements_json FROM products').get()
+	).toEqual({
+		description: 'Cotton top used only in tests',
+		condition_notes: 'Small mark on left cuff',
+		measurements_json: '{"chest_cm":52,"length_cm":68}'
+	});
+	expect(() =>
+		db.prepare("UPDATE products SET measurements_json = 'not JSON' WHERE id = 'product-1'").run()
+	).toThrow();
+	db.close();
+});
