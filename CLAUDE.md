@@ -68,3 +68,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+## Project rules
+
+- Commit each changed file separately with a conventional, human-readable message. Never put an AI or assistant name, `Co-Authored-By` line, or any other assistant attribution in commits or files.
+- Use the Impeccable and ui-ux-pro-max skills for every design or UI task (storefront and admin).
