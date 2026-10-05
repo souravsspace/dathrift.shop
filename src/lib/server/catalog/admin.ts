@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
-import { inventory, productPhotos, products, slugRedirects } from '../db/schema';
+import { homeFeature, inventory, productPhotos, products, slugRedirects } from '../db/schema';
 import { databaseErrorText } from '../db/errors';
 import { publicationErrors } from './publication';
 
@@ -189,7 +189,8 @@ const staffColumns = {
 	price_bdt: products.priceBdt,
 	publication_state: products.publicationState,
 	created_at: products.createdAt,
-	stock_state: inventory.state
+	stock_state: inventory.state,
+	featured: sql<boolean>`${homeFeature.productId} IS NOT NULL`.mapWith(Boolean)
 };
 
 export async function listStaffProducts(db: Database) {
@@ -197,6 +198,7 @@ export async function listStaffProducts(db: Database) {
 		.select(staffColumns)
 		.from(products)
 		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.leftJoin(homeFeature, eq(homeFeature.productId, products.id))
 		.orderBy(desc(products.createdAt), desc(products.id))
 		.limit(100);
 }
@@ -214,6 +216,7 @@ export async function getStaffProduct(db: Database, id: string) {
 		})
 		.from(products)
 		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.leftJoin(homeFeature, eq(homeFeature.productId, products.id))
 		.where(eq(products.id, id))
 		.get();
 	if (!product) return null;
