@@ -42,3 +42,51 @@ it('shows the approved archive direction with honest local fixture and sold labe
 		.toHaveAttribute('src', '/media/test-only/olive-shirt.webp');
 	await expect.element(page.getByText('Sold out')).toBeInTheDocument();
 });
+
+const shirt = {
+	id: 'shirt',
+	slug: 'olive-cotton-shirt',
+	name: 'Olive cotton shirt',
+	category: 'tops' as const,
+	price_bdt: 850,
+	stock_state: 'available' as const,
+	size_label: 'L',
+	condition_notes: 'Light fading',
+	photo_key: 'products/shirt/1.webp',
+	photo_alt: 'Olive shirt on a hanger'
+};
+
+it('offers crawlable category links and a no-JavaScript filter form', async () => {
+	render(Home, {
+		data: {
+			products: [shirt],
+			facets: { categories: ['tops'], sizes: ['L'] },
+			filters: {},
+			filtered: false
+		}
+	});
+	await expect
+		.element(page.getByRole('link', { name: 'Tops', exact: true }))
+		.toHaveAttribute('href', '/shop/tops');
+	await expect.element(page.getByRole('combobox', { name: 'Size' })).toBeInTheDocument();
+	await expect.element(page.getByRole('checkbox', { name: 'Available only' })).toBeInTheDocument();
+	expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
+		'https://dathrift.shop/'
+	);
+	expect(document.head.querySelector('meta[name="robots"]')).toBeNull();
+});
+
+it('keeps filtered variants out of the index', async () => {
+	render(Home, {
+		data: {
+			products: [],
+			facets: { categories: ['tops'], sizes: ['L'] },
+			filters: { size: 'XS' },
+			filtered: true
+		}
+	});
+	await expect.element(page.getByText('No pieces match these filters.')).toBeInTheDocument();
+	expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe(
+		'noindex, follow'
+	);
+});
