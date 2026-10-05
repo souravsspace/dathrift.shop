@@ -29,7 +29,7 @@ it('offers a local-only wallet decision that returns through the payment callbac
 		} as Parameters<typeof actions.default>[0])
 	).rejects.toMatchObject({
 		status: 303,
-		location: `http://127.0.0.1:5173/checkout/callback?paymentID=${paymentId}&status=success`
+		location: `/checkout/callback?paymentID=${paymentId}&status=success`
 	});
 	await expect(
 		load({ url: url('TESTmissing') } as Parameters<typeof load>[0])
