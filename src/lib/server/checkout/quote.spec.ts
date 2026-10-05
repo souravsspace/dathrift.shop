@@ -1,18 +1,9 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
+import { localDatabase } from '../testing/local-d1';
 import { expect, it } from 'vitest';
 import { quoteCheckout } from './quote';
 
 it('rechecks two one-off pieces and charges delivery once using server prices', async () => {
-	const db = new DatabaseSync(':memory:');
-	for (const file of readdirSync('db/migrations').sort())
-		db.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
-	db.exec(readFileSync('db/seed/local.sql', 'utf8'));
-	const d1 = {
-		prepare: (sql: string) => ({
-			bind: (...args: string[]) => ({ first: async () => db.prepare(sql).get(...args) ?? null })
-		})
-	};
+	const { db: d1, sqlite: db } = localDatabase({ seed: true });
 	const address = {
 		name: 'Test Buyer',
 		phone: '01712345678',
