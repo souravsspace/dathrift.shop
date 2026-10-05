@@ -30,7 +30,7 @@ it('emails the owner when a scheduled D1 backup fails and preserves the failure'
 	expect(send).toHaveBeenCalledExactlyOnceWith({
 		to: 'owner@example.com',
 		from: 'alerts@example.com',
-		subject: 'dathrift development backup failed',
+		subject: 'daThriftShop development backup failed',
 		text: 'The scheduled nonproduction D1 backup failed at 2026-10-05T01:00:00.000Z. Inspect the backup Workflow logs.'
 	});
 	expect(fetcher).not.toHaveBeenCalled();
@@ -84,7 +84,7 @@ it('emails the owner when the previous private backup is older than one hour', a
 	expect(send).toHaveBeenCalledExactlyOnceWith({
 		to: 'owner@example.com',
 		from: 'alerts@example.com',
-		subject: 'dathrift development backup stale',
+		subject: 'daThriftShop development backup stale',
 		text: 'The latest previous nonproduction D1 backup was over one hour old at 2026-10-05T01:45:00.000Z. Inspect the backup Workflow and private R2 bucket.'
 	});
 });
