@@ -1,9 +1,17 @@
 <script lang="ts">
 	import { stampPress } from '../motion';
 
-	let { kind, pressed = false }: { kind: 'sold' | 'reserved' | 'bag'; pressed?: boolean } =
-		$props();
-	const labels = { sold: 'Sold out', reserved: 'On hold', bag: 'In your bag' };
+	let {
+		kind,
+		pressed = false
+	}: { kind: 'sold' | 'reserved' | 'bag' | 'published' | 'draft'; pressed?: boolean } = $props();
+	const labels = {
+		sold: 'Sold out',
+		reserved: 'On hold',
+		bag: 'In your bag',
+		published: 'Published',
+		draft: 'Draft'
+	};
 </script>
 
 <!-- Status marks land once with a press and then stay still. -->
@@ -35,7 +43,12 @@
 		color: var(--color-gold-deep);
 	}
 
-	.stamp-bag {
+	.stamp-bag,
+	.stamp-published {
 		color: var(--color-bottle);
+	}
+
+	.stamp-draft {
+		color: var(--color-ink-soft);
 	}
 </style>
