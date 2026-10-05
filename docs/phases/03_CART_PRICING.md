@@ -1,6 +1,8 @@
 # Phase 3 — guest cart, validation and server pricing
 
-**Status:** not started. Depends on Phase 2's real D1 product read contract and exact delivery-area/courier coverage from the owner.
+**Status:** local ID-only cart and repricing slices underway; exit gate open. Remote D1 integration and exact delivery-area/courier coverage from the owner remain prerequisites.
+
+Local evidence (2026-10-05): `normalizeCartIds` deduplicates product IDs and rejects client quantity/price objects. `repriceCart` reads current published/available product prices from D1's query seam, identifies sold/unavailable lines, and withholds a checkout subtotal whenever any line is unavailable. SQLite-backed tests passed; the latest server suite passed **25 tests in 12 files** with type-check/lint clean. No shipping quote, reservation, payment, remote D1 proof or live delivery claim exists.
 
 ## Contract
 
