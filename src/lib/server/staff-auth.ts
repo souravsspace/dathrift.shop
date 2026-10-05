@@ -1,6 +1,7 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 type StaffAuthEnv = {
+	OWNER_EMAIL?: string;
 	STAFF_HOST?: string;
 	STAFF_EMAILS?: string;
 	ACCESS_TEAM_DOMAIN?: string;
@@ -70,4 +71,12 @@ export function staffActorForRequest(
 		return Promise.resolve('local-preview');
 	}
 	return staffEmailForRequest(request, env);
+}
+
+// Only the owner may resolve ambiguous payments; the loopback preview acts as owner locally.
+export function isOwnerActor(actor: string | null, env: StaffAuthEnv, isLocalDev: boolean) {
+	if (!actor) return false;
+	if (actor === 'local-preview') return isLocalDev;
+	const owner = env.OWNER_EMAIL?.trim().toLowerCase();
+	return Boolean(owner) && actor.toLowerCase() === owner;
 }
