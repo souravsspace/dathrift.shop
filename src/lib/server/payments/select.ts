@@ -3,10 +3,11 @@ import type { PaymentProvider } from './provider';
 import { testWallet } from './test-wallet';
 
 export function paymentProviderFor(
-	env: Record<string, unknown>,
+	bindings: object,
 	db: Parameters<typeof d1TokenStore>[0],
 	isLocalDev: boolean
 ): PaymentProvider | null {
+	const env = bindings as Record<string, unknown>;
 	const mode = env.PAYMENT_PROVIDER;
 	if (mode === 'bkash-sandbox') {
 		const config = bkashConfigFrom(env);
