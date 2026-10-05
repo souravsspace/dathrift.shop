@@ -9,7 +9,7 @@
 </script>
 
 <svelte:head>
-	<title>Order {data.order.reference} — dathrift</title>
+	<title>Order {data.order.reference} — daThriftShop</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
