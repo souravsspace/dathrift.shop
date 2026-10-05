@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import AdminHeader from '../../../../lib/components/AdminHeader.svelte';
+	import { toWebp } from '../../../../lib/images/to-webp';
 	import type { PageData } from './$types';
 
 	type Photo = { position: number; r2_key: string; alt_text: string };
@@ -11,6 +13,7 @@
 		price_bdt: number;
 		publication_state: 'draft' | 'published';
 		stock_state: 'available' | 'reserved' | 'sold';
+		featured: boolean;
 		brand: string | null;
 		description: string | null;
 		condition_notes: string | null;
@@ -39,6 +42,9 @@
 	let waist = $state('');
 	let inseam = $state('');
 	let photoFile = $state<File | null>(null);
+	let photoPreview = $state('');
+	let photoNote = $state('');
+	let converting = $state(false);
 	let photoAlt = $state('');
 	let saleReason = $state('');
 	let newSlug = $state('');
@@ -116,6 +122,50 @@
 		}
 	}
 
+	const megabytes = (bytes: number) =>
+		bytes >= 1024 * 1024
+			? `${(bytes / 1024 / 1024).toFixed(1)} MB`
+			: `${Math.round(bytes / 1024)} KB`;
+
+	// Any readable image is converted to WebP here, so the server only ever stores WebP.
+	async function choosePhoto(file: File | undefined) {
+		if (photoPreview) URL.revokeObjectURL(photoPreview);
+		photoFile = null;
+		photoPreview = photoNote = error = '';
+		if (!file) return;
+		converting = true;
+		try {
+			const converted = await toWebp(file);
+			photoFile = converted.file;
+			photoPreview = URL.createObjectURL(converted.file);
+			photoNote = `${megabytes(file.size)} → ${megabytes(converted.file.size)} WebP · ${converted.width} × ${converted.height}`;
+		} catch (reason) {
+			error = reason instanceof Error ? reason.message : 'Could not read that image.';
+		} finally {
+			converting = false;
+		}
+	}
+
+	async function setFeatured(featured: boolean) {
+		if (!product) return;
+		busy = true;
+		message = error = '';
+		try {
+			const response = await fetch(`/admin/api/products/${data.id}/feature`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ featured })
+			});
+			if (!response.ok) throw new Error('Feature failed.');
+			product = { ...product, featured };
+			message = featured ? 'Now leading the home page' : 'Removed from the home page';
+		} catch {
+			error = 'Could not change the home page. Only published, available pieces can lead it.';
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function uploadPhoto(event: SubmitEvent) {
 		event.preventDefault();
 		if (!product || !photoFile) return;
@@ -132,11 +182,11 @@
 			});
 			if (!response.ok) throw new Error('Upload failed.');
 			product = { ...product, photos: [...product.photos, await response.json()] };
-			photoFile = null;
+			await choosePhoto(undefined);
 			photoAlt = '';
 			message = 'Photo uploaded';
 		} catch {
-			error = 'Could not upload photo. Use JPEG, PNG or WebP under 8 MB.';
+			error = 'Could not upload photo. Check your connection and try again.';
 		} finally {
 			busy = false;
 		}
@@ -220,23 +270,20 @@
 </svelte:head>
 
 <div class="admin-shell">
-	<header class="admin-header">
-		<a class="brand" href="/" aria-label="dathrift home"
-			><img src="/brand/dathrift-logo.png" alt="" width="48" height="48" /><span
-				>dathrift<span class="brand-period">.</span></span
-			></a
-		>
-		<a class="admin-back" href="/admin">← Product desk</a>
-	</header>
+	<AdminHeader current="products" />
 	<main class="admin-main admin-editor">
+		<a class="admin-back" href="/admin">Back to products</a>
 		{#if loading}
 			<p>Loading piece…</p>
 		{:else if product}
 			<div class="admin-intro">
 				<div>
-					<p class="admin-eyebrow">Edit piece / {product.slug}</p>
 					<h1>{product.name}</h1>
-					<p>{product.publication_state} · {product.stock_state} · One sellable unit</p>
+					<p>
+						{product.publication_state} · {product.stock_state} · /{product.slug}{#if product.featured}<span
+								class="admin-chip">Home hero</span
+							>{/if}
+					</p>
 				</div>
 				<span class="admin-actor"
 					>{data.actor === 'local-preview' ? 'Local preview' : data.actor}</span
@@ -248,7 +295,6 @@
 			<div class="admin-columns">
 				<section class="admin-panel" aria-labelledby="details-title">
 					<div class="admin-panel-heading">
-						<span>01 / Garment record</span>
 						<h2 id="details-title">Details & fit</h2>
 					</div>
 					<form onsubmit={saveDetails}>
@@ -348,14 +394,13 @@
 							rows="2"
 							disabled={product.publication_state !== 'draft'}></textarea>
 						{#if product.publication_state === 'draft'}<button type="submit" disabled={busy}
-								>Save details <span aria-hidden="true">↗</span></button
+								>Save details</button
 							>{/if}
 					</form>
 				</section>
 				<div class="admin-editor-side">
 					<section class="admin-panel" aria-labelledby="photos-title">
 						<div class="admin-panel-heading">
-							<span>02 / Visual record</span>
 							<h2 id="photos-title">Photos</h2>
 						</div>
 						<p class="admin-hint">
@@ -372,11 +417,20 @@
 						{#if product.publication_state === 'draft' && product.photos.length < 8}<form
 								onsubmit={uploadPhoto}
 							>
-								<label for="photo-file">Add photo</label><input
+								<label class="admin-drop" for="photo-file">
+									{#if photoPreview}<img src={photoPreview} alt="" />{/if}
+									<span>
+										<strong>Add photo</strong>
+										{converting
+											? 'Converting to WebP…'
+											: photoNote || 'Any image up to 10 MB. It is resized and converted to WebP.'}
+									</span>
+								</label><input
 									id="photo-file"
+									class="admin-drop-input"
 									type="file"
-									accept="image/jpeg,image/png,image/webp"
-									onchange={(event) => (photoFile = event.currentTarget.files?.[0] ?? null)}
+									accept="image/*"
+									onchange={(event) => choosePhoto(event.currentTarget.files?.[0])}
 									required
 								/><label for="photo-alt">Photo description</label><input
 									id="photo-alt"
@@ -384,14 +438,13 @@
 									required
 									maxlength="240"
 									placeholder="e.g. Repaired hem on cream skirt"
-								/><button type="submit" disabled={busy || !photoFile}
-									>Upload photo <span aria-hidden="true">↗</span></button
+								/><button type="submit" disabled={busy || converting || !photoFile}
+									>Upload photo</button
 								>
 							</form>{/if}
 					</section>
 					<section class="admin-panel" aria-labelledby="publish-title">
 						<div class="admin-panel-heading">
-							<span>03 / Visibility</span>
 							<h2 id="publish-title">Publication</h2>
 						</div>
 						<p class="admin-hint">
@@ -406,8 +459,25 @@
 								class="admin-public-link"
 								href="/products/{product.slug}"
 								target="_blank"
-								rel="noopener">View public page ↗</a
-							><button
+								rel="noopener">View public page</a
+							>
+							{#if product.featured}
+								<p class="admin-success">Leads the home page</p>
+								<button
+									class="admin-action admin-action-outline"
+									type="button"
+									disabled={busy}
+									onclick={() => setFeatured(false)}>Remove from home page</button
+								>
+							{:else if product.stock_state === 'available'}
+								<button
+									class="admin-action"
+									type="button"
+									disabled={busy}
+									onclick={() => setFeatured(true)}>Feature on home page</button
+								>
+							{/if}
+							<button
 								class="admin-action admin-action-outline"
 								type="button"
 								disabled={busy || product.stock_state !== 'available'}
@@ -431,7 +501,6 @@
 					</section>
 					<section class="admin-panel" aria-labelledby="external-sale-title">
 						<div class="admin-panel-heading">
-							<span>04 / Offline sale</span>
 							<h2 id="external-sale-title">Sold elsewhere</h2>
 						</div>
 						<p class="admin-hint">
@@ -448,9 +517,7 @@
 									maxlength="1000"
 									placeholder="Where and why this piece sold"
 								/>
-								<button type="submit" disabled={busy}
-									>Mark sold externally <span aria-hidden="true">↗</span></button
-								>
+								<button type="submit" disabled={busy}>Mark sold externally</button>
 							</form>
 						{:else}
 							<p class="admin-list-state">
