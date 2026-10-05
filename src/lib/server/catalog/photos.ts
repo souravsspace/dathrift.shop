@@ -42,7 +42,7 @@ export async function addProductPhoto(
 		!input.altText.trim() ||
 		input.altText.length > 240 ||
 		input.bytes.length < 16 ||
-		input.bytes.length > 3 * 1024 * 1024 ||
+		input.bytes.length > 10 * 1024 * 1024 ||
 		!isWebp(input.bytes, input.contentType)
 	)
 		throw new Error('Invalid photo');
