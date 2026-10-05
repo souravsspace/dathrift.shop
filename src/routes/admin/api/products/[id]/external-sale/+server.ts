@@ -1,4 +1,5 @@
 import { env } from 'cloudflare:workers';
+import { databaseFrom } from '../../../../../../lib/server/db/client';
 import { markSoldExternally } from '../../../../../../lib/server/catalog/external-sale';
 import { staffActorForRequest } from '../../../../../../lib/server/staff-auth';
 import type { RequestHandler } from './$types';
@@ -19,7 +20,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
 		return new Response('Invalid sale', { status: 400, headers });
 	}
 	if (typeof reason !== 'string') return new Response('Invalid sale', { status: 400, headers });
-	const db = (env as { DB?: Parameters<typeof markSoldExternally>[0] }).DB;
+	const db = databaseFrom(env);
 	if (!db) return new Response('Catalog unavailable', { status: 503, headers });
 	try {
 		return Response.json(await markSoldExternally(db, params.id, actor, reason), { headers });
