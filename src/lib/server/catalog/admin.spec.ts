@@ -116,6 +116,15 @@ it('lists every staff piece and reads one with ordered private photo metadata', 
 	expect(await getStaffProduct(db, 'missing')).toBeNull();
 });
 
+it('tells staff which piece leads the home page', async () => {
+	const { db } = localDatabase();
+	expect(await listStaffProducts(db)).toContainEqual(
+		expect.objectContaining({ id: 'test-dress', featured: true })
+	);
+	expect(await getStaffProduct(db, 'test-dress')).toMatchObject({ featured: true });
+	expect(await getStaffProduct(db, 'test-shirt')).toMatchObject({ featured: false });
+});
+
 it('corrects a published slug once while keeping the old URL as a redirect', async () => {
 	const { db, sqlite } = localDatabase();
 	await expect(correctPublishedSlug(db, 'test-shirt', 'Bad Slug')).rejects.toThrow('Invalid slug');
