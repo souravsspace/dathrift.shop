@@ -31,7 +31,9 @@ it('lists orders only for staff, uncached', async () => {
 		true
 	);
 	const setHeaders = vi.fn();
-	const data = await load(event('http://127.0.0.1:5173/admin/orders', setHeaders));
+	const data = (await load(event('http://127.0.0.1:5173/admin/orders', setHeaders))) as {
+		orders: { status: string; total_bdt: number }[];
+	};
 	expect(data.orders).toHaveLength(1);
 	expect(data.orders[0]).toMatchObject({ status: 'pending_payment', total_bdt: 930 });
 	expect(setHeaders).toHaveBeenCalledWith({ 'Cache-Control': 'no-store' });
