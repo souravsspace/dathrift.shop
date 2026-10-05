@@ -1,4 +1,5 @@
 import { env } from 'cloudflare:workers';
+import { databaseFrom } from '../../../../lib/server/db/client';
 import { quoteShipping } from '../../../../lib/server/shipping/quote';
 import type { RequestHandler } from './$types';
 
@@ -9,7 +10,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		return new Response('Forbidden', { status: 403, headers });
 	if (!request.headers.get('Content-Type')?.startsWith('application/json'))
 		return new Response('Invalid request', { status: 415, headers });
-	const db = (env as { DB?: Parameters<typeof quoteShipping>[0] }).DB;
+	const db = databaseFrom(env);
 	if (!db) return new Response('Delivery lookup unavailable', { status: 503, headers });
 	try {
 		return Response.json(await quoteShipping(db, await request.json()), { headers });
