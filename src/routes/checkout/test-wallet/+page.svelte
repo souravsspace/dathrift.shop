@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>Test wallet | dathrift</title>
+	<title>Test wallet | daThriftShop</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
