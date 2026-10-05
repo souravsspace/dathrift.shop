@@ -1,6 +1,7 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import { inventory, productPhotos, products } from '../db/schema';
+import { MAX_PHOTOS } from './publication';
 
 type PhotoInput = {
 	bytes: Uint8Array;
@@ -38,7 +39,7 @@ export async function addProductPhoto(
 		!/^[a-zA-Z0-9-]{1,80}$/.test(id) ||
 		!Number.isSafeInteger(input.position) ||
 		input.position < 1 ||
-		input.position > 8 ||
+		input.position > MAX_PHOTOS ||
 		!input.altText.trim() ||
 		input.altText.length > 240 ||
 		input.bytes.length < 16 ||
@@ -74,4 +75,44 @@ export async function addProductPhoto(
 		throw error;
 	}
 	return { position: input.position, r2_key: key, alt_text: input.altText.trim() };
+}
+
+// Position 1 is the cover the shop shows first. Moving a photo there keeps the others in order;
+// the rows are rewritten in one batch so the (product, position) key never collides midway.
+export async function makeCoverPhoto(db: Database, id: string, r2Key: string) {
+	const photos = await db
+		.select({
+			position: productPhotos.position,
+			r2_key: productPhotos.r2Key,
+			alt_text: productPhotos.altText
+		})
+		.from(productPhotos)
+		.where(eq(productPhotos.productId, id))
+		.orderBy(asc(productPhotos.position));
+	const cover = photos.find((photo) => photo.r2_key === r2Key);
+	if (!cover) throw new Error('Photo not found');
+	const ordered = [cover, ...photos.filter((photo) => photo !== cover)].map((photo, index) => ({
+		...photo,
+		position: index + 1
+	}));
+	await db.batch([
+		db.delete(productPhotos).where(
+			and(
+				eq(productPhotos.productId, id),
+				inArray(
+					productPhotos.r2Key,
+					photos.map((photo) => photo.r2_key)
+				)
+			)
+		),
+		db.insert(productPhotos).values(
+			ordered.map((photo) => ({
+				productId: id,
+				position: photo.position,
+				r2Key: photo.r2_key,
+				altText: photo.alt_text
+			}))
+		)
+	]);
+	return ordered;
 }
