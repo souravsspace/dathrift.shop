@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, expect, it } from 'vitest';
+import { localD1 } from '../../../../lib/server/testing/local-d1';
 import { POST } from './+server';
 
 afterEach(() => {
@@ -20,22 +21,7 @@ it('rejects client prices and fails closed without D1', async () => {
 });
 
 it('returns server repricing and unavailable lines without a checkout total', async () => {
-	(env as { DB?: unknown }).DB = {
-		prepare: () => ({
-			bind: (id: string) => ({
-				first: async () =>
-					id === 'test-shirt'
-						? {
-								name: 'TEST ONLY — Olive shirt',
-								slug: 'test-olive-shirt',
-								price_bdt: 850,
-								publication_state: 'published',
-								stock_state: 'available'
-							}
-						: { price_bdt: 1750, publication_state: 'published', stock_state: 'sold' }
-			})
-		})
-	};
+	(env as { DB?: unknown }).DB = localD1().db;
 	const response = await POST(event({ ids: ['test-shirt', 'test-sold'] }));
 	expect(response.status).toBe(200);
 	expect(response.headers.get('Cache-Control')).toBe('no-store');
@@ -43,8 +29,8 @@ it('returns server repricing and unavailable lines without a checkout total', as
 		items: [
 			{
 				id: 'test-shirt',
-				slug: 'test-olive-shirt',
-				name: 'TEST ONLY — Olive shirt',
+				slug: 'test-olive-cotton-shirt',
+				name: 'TEST ONLY — Olive cotton shirt',
 				price_bdt: 850
 			}
 		],
