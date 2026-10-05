@@ -18,29 +18,14 @@ type PhotoBucket = {
 	delete(key: string): Promise<unknown>;
 };
 
-function extension(bytes: Uint8Array, contentType: string): string | null {
-	if (
-		contentType === 'image/jpeg' &&
-		bytes.length >= 3 &&
-		bytes[0] === 0xff &&
-		bytes[1] === 0xd8 &&
-		bytes[2] === 0xff
-	)
-		return 'jpg';
-	if (
-		contentType === 'image/png' &&
-		bytes.length >= 8 &&
-		[137, 80, 78, 71, 13, 10, 26, 10].every((byte, i) => bytes[i] === byte)
-	)
-		return 'png';
-	if (
+// Uploads are converted to WebP in the admin browser, so the server accepts WebP only.
+function isWebp(bytes: Uint8Array, contentType: string): boolean {
+	return (
 		contentType === 'image/webp' &&
 		bytes.length >= 12 &&
 		String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' &&
 		String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP'
-	)
-		return 'webp';
-	return null;
+	);
 }
 
 export async function addProductPhoto(
@@ -49,7 +34,6 @@ export async function addProductPhoto(
 	id: string,
 	input: PhotoInput
 ) {
-	const ext = extension(input.bytes, input.contentType);
 	if (
 		!/^[a-zA-Z0-9-]{1,80}$/.test(id) ||
 		!Number.isSafeInteger(input.position) ||
@@ -58,11 +42,11 @@ export async function addProductPhoto(
 		!input.altText.trim() ||
 		input.altText.length > 240 ||
 		input.bytes.length < 16 ||
-		input.bytes.length > 8 * 1024 * 1024 ||
-		!ext
+		input.bytes.length > 3 * 1024 * 1024 ||
+		!isWebp(input.bytes, input.contentType)
 	)
 		throw new Error('Invalid photo');
-	const key = `products/${id}/${crypto.randomUUID()}.${ext}`;
+	const key = `products/${id}/${crypto.randomUUID()}.webp`;
 	await bucket.put(key, input.bytes, { httpMetadata: { contentType: input.contentType } });
 	try {
 		const result = await db.insert(productPhotos).select(
