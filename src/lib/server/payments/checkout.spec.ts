@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { localD1 } from '../testing/local-d1';
+import { localDatabase } from '../testing/local-d1';
 import { reserveCheckout } from '../reservation/reserve';
 import { expireStaleOrders, startPayment, verifyPayment } from './checkout';
 import { invoiceForOrder, type PaymentProvider, type ProviderPayment } from './provider';
@@ -13,7 +13,7 @@ const address = {
 };
 
 function setup(ids = ['test-shirt', 'test-dress']) {
-	const local = localD1();
+	const local = localDatabase();
 	return { ...local, order: () => reserveCheckout(local.db, ids, address, true) };
 }
 
@@ -41,7 +41,7 @@ function provider(result: Partial<ProviderPayment> | Error, created = 'pay-1') {
 	} satisfies PaymentProvider;
 }
 
-const state = (sqlite: ReturnType<typeof localD1>['sqlite'], sql: string) =>
+const state = (sqlite: ReturnType<typeof localDatabase>['sqlite'], sql: string) =>
 	sqlite.prepare(sql).get();
 
 it('creates one payment for the server total and releases holds when creation fails', async () => {
