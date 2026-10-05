@@ -1576,3 +1576,51 @@ a {
 	color: #6a786c;
 	font-size: 0.74rem;
 }
+
+.admin-nav {
+	display: flex;
+	gap: 22px;
+	font-size: 0.86rem;
+	font-weight: 600;
+}
+
+.admin-nav a {
+	text-decoration: none;
+}
+
+.admin-nav a[aria-current='page'] {
+	border-bottom: 1px solid #ba9162;
+}
+
+.admin-facts {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 8px 18px;
+	margin: 0 0 28px;
+	font-size: 0.88rem;
+}
+
+.admin-facts dt {
+	color: #6a786c;
+}
+
+.admin-facts dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.admin-review {
+	margin: 26px 0;
+	padding: 18px;
+	border: 1px solid #a13d2f;
+}
+
+.admin-review form + form {
+	margin-top: 16px;
+}
+
+.admin-check {
+	display: flex;
+	gap: 10px;
+	align-items: flex-start;
+}
