@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, expect, it } from 'vitest';
+import { localD1 } from '../../../../../lib/server/testing/local-d1';
 import { GET, PATCH } from './+server';
 
 afterEach(() => {
@@ -32,21 +33,14 @@ it('keeps product detail reads private, including a local draft', async () => {
 	expect((await GET(event('https://dathrift.shop/admin/api/products/test-draft'))).status).toBe(
 		403
 	);
-	(env as { DB?: unknown }).DB = {
-		prepare: () => ({
-			bind: () => ({
-				first: async () => ({ id: 'test-draft', publication_state: 'draft' }),
-				all: async () => ({ results: [] })
-			})
-		})
-	};
+	(env as { DB?: unknown }).DB = localD1().db;
 	const response = await GET(event('http://127.0.0.1:5173/admin/api/products/test-draft'));
 	expect(response.status).toBe(200);
 	expect(response.headers.get('Cache-Control')).toBe('no-store');
-	expect(await response.json()).toEqual({
+	expect(await response.json()).toMatchObject({
 		id: 'test-draft',
 		publication_state: 'draft',
-		photos: []
+		photos: [{ position: 1, r2_key: 'test-only/unpublished-skirt.svg' }]
 	});
 });
 
@@ -73,9 +67,7 @@ it('denies cross-origin and public draft edits, then accepts local guarded edit'
 			)
 		).status
 	).toBe(403);
-	(env as { DB?: unknown }).DB = {
-		prepare: () => ({ bind: () => ({ run: async () => ({ meta: { changes: 1 } }) }) })
-	};
+	(env as { DB?: unknown }).DB = localD1().db;
 	const response = await PATCH(
 		event('http://127.0.0.1:5173/admin/api/products/test-draft', 'PATCH', 'http://127.0.0.1:5173')
 	);
