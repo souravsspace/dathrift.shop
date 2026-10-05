@@ -1456,3 +1456,68 @@ a {
 		grid-template-columns: 1fr;
 	}
 }
+
+.order-status {
+	max-width: 46rem;
+	margin-top: 26px;
+	padding: 20px 22px;
+	border-left: 3px solid #ba9162;
+	background: #fffdf7;
+}
+
+.order-status strong {
+	font-family: 'Newsreader', Georgia, serif;
+	font-size: 1.6rem;
+	font-weight: 400;
+}
+
+.order-status p {
+	margin: 8px 0 0;
+	color: #4d5f53;
+	line-height: 1.6;
+}
+
+.order-status[data-status='paid'] {
+	border-left-color: #123e30;
+}
+
+.order-status[data-status='payment_review'] {
+	border-left-color: #a13d2f;
+}
+
+.order-detail h2 {
+	margin: 0 0 14px;
+	font-family: 'Newsreader', Georgia, serif;
+	font-size: 1.5rem;
+	font-weight: 400;
+}
+
+.order-items {
+	margin: 0 0 34px;
+	padding: 0;
+	list-style: none;
+}
+
+.order-items li {
+	display: flex;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 14px 0;
+	border-bottom: 1px solid #d9d8cb;
+}
+
+.order-fulfillment {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.order-fulfillment code {
+	font-size: 0.9rem;
+}
+
+.order-private-note {
+	margin-bottom: 70px;
+	color: #6a786c;
+	font-size: 0.78rem;
+}
