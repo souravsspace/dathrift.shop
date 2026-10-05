@@ -1,6 +1,8 @@
 # Phase 5 — bKash PGW sandbox and payment reconciliation
 
-**Status:** not started. No live merchant or checkout changes are authorized. Use the merchant product/version actually provisioned; the owner's private sandbox documentation is the contract.
+**Status:** local code complete; exit gate open. No live merchant or checkout changes are authorized. Use the merchant product/version actually provisioned; the owner's private sandbox documentation remains the contract.
+
+Local evidence (2026-10-06): `src/lib/server/payments/bkash.ts` implements bKash's public v2 tokenized-checkout API (grant/refresh token, create, execute, query) with a D1 token cache (two grants per hour limit), 30-second timeouts, `externalCode` error handling, and a hard restriction to `https://tokenized.sandbox.bka.sh`. The payment service never trusts the callback query: it executes only a pending, unexpired order on a success hint, falls back to query on any error, validates payment ID, BDT amount, invoice and trxID, holds ambiguous results for owner review, and releases holds only when the provider reports an unexecuted payment. A development-only test wallet stands in for bKash locally. Not yet run against a real sandbox or the merchant's private documentation.
 
 ## Payment and order contract
 
