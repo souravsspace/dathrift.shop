@@ -33,3 +33,18 @@ it('encodes WebP with the wasm fallback used by browsers without native WebP exp
 	expect(blob.type).toBe('image/webp');
 	expect(isWebp(new Uint8Array(await blob.arrayBuffer()))).toBe(true);
 });
+
+it('rejects files that are not images or are larger than 10 MB', async () => {
+	await expect(toWebp(new File(['hello'], 'notes.txt', { type: 'text/plain' }))).rejects.toThrow(
+		'Choose an image file'
+	);
+	const huge = new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'huge.jpg', {
+		type: 'image/jpeg'
+	});
+	await expect(toWebp(huge)).rejects.toThrow('Image is larger than 10 MB');
+});
+
+it('explains when the browser cannot read an image format', async () => {
+	const broken = new File([new Uint8Array([1, 2, 3, 4])], 'photo.heic', { type: 'image/heic' });
+	await expect(toWebp(broken)).rejects.toThrow('This browser cannot read that image');
+});
