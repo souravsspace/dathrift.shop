@@ -1,17 +1,13 @@
+import { and, eq } from 'drizzle-orm';
+import type { Database } from '../db/client';
+import { deliveryAreas } from '../db/schema';
+
 type Address = {
 	name: string;
 	phone: string;
 	line1: string;
 	district: string;
 	area: string;
-};
-
-type ShippingDb = {
-	prepare(sql: string): {
-		bind(...values: string[]): {
-			first(): Promise<Record<string, unknown> | null>;
-		};
-	};
 };
 
 export function normalizeShippingAddress(value: unknown): Address {
@@ -36,21 +32,20 @@ export function normalizeShippingAddress(value: unknown): Address {
 	return { ...address, phone };
 }
 
-export async function quoteShipping(db: ShippingDb, input: unknown) {
+export async function quoteShipping(db: Database, input: unknown) {
 	const address = normalizeShippingAddress(input);
 	const area = await db
-		.prepare(
-			`SELECT fee_bdt, preview_only FROM delivery_areas
-		 WHERE district_key = ? AND area_key = ? AND active = 1`
+		.select({ fee_bdt: deliveryAreas.feeBdt, preview_only: deliveryAreas.previewOnly })
+		.from(deliveryAreas)
+		.where(
+			and(
+				eq(deliveryAreas.districtKey, address.district),
+				eq(deliveryAreas.areaKey, address.area),
+				eq(deliveryAreas.active, true)
+			)
 		)
-		.bind(address.district, address.area)
-		.first();
-	if (!area) throw new Error('Unsupported area');
-	if (!Number.isSafeInteger(area.fee_bdt) || Number(area.fee_bdt) <= 0)
+		.get();
+	if (!area || !Number.isSafeInteger(area.fee_bdt) || area.fee_bdt <= 0)
 		throw new Error('Unsupported area');
-	return {
-		phone: address.phone,
-		fee_bdt: area.fee_bdt as number,
-		preview_only: area.preview_only === 1
-	};
+	return { phone: address.phone, fee_bdt: area.fee_bdt, preview_only: area.preview_only };
 }
