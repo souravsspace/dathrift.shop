@@ -1,6 +1,9 @@
+import type { MeasurementSet } from './categories';
+
 type ProductForPublication = {
 	name: string;
-	category: string;
+	// The category's measurement set; null when the category does not exist.
+	measurement_set: MeasurementSet | null;
 	price_bdt: number;
 	description: string | null;
 	condition_notes: string | null;
@@ -11,41 +14,53 @@ type ProductForPublication = {
 
 type PhotoForPublication = { r2_key: string; alt_text: string };
 
+export const MAX_PHOTOS = 10;
+
+// Garment measurements are in inches, to the nearest half inch.
+export const requiredMeasurements: Record<MeasurementSet, string[]> = {
+	top: ['chest_in', 'length_in'],
+	bottom: ['waist_in', 'inseam_in'],
+	none: []
+};
+
 export function publicationErrors(
 	product: ProductForPublication,
 	photos: PhotoForPublication[]
 ): string[] {
 	const errors: string[] = [];
 	if (!product.name.trim()) errors.push('name');
-	if (!['tops', 'bottoms', 'outerwear', 'dresses'].includes(product.category))
-		errors.push('category');
+	if (!product.measurement_set) errors.push('category');
 	if (!Number.isSafeInteger(product.price_bdt) || product.price_bdt <= 0) errors.push('price_bdt');
 	if (!product.description?.trim()) errors.push('description');
 	if (!product.condition_notes?.trim()) errors.push('condition_notes');
 	if (!product.size_label?.trim()) errors.push('size_label');
-	if (!hasMeasurements(product.measurements_json, product.category))
+	if (
+		product.measurement_set &&
+		!hasMeasurements(product.measurements_json, product.measurement_set)
+	)
 		errors.push('measurements_json');
 	if (!product.fit_note?.trim()) errors.push('fit_note');
 	if (
 		photos.length < 1 ||
-		photos.length > 8 ||
+		photos.length > MAX_PHOTOS ||
 		photos.some((photo) => !photo.r2_key.trim() || !photo.alt_text.trim())
 	)
 		errors.push('photos');
 	return errors;
 }
 
-function hasMeasurements(value: string | null, category: string): boolean {
+export const isHalfInch = (value: unknown): value is number =>
+	typeof value === 'number' && value > 0 && value < 1000 && Number.isInteger(value * 2);
+
+function hasMeasurements(value: string | null, set: MeasurementSet): boolean {
+	const required = requiredMeasurements[set];
+	if (!required.length) return true;
 	if (!value) return false;
 	try {
 		const measurements: unknown = JSON.parse(value);
 		if (measurements === null || typeof measurements !== 'object' || Array.isArray(measurements))
 			return false;
-		const required = category === 'bottoms' ? ['waist_cm', 'inseam_cm'] : ['chest_cm', 'length_cm'];
-		return required.every((key) => {
-			const measurement = (measurements as Record<string, unknown>)[key];
-			return typeof measurement === 'number' && Number.isFinite(measurement) && measurement > 0;
-		});
+		return required.every((key) => isHalfInch((measurements as Record<string, unknown>)[key]));
 	} catch {
 		return false;
 	}
