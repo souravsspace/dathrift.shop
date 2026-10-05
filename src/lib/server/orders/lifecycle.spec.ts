@@ -26,7 +26,9 @@ it('sells every held unit once after verified payment and ignores repeated confi
 	expect(status(sqlite, order.id)).toBe('paid');
 	expect(stock(sqlite, 'test-dress')).toMatchObject({ state: 'sold' });
 	expect(await settleVerifiedPayment(db, 'pay-1', 'trx-1')).toBe('paid');
-	expect(sqlite.prepare("SELECT count(*) AS n FROM payments WHERE status = 'completed'").get()).toEqual({
+	expect(
+		sqlite.prepare("SELECT count(*) AS n FROM payments WHERE status = 'completed'").get()
+	).toEqual({
 		n: 1
 	});
 	await expect(closeUnpaidOrder(db, order.id, 'cancelled')).resolves.toBe(false);
@@ -57,9 +59,9 @@ it('keeps ambiguous payments held until a verified result, and rejects invalid t
 	expect(await closeUnpaidOrder(db, order.id, 'expired')).toBe(false);
 	expect(stock(sqlite, 'test-dress')).toMatchObject({ state: 'reserved' });
 	expect(await settleVerifiedPayment(db, 'pay-unknown', 'trx-2')).toBe('paid');
-	expect(() => sqlite.exec(`UPDATE orders SET status = 'cancelled' WHERE id = '${order.id}'`)).toThrow(
-		'Invalid order transition'
-	);
+	expect(() =>
+		sqlite.exec(`UPDATE orders SET status = 'cancelled' WHERE id = '${order.id}'`)
+	).toThrow('Invalid order transition');
 	expect(
 		sqlite.prepare('SELECT action FROM order_events WHERE order_id = ? ORDER BY id').all(order.id)
 	).toEqual([{ action: 'payment_review' }, { action: 'paid' }]);
