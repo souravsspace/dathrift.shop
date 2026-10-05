@@ -6,7 +6,7 @@
 	import StatusStamp from '../../../lib/components/StatusStamp.svelte';
 	import SwingTag from '../../../lib/components/SwingTag.svelte';
 	import { productJsonLd } from '../../../lib/seo';
-	import { SITE_ORIGIN, categoryLabels, formatBdt } from '../../../lib/site';
+	import { SITE_ORIGIN, formatBdt } from '../../../lib/site';
 	import { onMount } from 'svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -15,15 +15,16 @@
 	let activePhoto = $state(0);
 	// Split closing tag so the Svelte parser does not end this script block.
 	let jsonLdTag = $derived(
-		`<script type="application/ld+json">${productJsonLd(data.product)}</` + 'script>'
+		`<script type="application/ld+json">${productJsonLd({ ...data.product, category: data.product.category_name })}</` +
+			'script>'
 	);
 	let product = $derived(data.product);
 	let testPiece = $derived(product.slug.startsWith('test-'));
 	const labels: Record<string, string> = {
-		chest_cm: 'Chest',
-		length_cm: 'Length',
-		waist_cm: 'Waist',
-		inseam_cm: 'Inseam'
+		chest_in: 'Chest',
+		length_in: 'Length',
+		waist_in: 'Waist',
+		inseam_in: 'Inseam'
 	};
 
 	onMount(() => {
@@ -60,7 +61,7 @@
 <main id="main-content" class="product-main">
 	<nav class="breadcrumb" aria-label="Breadcrumb">
 		<a href="/#shop">The rack</a><span aria-hidden="true">/</span><a href="/shop/{product.category}"
-			>{categoryLabels[product.category] ?? product.category}</a
+			>{product.category_name}</a
 		>
 	</nav>
 	<div class="product-layout">
@@ -103,8 +104,7 @@
 		<div class="detail">
 			<SwingTag size="detail" swing={false}>
 				<p class="tag-meta">
-					{categoryLabels[product.category] ?? product.category} · Size {product.size_label ??
-						'not listed'} · 1 of 1
+					{product.category_name} · Size {product.size_label ?? 'not listed'} · 1 of 1
 				</p>
 				<p class="tag-price">{formatBdt(product.price_bdt)}</p>
 				<h1>{product.name}</h1>
@@ -136,7 +136,7 @@
 							{#each Object.entries(product.measurements) as [key, value] (key)}
 								<div>
 									<dt>{labels[key] ?? key}</dt>
-									<dd>{value} cm</dd>
+									<dd>{value} in</dd>
 								</div>
 							{/each}
 						</dl>
