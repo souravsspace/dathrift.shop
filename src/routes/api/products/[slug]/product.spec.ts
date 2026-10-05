@@ -22,6 +22,7 @@ it('maps a hidden draft to 404 and a published sold item to a safe no-store resp
 		slug: 'test-sold-denim-jacket',
 		name: 'TEST ONLY — Sold denim jacket',
 		category: 'outerwear',
+		category_name: 'Outerwear',
 		price_bdt: 1750,
 		stock_state: 'sold'
 	};
