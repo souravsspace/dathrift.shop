@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { correctPublishedSlug } from '../../../../../../lib/server/catalog/admin';
+import { changeSlug } from '../../../../../../lib/server/catalog/admin';
 import { databaseFrom } from '../../../../../../lib/server/db/client';
 import { staffActorForRequest } from '../../../../../../lib/server/staff-auth';
 import type { RequestHandler } from './$types';
@@ -23,12 +23,12 @@ export const POST: RequestHandler = async ({ request, params }) => {
 	const db = databaseFrom(env);
 	if (!db) return new Response('Catalog unavailable', { status: 503, headers });
 	try {
-		return Response.json(await correctPublishedSlug(db, params.id, slug), { headers });
+		return Response.json(await changeSlug(db, params.id, slug), { headers });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : '';
 		if (message === 'Invalid slug') return new Response(message, { status: 400, headers });
-		if (message === 'Product not published' || message === 'Slug unavailable')
-			return new Response(message, { status: 409, headers });
+		if (message === 'Product not found') return new Response(message, { status: 404, headers });
+		if (message === 'Slug unavailable') return new Response(message, { status: 409, headers });
 		return new Response('Catalog unavailable', { status: 503, headers });
 	}
 };
