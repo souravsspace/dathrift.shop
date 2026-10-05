@@ -1,81 +1,70 @@
-type Statement = {
-	first(): Promise<Record<string, unknown> | null>;
-	run(): Promise<{ meta: { changes: number } }>;
-};
-export type OrderDb = {
-	prepare(sql: string): { bind(...values: (string | number | null)[]): Statement };
-	batch(statements: Statement[]): Promise<{ meta: { changes: number } }[]>;
-};
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import type { Database } from '../db/client';
+import { orderEvents, orders, payments } from '../db/schema';
 
-export type OrderStatus = 'pending_payment' | 'paid' | 'payment_review' | 'cancelled' | 'expired';
+export type OrderStatus = (typeof orders.status.enumValues)[number];
 
 export async function attachPayment(
-	db: OrderDb,
+	db: Database,
 	orderId: string,
 	provider: 'bkash' | 'mock',
 	paymentId: string,
 	amountBdt: number,
 	redirectUrl: string | null = null
 ) {
-	await db
-		.prepare(
-			`INSERT INTO payments (payment_id, order_id, provider, amount_bdt, redirect_url)
-		 VALUES (?, ?, ?, ?, ?)`
-		)
-		.bind(paymentId, orderId, provider, amountBdt, redirectUrl)
-		.run();
+	await db.insert(payments).values({ paymentId, orderId, provider, amountBdt, redirectUrl });
 }
 
-async function orderStatus(db: OrderDb, orderId: string) {
-	const row = await db.prepare('SELECT status FROM orders WHERE id = ?').bind(orderId).first();
+async function orderStatus(db: Database, orderId: string) {
+	const row = await db
+		.select({ status: orders.status })
+		.from(orders)
+		.where(eq(orders.id, orderId))
+		.get();
 	if (!row) throw new Error('Unknown order');
-	return row.status as OrderStatus;
+	return row.status;
 }
 
 // Call only after the provider has verified a completed payment for this exact payment ID.
 export async function settleVerifiedPayment(
-	db: OrderDb,
+	db: Database,
 	paymentId: string,
 	trxId: string
 ): Promise<OrderStatus> {
 	const payment = await db
-		.prepare('SELECT order_id FROM payments WHERE payment_id = ?')
-		.bind(paymentId)
-		.first();
+		.select({ orderId: payments.orderId })
+		.from(payments)
+		.where(eq(payments.paymentId, paymentId))
+		.get();
 	if (!payment) throw new Error('Unknown payment');
-	const orderId = payment.order_id as string;
+	const { orderId } = payment;
 	const completePayment = () =>
 		db
-			.prepare(
-				`UPDATE payments SET status = 'completed', trx_id = ?, updated_at = CURRENT_TIMESTAMP
-			 WHERE payment_id = ? AND (trx_id IS NULL OR trx_id = ?)`
-			)
-			.bind(trxId, paymentId, trxId);
+			.update(payments)
+			.set({ status: 'completed', trxId, updatedAt: sql`CURRENT_TIMESTAMP` })
+			.where(
+				and(
+					eq(payments.paymentId, paymentId),
+					or(isNull(payments.trxId), eq(payments.trxId, trxId))
+				)
+			);
+	const moveOrder = (to: OrderStatus, from: OrderStatus[]) =>
+		db
+			.update(orders)
+			.set({ status: to })
+			.where(and(eq(orders.id, orderId), inArray(orders.status, from)));
 	const toReview = () =>
 		db.batch([
 			completePayment(),
-			db
-				.prepare(
-					`UPDATE orders SET status = 'payment_review'
-				 WHERE id = ? AND status IN ('pending_payment', 'expired', 'cancelled')`
-				)
-				.bind(orderId)
+			moveOrder('payment_review', ['pending_payment', 'expired', 'cancelled'])
 		]);
 
 	const current = await orderStatus(db, orderId);
 	if (current === 'pending_payment' || current === 'payment_review') {
 		try {
-			await db.batch([
-				completePayment(),
-				db
-					.prepare(
-						`UPDATE orders SET status = 'paid'
-					 WHERE id = ? AND status IN ('pending_payment', 'payment_review')`
-					)
-					.bind(orderId)
-			]);
+			await db.batch([completePayment(), moveOrder('paid', ['pending_payment', 'payment_review'])]);
 		} catch (error) {
-			if (!(error instanceof Error) || !error.message.includes('Units not held')) throw error;
+			if (!(error instanceof Error) || !errorText(error).includes('Units not held')) throw error;
 			await toReview();
 		}
 	} else if (current !== 'paid') {
@@ -84,47 +73,38 @@ export async function settleVerifiedPayment(
 	return orderStatus(db, orderId);
 }
 
+// Drizzle wraps driver errors; the trigger message may sit on the cause.
+const errorText = (error: Error): string =>
+	`${error.message} ${error.cause instanceof Error ? errorText(error.cause) : ''}`;
+
 // Releases held units. Without an actor only an unpaid pending order closes; the owner may
 // also close a payment review after checking provider records.
 export async function closeUnpaidOrder(
-	db: OrderDb,
+	db: Database,
 	orderId: string,
 	to: 'cancelled' | 'expired',
 	actor?: string
 ): Promise<boolean> {
-	const from = actor ? ['pending_payment', 'payment_review'] : ['pending_payment'];
-	const placeholders = from.map(() => '?').join(', ');
-	const statements = [
-		db
-			.prepare(`UPDATE orders SET status = ? WHERE id = ? AND status IN (${placeholders})`)
-			.bind(to, orderId, ...from),
-		db
-			.prepare(
-				`UPDATE payments SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
-			 WHERE order_id = ? AND status = 'created'
-			 AND EXISTS (SELECT 1 FROM orders WHERE id = ? AND status = ?)`
-			)
-			.bind(orderId, orderId, to)
-	];
-	if (actor)
-		statements.push(
-			db
-				.prepare(
-					`INSERT INTO order_events (order_id, actor, action)
-				 SELECT ?, ?, 'closed_by_staff' WHERE EXISTS (SELECT 1 FROM orders WHERE id = ? AND status = ?)`
-				)
-				.bind(orderId, actor, orderId, to)
-		);
-	const [closed] = await db.batch(statements);
+	const from: OrderStatus[] = actor ? ['pending_payment', 'payment_review'] : ['pending_payment'];
+	const closedNow = sql`EXISTS (SELECT 1 FROM ${orders} WHERE ${orders.id} = ${orderId} AND ${orders.status} = ${to})`;
+	const close = db
+		.update(orders)
+		.set({ status: to })
+		.where(and(eq(orders.id, orderId), inArray(orders.status, from)));
+	const cancelPayment = db
+		.update(payments)
+		.set({ status: 'cancelled', updatedAt: sql`CURRENT_TIMESTAMP` })
+		.where(and(eq(payments.orderId, orderId), eq(payments.status, 'created'), closedNow));
+	const [closed] = await db.batch([close, cancelPayment]);
+	if (actor && closed.meta.changes > 0)
+		await db.insert(orderEvents).values({ orderId, actor, action: 'closed_by_staff' });
 	return closed.meta.changes > 0;
 }
 
-export async function holdForReview(db: OrderDb, orderId: string): Promise<boolean> {
+export async function holdForReview(db: Database, orderId: string): Promise<boolean> {
 	const result = await db
-		.prepare(
-			`UPDATE orders SET status = 'payment_review' WHERE id = ? AND status = 'pending_payment'`
-		)
-		.bind(orderId)
-		.run();
+		.update(orders)
+		.set({ status: 'payment_review' })
+		.where(and(eq(orders.id, orderId), eq(orders.status, 'pending_payment')));
 	return result.meta.changes > 0;
 }
