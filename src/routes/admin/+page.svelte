@@ -77,7 +77,9 @@
 			<img src="/brand/dathrift-logo.png" alt="" width="48" height="48" />
 			<span>dathrift<span class="brand-period">.</span></span>
 		</a>
-		<span class="admin-private">Private product desk</span>
+		<nav class="admin-nav" aria-label="Staff navigation">
+			<a href="/admin" aria-current="page">Products</a><a href="/admin/orders">Orders</a>
+		</nav>
 	</header>
 
 	<main class="admin-main">
