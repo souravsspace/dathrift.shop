@@ -1,9 +1,16 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { addCartId } from '../../../lib/cart/browser-cart';
+	import { productJsonLd } from '../../../lib/seo';
+	import { SITE_ORIGIN } from '../../../lib/site';
 
 	let { data }: { data: PageData } = $props();
 	let added = $state(false);
+	let activePhoto = $state(0);
+	// Split closing tag so the Svelte parser does not end this script block.
+	let jsonLdTag = $derived(
+		`<script type="application/ld+json">${productJsonLd(data.product)}</` + 'script>'
+	);
 	let product = $derived(data.product);
 	let testPiece = $derived(product.slug.startsWith('test-'));
 	const labels: Record<string, string> = {
@@ -23,7 +30,19 @@
 <svelte:head>
 	<title>{product.name} | dathrift</title>
 	<meta name="description" content={product.description ?? product.name} />
+	<link rel="canonical" href="{SITE_ORIGIN}/products/{product.slug}" />
+	<meta property="og:type" content="product" />
+	<meta property="og:title" content={product.name} />
+	<meta property="og:description" content={product.description ?? product.name} />
+	<meta property="og:url" content="{SITE_ORIGIN}/products/{product.slug}" />
+	{#if product.photos[0]}<meta
+			property="og:image"
+			content="{SITE_ORIGIN}/media/{product.photos[0].key}"
+		/>{/if}
+	<meta name="twitter:card" content="summary_large_image" />
 	{#if testPiece}<meta name="robots" content="noindex, nofollow" />{/if}
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- escaped JSON-LD built from server data -->
+	{@html jsonLdTag}
 </svelte:head>
 
 <div class="storefront product-page">
@@ -43,13 +62,33 @@
 		</div>
 		<div class="product-layout">
 			<div class="detail-media">
-				{#if product.photos[0]}
+				{#if product.photos[activePhoto]}
 					<img
-						src="/media/{product.photos[0].key}"
-						alt={product.photos[0]?.alt ?? product.name}
+						src="/media/{product.photos[activePhoto].key}"
+						alt={product.photos[activePhoto].alt}
 						width="1024"
 						height="1280"
+						fetchpriority="high"
 					/>
+					{#if product.photos.length > 1}
+						<div class="detail-thumbs">
+							{#each product.photos as photo, index (photo.key)}
+								<button
+									type="button"
+									aria-label="Show photo {index + 1}: {photo.alt}"
+									aria-pressed={index === activePhoto}
+									onclick={() => (activePhoto = index)}
+									><img
+										src="/media/{photo.key}"
+										alt=""
+										width="96"
+										height="120"
+										loading="lazy"
+									/></button
+								>
+							{/each}
+						</div>
+					{/if}
 				{:else}
 					<div class="image-unavailable">Image unavailable</div>
 				{/if}
