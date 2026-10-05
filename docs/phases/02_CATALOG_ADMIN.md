@@ -2,7 +2,7 @@
 
 **Status:** local test-first slices underway; exit gate open. Historical PocketBase product migrations/public-access tests do not close this phase.
 
-Local evidence (2026-10-05): numbered SQL migrations `db/migrations/0001_catalog.sql` through `0003_product_photos.sql` define draft/published products, separate one-unit inventory state, and ordered photo metadata. SQLite-backed tests enforce positive integer BDT prices, one inventory state per product, photo slots 1–8 with alt text, and draft-safe/sold-readable public product queries. The latest server run passed **17 tests in 7 files**, and type-check/lint passed. No catalog migration has been applied to remote D1; no image bucket, staff workflow or public catalog route exists. This is not a Phase 2 pass.
+Local evidence (2026-10-05): numbered SQL migrations `db/migrations/0001_catalog.sql` through `0004_product_details.sql` define draft/published products, separate one-unit inventory state, ordered photo metadata, and garment details. SQLite-backed tests enforce positive integer BDT prices, one inventory state per product, photo slots 1–8 with alt text, and draft-safe/sold-readable public product queries. Local publication validation requires description, condition, fit, photos and owner-approved category-specific centimeter measurements. `GET /api/products/[slug]` returns only safe published fields, 404 for hidden/missing items, and 503 when D1 is unavailable. The latest server run passed **25 tests in 12 files**, and type-check/lint passed. No catalog migration has been applied to remote D1; no image bucket or staff workflow exists. This is not a Phase 2 pass.
 
 ## Product model and staff workflow
 
