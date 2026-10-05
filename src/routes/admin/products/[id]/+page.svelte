@@ -266,7 +266,7 @@
 </script>
 
 <svelte:head>
-	<title>{product?.name ?? 'Product editor'} — dathrift desk</title>
+	<title>{product?.name ?? 'Product editor'} — daThriftShop desk</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
