@@ -62,3 +62,19 @@ it('allows only local preview draft creation with D1 bound', async () => {
 	expect(response.headers.get('Cache-Control')).toBe('no-store');
 	expect(await response.json()).toMatchObject({ slug: input.slug, publication_state: 'draft' });
 });
+
+it('says when a draft slug is taken or its category does not exist', async () => {
+	(env as { DB?: unknown }).DB = localD1().db;
+	const post = (body: object) =>
+		POST({
+			request: new Request('http://127.0.0.1:5173/admin/api/products', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', Origin: 'http://127.0.0.1:5173' },
+				body: JSON.stringify({ ...input, ...body })
+			})
+		} as Parameters<typeof POST>[0]);
+	const taken = await post({ slug: 'test-olive-cotton-shirt' });
+	expect([taken.status, await taken.text()]).toEqual([409, 'Slug unavailable']);
+	const unknown = await post({ category: 'sarees' });
+	expect([unknown.status, await unknown.text()]).toEqual([400, 'Unknown category']);
+});
