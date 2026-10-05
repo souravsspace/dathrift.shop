@@ -14,11 +14,11 @@ export type LocalStatement = {
 	execute(): { results: Record<string, unknown>[]; meta: { changes: number } };
 };
 
-export function localD1({ seed = true } = {}) {
+export function localD1({ seed = true, migrations = 'db/migrations' } = {}) {
 	const sqlite = new DatabaseSync(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
-	for (const file of readdirSync('db/migrations').sort())
-		sqlite.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
+	for (const file of readdirSync(migrations).sort())
+		sqlite.exec(readFileSync(`${migrations}/${file}`, 'utf8'));
 	if (seed) sqlite.exec(readFileSync('db/seed/local.sql', 'utf8'));
 
 	const statement = (sql: string, args: Value[]): LocalStatement => {
