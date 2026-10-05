@@ -27,6 +27,17 @@ INSERT OR IGNORE INTO inventory (product_id, state) VALUES
 
 INSERT OR IGNORE INTO product_photos (product_id, position, r2_key, alt_text) VALUES
 	('test-draft', 1, 'test-only/unpublished-skirt.svg', 'TEST ONLY: skirt illustration'),
-	('test-dress', 1, 'test-only/cream-midi-dress.svg', 'TEST ONLY: cream midi dress illustration'),
-	('test-shirt', 1, 'test-only/olive-cotton-shirt.svg', 'TEST ONLY: olive shirt illustration'),
-	('test-sold', 1, 'test-only/sold-denim-jacket.svg', 'TEST ONLY: denim jacket illustration');
+	('test-dress', 1, 'test-only/cream-dress.webp', 'Generated test-only cream midi dress visual'),
+	('test-shirt', 1, 'test-only/olive-shirt.webp', 'Generated test-only olive shirt visual'),
+	('test-sold', 1, 'test-only/denim-jacket.webp', 'Generated test-only denim jacket visual');
+
+-- Keep an existing local fixture database aligned with the current demo assets.
+UPDATE product_photos SET r2_key = 'test-only/cream-dress.webp',
+	alt_text = 'Generated test-only cream midi dress visual'
+	WHERE product_id = 'test-dress' AND position = 1;
+UPDATE product_photos SET r2_key = 'test-only/olive-shirt.webp',
+	alt_text = 'Generated test-only olive shirt visual'
+	WHERE product_id = 'test-shirt' AND position = 1;
+UPDATE product_photos SET r2_key = 'test-only/denim-jacket.webp',
+	alt_text = 'Generated test-only denim jacket visual'
+	WHERE product_id = 'test-sold' AND position = 1;
