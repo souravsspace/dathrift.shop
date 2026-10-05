@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import { inventory, productPhotos, products } from '../db/schema';
 import { publicationErrors } from './publication';
@@ -178,4 +178,52 @@ export async function unpublishProduct(db: Database, id: string) {
 		.where(and(eq(products.id, id), eq(products.publicationState, 'published'), availableUnit(id)));
 	if (result.meta.changes !== 1) throw new Error('Product not available');
 	return { id, publication_state: 'draft' as const };
+}
+
+const staffColumns = {
+	id: products.id,
+	slug: products.slug,
+	name: products.name,
+	category: products.category,
+	price_bdt: products.priceBdt,
+	publication_state: products.publicationState,
+	created_at: products.createdAt,
+	stock_state: inventory.state
+};
+
+export async function listStaffProducts(db: Database) {
+	return db
+		.select(staffColumns)
+		.from(products)
+		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.orderBy(desc(products.createdAt), desc(products.id))
+		.limit(100);
+}
+
+export async function getStaffProduct(db: Database, id: string) {
+	const product = await db
+		.select({
+			...staffColumns,
+			brand: products.brand,
+			description: products.description,
+			condition_notes: products.conditionNotes,
+			size_label: products.sizeLabel,
+			measurements_json: products.measurementsJson,
+			fit_note: products.fitNote
+		})
+		.from(products)
+		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.where(eq(products.id, id))
+		.get();
+	if (!product) return null;
+	const photos = await db
+		.select({
+			position: productPhotos.position,
+			r2_key: productPhotos.r2Key,
+			alt_text: productPhotos.altText
+		})
+		.from(productPhotos)
+		.where(eq(productPhotos.productId, id))
+		.orderBy(asc(productPhotos.position));
+	return { ...product, photos };
 }
