@@ -1,11 +1,9 @@
-type SaleDb = {
-	prepare(sql: string): {
-		bind(...values: string[]): { run(): Promise<unknown> };
-	};
-};
+import type { Database } from '../db/client';
+import { externalSales } from '../db/schema';
 
+// A D1 trigger allows this insert only while the unit is available, then marks it sold.
 export async function markSoldExternally(
-	db: SaleDb,
+	db: Database,
 	productId: string,
 	actorEmail: string,
 	reason: string
@@ -18,12 +16,11 @@ export async function markSoldExternally(
 		reason.length > 1000
 	)
 		throw new Error('Invalid sale');
-	await db
-		.prepare(
-			`INSERT INTO external_sales (id, product_id, actor_email, reason)
-		 VALUES (?, ?, ?, ?)`
-		)
-		.bind(crypto.randomUUID(), productId, actorEmail.trim(), reason.trim())
-		.run();
+	await db.insert(externalSales).values({
+		id: crypto.randomUUID(),
+		productId,
+		actorEmail: actorEmail.trim(),
+		reason: reason.trim()
+	});
 	return { product_id: productId, state: 'sold' as const };
 }
