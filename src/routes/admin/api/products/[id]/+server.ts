@@ -34,7 +34,10 @@ export const PATCH: RequestHandler = async ({ request, params }) => {
 			headers
 		});
 	} catch (error) {
-		if (error instanceof Error && error.message === 'Invalid details')
+		if (
+			error instanceof Error &&
+			(error.message === 'Invalid details' || error.message === 'Unknown category')
+		)
 			return new Response(error.message, { status: 400, headers });
 		if (error instanceof Error && error.message === 'Draft not found')
 			return new Response(error.message, { status: 404, headers });
