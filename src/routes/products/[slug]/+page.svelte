@@ -119,43 +119,37 @@
 						<StatusStamp kind="bag" pressed={added} />
 						<span class="bag-confirmation">Saved in your bag. <a href="/cart">View bag</a></span>
 					</p>
-				{/if}
-			</SwingTag>
-
-			{#if product.stock_state === 'available' && !inBag}
-				<div class="detail-buy">
-					<button class="button button-gold" type="button" onclick={addToBag}>Add to bag</button>
-				</div>
-			{/if}
-
-			{#if product.description}<p class="detail-copy">{product.description}</p>{/if}
-
-			<section class="care-label" aria-labelledby="condition-title">
-				<h2 id="condition-title">Condition</h2>
-				<p>{product.condition_notes ?? 'Not recorded'}</p>
-			</section>
-
-			<section class="care-label" aria-labelledby="measure-title">
-				<h2 id="measure-title">Garment measurements</h2>
-				{#if Object.keys(product.measurements).length}
-					<dl>
-						{#each Object.entries(product.measurements) as [key, value] (key)}
-							<div>
-								<dt>{labels[key] ?? key}</dt>
-								<dd>{value} cm</dd>
-							</div>
-						{/each}
-					</dl>
 				{:else}
-					<p>Not measured</p>
+					<div class="detail-buy">
+						<button class="button button-ink" type="button" onclick={addToBag}>Add to bag</button>
+					</div>
 				{/if}
-				<p class="fine">Measured on the garment, not the body.</p>
-			</section>
-
-			<section class="care-label" aria-labelledby="fit-title">
-				<h2 id="fit-title">Fit notes</h2>
-				<p>{product.fit_note ?? 'Not recorded'}</p>
-			</section>
+				{#if product.description}<p class="tag-section">{product.description}</p>{/if}
+				<section class="tag-section" aria-labelledby="condition-title">
+					<h2 id="condition-title">Condition</h2>
+					<p>{product.condition_notes ?? 'Not recorded'}</p>
+				</section>
+				<section class="tag-section" aria-labelledby="measure-title">
+					<h2 id="measure-title">Garment measurements</h2>
+					{#if Object.keys(product.measurements).length}
+						<dl>
+							{#each Object.entries(product.measurements) as [key, value] (key)}
+								<div>
+									<dt>{labels[key] ?? key}</dt>
+									<dd>{value} cm</dd>
+								</div>
+							{/each}
+						</dl>
+					{:else}
+						<p>Not measured</p>
+					{/if}
+					<p class="fine">Measured on the garment, not the body.</p>
+				</section>
+				<section class="tag-section" aria-labelledby="fit-title">
+					<h2 id="fit-title">Fit notes</h2>
+					<p>{product.fit_note ?? 'Not recorded'}</p>
+				</section>
+			</SwingTag>
 		</div>
 	</div>
 </main>
