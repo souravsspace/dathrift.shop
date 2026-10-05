@@ -1,6 +1,8 @@
 # Phase 6 — approved storefront, checkout and fulfillment
 
-**Status:** not started. Do not build storefront UI before the owner approves a concrete visual concept and supplies real product content for launch.
+**Status:** local journey passes; exit gate open until real product content and policy are approved. The owner approved the editorial archive concept for local work.
+
+Local evidence (2026-10-06): server-rendered home, category pages (`/shop/[category]`, 404 when empty) with size, price and availability filters, product pages with a photo gallery, bag, checkout with server-loaded areas and a bKash hand-off, development test wallet, private order status page, and a staff order desk (paid-order detail, forward-only fulfillment with tracking, owner-only payment recheck/close; no manual paid toggle). Playwright passes the guest journey at desktop width and the stale-bag and forged-return checks at desktop and mobile widths.
 
 ## Design and experience gate
 
