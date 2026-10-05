@@ -33,17 +33,47 @@ typography:
     letterSpacing: '-0.02em'
     fontFeature: "'tnum'"
     fontVariation: "'wdth' 62"
+  section:
+    fontFamily: 'Archivo, Noto Sans Bengali, Hind Siliguri, system-ui, sans-serif'
+    fontSize: 'clamp(2.4rem, 5vw, 3.6rem)'
+    fontWeight: 850
+    lineHeight: 0.92
+    letterSpacing: '-0.02em'
+    fontVariation: "'wdth' 68"
+  price-sm:
+    fontFamily: 'Archivo, system-ui, sans-serif'
+    fontSize: 'clamp(1.9rem, 3.6vw, 3rem)'
+    fontWeight: 850
+    lineHeight: 0.9
+    letterSpacing: '-0.02em'
+    fontFeature: "'tnum'"
+    fontVariation: "'wdth' 62"
+  heading:
+    fontFamily: 'Archivo, Noto Sans Bengali, Hind Siliguri, system-ui, sans-serif'
+    fontSize: '1.5rem'
+    fontWeight: 750
+    lineHeight: 1.2
   title:
     fontFamily: 'Archivo, Noto Sans Bengali, Hind Siliguri, system-ui, sans-serif'
     fontSize: 'clamp(1.5rem, 2.4vw, 2rem)'
     fontWeight: 650
     lineHeight: 1.15
     letterSpacing: '-0.02em'
+  lead:
+    fontFamily: 'Archivo, Noto Sans Bengali, Hind Siliguri, system-ui, sans-serif'
+    fontSize: '1.2rem'
+    fontWeight: 400
+    lineHeight: 1.6
   body:
     fontFamily: 'Archivo, Noto Sans Bengali, Hind Siliguri, system-ui, sans-serif'
     fontSize: '1rem'
     fontWeight: 400
     lineHeight: 1.5
+  ui:
+    fontFamily: 'Archivo, Noto Sans Bengali, Hind Siliguri, system-ui, sans-serif'
+    fontSize: '0.88rem'
+    fontWeight: 600
+    lineHeight: 1.45
   label:
     fontFamily: 'Martian Mono, ui-monospace, SFMono-Regular, monospace'
     fontSize: '0.68rem'
@@ -182,13 +212,19 @@ Translucent ivory over the green ground (rgb(251 235 214 / 0.12–0.86)) supplie
 
 ### Hierarchy
 
-- **Display** (850, width 68%, clamp(3.6rem, 8.4vw, 6rem), line-height 0.88, uppercase): the hero line only, max 11ch, with key words in gold.
-- **Headline** (850, width 62%, clamp(3.4rem, 9vw, 6rem) on the rack; up to clamp(3.6rem, 10vw, 7rem) on task pages; uppercase): rack and task-page titles (Bag, Checkout, error titles). Section headings on ivory step down to width 68%, clamp(2.8rem, 6vw, 5rem); admin page titles to clamp(2.4rem, 5vw, 3.6rem).
-- **Price** (850, width 62%, line-height 0.88, tabular figures): the largest thing on every tag. clamp(3rem, 5.4vw, 4.6rem) on hero tags, up to clamp(4rem, 7vw, 6rem) on the product tag, clamp(2.3rem, 3.6vw, 3rem) on rack tags.
-- **Title** (650, clamp(1.5rem, 2.4vw, 2rem), line-height 1.15, sentence case): the product name on the product page. Tag names on rack cards are 550–600 at 0.95–1.05rem.
-- **Body** (400, 1rem, line-height 1.5; long copy 1.05–1.1rem at 1.6–1.65): intros and descriptions, capped at 40–52ch.
-- **Label** (Martian Mono, 0.66–0.72rem, uppercase, 0.02em): tag meta (category · size), tag section headings, breadcrumbs, measurement rows (0.8rem, tabular), receipt rows.
-- **Stamp** (800, width 75%, 0.78rem, 0.08em tracking, uppercase): status stamps only.
+Every font size is one of twelve ramp tokens (`--text-*` in `src/routes/layout.css`); no literal sizes.
+
+- **Display** (`--text-display`, 850, width 68%, clamp(3.6rem, 8.4vw, 6rem), line-height 0.88, uppercase): the hero line and the product-page price.
+- **Headline** (`--text-headline`, 850, width 62%, clamp(3.4rem, 9vw, 6rem), uppercase): rack and task-page titles (The rack, Your bag, Checkout, error titles).
+- **Section** (`--text-section`, 850, width 68%, clamp(2.4rem, 5vw, 3.6rem), uppercase): section headings on ivory, admin page titles, the checkout form title.
+- **Price** (`--text-price`, 850, width 62%, tabular): hero tag price. **Price small** (`--text-price-sm`, clamp(1.9rem, 3.6vw, 3rem)): rack and bag tag prices. The price is always the largest thing on its tag.
+- **Title** (`--text-title`, 650, clamp(1.5rem, 2.4vw, 2rem)): the product name on the product page.
+- **Heading** (`--text-heading`, 750, 1.5rem): admin panel headings, receipt titles, wordmark, legend terms.
+- **Lead** (`--text-lead`, 1.2rem): hero and intro copy, footer wordmark.
+- **Body** (`--text-body`, 1rem, line-height 1.5): descriptions, buttons, tag names, capped at 40–52ch.
+- **UI** (`--text-ui`, 0.88rem): navigation, chips, filters, hints, admin rows and captions.
+- **Stamp** (`--text-stamp`, 800, width 75%, 0.78rem): status stamps, measurement rows, receipt rows, fine print.
+- **Label** (`--text-label`, Martian Mono, 0.68rem, uppercase, 0.02em): tag meta, tag section headings, breadcrumbs.
 
 ### Named Rules
 
@@ -261,7 +297,7 @@ Confident, round, and few.
 
 ### Navigation
 
-- **Header:** sticky ink bar with the logo mark (40px, 10px corners) and an expanded-width (112%) 800-weight wordmark; nav links are 44px pills with a 10% ivory wash on hover and current page. The bag link carries a stroked inline SVG bag and a gold mono count pill.
+- **Header:** sticky ink bar with the logo mark (40px, 8px corners) and an expanded-width (112%) 800-weight wordmark; nav links are 44px pills with a 10% ivory wash on hover and current page. The bag link carries a stroked inline SVG bag and a gold mono count pill.
 - **Footer:** opens on the gold rack rail (4px gold bar, seven 14×22px hooks), then wordmark, one line of copy, and links.
 - **Admin header:** the same ink bar, with a mono "staff" tag beside the wordmark and an ivory-filled current nav pill.
 
