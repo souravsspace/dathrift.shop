@@ -60,7 +60,7 @@
 </script>
 
 <svelte:head>
-	<title>Your bag | dathrift</title>
+	<title>Your bag | daThriftShop</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
