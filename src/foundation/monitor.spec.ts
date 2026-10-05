@@ -30,8 +30,8 @@ it('emails the owner when a scheduled D1 backup fails and preserves the failure'
 	expect(send).toHaveBeenCalledExactlyOnceWith({
 		to: 'owner@example.com',
 		from: 'alerts@example.com',
-		subject: 'dathrift Phase 1 backup failed',
-		text: 'The scheduled nonproduction D1 backup failed at 2026-10-05T01:00:00.000Z. Inspect the Phase 1 Workflow logs.'
+		subject: 'dathrift development backup failed',
+		text: 'The scheduled nonproduction D1 backup failed at 2026-10-05T01:00:00.000Z. Inspect the backup Workflow logs.'
 	});
 	expect(fetcher).not.toHaveBeenCalled();
 	expect(put).not.toHaveBeenCalled();
@@ -46,7 +46,7 @@ it('emails the owner when the previous private backup is older than one hour', a
 	}));
 	const fetcher = vi.fn(async (input: string | URL | Request) =>
 		String(input) === 'https://download.example/backup.sql'
-			? new Response('CREATE TABLE phase1_markers (id TEXT);')
+			? new Response('CREATE TABLE foundation_markers (id TEXT);')
 			: Response.json({
 					success: true,
 					result: {
@@ -84,8 +84,8 @@ it('emails the owner when the previous private backup is older than one hour', a
 	expect(send).toHaveBeenCalledExactlyOnceWith({
 		to: 'owner@example.com',
 		from: 'alerts@example.com',
-		subject: 'dathrift Phase 1 backup stale',
-		text: 'The latest previous nonproduction D1 backup was over one hour old at 2026-10-05T01:45:00.000Z. Inspect the Phase 1 Workflow and private R2 bucket.'
+		subject: 'dathrift development backup stale',
+		text: 'The latest previous nonproduction D1 backup was over one hour old at 2026-10-05T01:45:00.000Z. Inspect the backup Workflow and private R2 bucket.'
 	});
 });
 
