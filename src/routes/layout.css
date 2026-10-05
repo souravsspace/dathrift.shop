@@ -1243,7 +1243,7 @@ main {
 	font-weight: 650;
 }
 
-.admin-panel input:not([type='checkbox']),
+.admin-panel input:not([type='checkbox'], [type='radio']),
 .admin-panel select,
 .admin-panel textarea {
 	width: 100%;
@@ -1284,6 +1284,96 @@ main {
 	line-height: 1.45;
 }
 
+/* A fixed prefix (the ৳ sign, the /products/ path) printed inside the field's own border. */
+.admin-affix {
+	display: flex;
+	align-items: stretch;
+	border: 1px solid rgb(4 36 26 / 0.22);
+	border-radius: 6px;
+	background: rgb(4 36 26 / 0.03);
+}
+
+.admin-affix:focus-within {
+	border-color: var(--color-moss);
+	box-shadow: 0 0 0 3px rgb(29 92 68 / 0.18);
+}
+
+.admin-affix > span {
+	display: flex;
+	align-items: center;
+	padding: 0 0 0 12px;
+	color: var(--color-ink-soft);
+	font-family: var(--font-mono);
+	font-size: var(--text-ui);
+	white-space: nowrap;
+}
+
+.admin-panel .admin-affix input {
+	min-width: 0;
+	border: 0;
+	background: transparent;
+	padding-left: 6px;
+}
+
+.admin-panel .admin-affix input:focus {
+	box-shadow: none;
+}
+
+.admin-categories {
+	margin: 0 0 4px;
+	padding: 0;
+	list-style: none;
+}
+
+.admin-categories li {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 12px;
+	padding: 10px 0;
+	border-bottom: 1px solid rgb(4 36 26 / 0.1);
+	font-size: var(--text-ui);
+}
+
+.admin-categories small {
+	color: var(--color-ink-soft);
+	font-family: var(--font-mono);
+	font-size: var(--text-label);
+	text-transform: uppercase;
+}
+
+.admin-choices {
+	display: grid;
+	gap: 2px;
+	margin: 16px 0 0;
+	padding: 0;
+	border: 0;
+}
+
+.admin-choices legend {
+	margin-bottom: 6px;
+	padding: 0;
+	font-size: var(--text-ui);
+	font-weight: 650;
+}
+
+.admin-panel .admin-choice {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-height: 44px;
+	margin: 0;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.admin-choice input {
+	width: 20px;
+	height: 20px;
+	border-color: rgb(4 36 26 / 0.4);
+	color: var(--color-moss);
+}
+
 .admin-form-pair {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
@@ -1321,7 +1411,9 @@ main {
 	background: var(--color-moss);
 }
 
-.admin-action-outline {
+.admin-action-outline,
+.admin-panel form > button.admin-action-outline {
+	border: 1px solid var(--color-ink);
 	background: transparent;
 	color: var(--color-ink);
 }
@@ -1472,6 +1564,9 @@ main {
 }
 
 .admin-photo-grid figure {
+	display: grid;
+	align-content: start;
+	gap: 6px;
 	margin: 0;
 }
 
@@ -1489,6 +1584,35 @@ main {
 	color: var(--color-ink-soft);
 	font-size: var(--text-label);
 	line-height: 1.4;
+}
+
+.admin-photo-grid figure > .admin-chip {
+	justify-self: start;
+	margin: 0;
+	padding: 4px 8px;
+}
+
+/* Quiet ledger action under each non-cover photo; the cover wears the gold chip instead. */
+.admin-cover-button {
+	min-height: 44px;
+	padding: 0 12px;
+	border: 1px solid rgb(4 36 26 / 0.3);
+	border-radius: 8px;
+	background: transparent;
+	color: var(--color-ink);
+	font: inherit;
+	font-size: var(--text-ui);
+	font-weight: 650;
+	cursor: pointer;
+	touch-action: manipulation;
+	transition:
+		border-color 200ms var(--ease-out),
+		background-color 200ms var(--ease-out);
+}
+
+.admin-cover-button:hover:not(:disabled) {
+	border-color: var(--color-moss);
+	background: rgb(29 92 68 / 0.06);
 }
 
 .admin-feedback {
