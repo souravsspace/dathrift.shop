@@ -16,14 +16,14 @@
 </script>
 
 <svelte:head>
-	<title>dathrift — one-of-a-kind pre-loved clothing</title>
+	<title>daThriftShop — one-of-a-kind pre-loved clothing</title>
 	<meta
 		name="description"
 		content="Explore one-of-a-kind pre-loved clothing with honest condition notes and garment measurements."
 	/>
 	<link rel="canonical" href="{SITE_ORIGIN}/" />
 	<meta property="og:type" content="website" />
-	<meta property="og:title" content="dathrift — one-of-a-kind pre-loved clothing" />
+	<meta property="og:title" content="daThriftShop — one-of-a-kind pre-loved clothing" />
 	<meta property="og:url" content="{SITE_ORIGIN}/" />
 	<meta property="og:image" content="{SITE_ORIGIN}/brand/dathrift-logo.png" />
 	{#if hasTestPieces}<meta name="robots" content="noindex, nofollow" />
