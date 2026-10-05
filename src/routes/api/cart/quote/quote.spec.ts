@@ -31,7 +31,10 @@ it('returns server repricing and unavailable lines without a checkout total', as
 				id: 'test-shirt',
 				slug: 'test-olive-cotton-shirt',
 				name: 'TEST ONLY — Olive cotton shirt',
-				price_bdt: 850
+				price_bdt: 850,
+				size_label: 'L',
+				photo_key: 'test-only/olive-shirt.webp',
+				photo_alt: 'Generated test-only olive shirt visual'
 			}
 		],
 		unavailable: ['test-sold'],
