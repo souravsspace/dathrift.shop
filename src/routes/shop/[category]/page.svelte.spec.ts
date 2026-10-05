@@ -9,7 +9,7 @@ it('gives each category a heading and canonical URL', async () => {
 			category: 'tops' as const,
 			products: [],
 			facets: { categories: ['tops'], sizes: [] },
-			filters: {},
+			filters: { category: 'tops' as const },
 			filtered: false
 		}
 	});
