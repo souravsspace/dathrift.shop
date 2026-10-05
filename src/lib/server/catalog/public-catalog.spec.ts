@@ -1,6 +1,6 @@
 import { localDatabase } from '../testing/local-d1';
 import { expect, it } from 'vitest';
-import { getPublicProduct, listPublicProducts } from './public-catalog';
+import { getPublicProduct, isPublishedPhoto, listPublicProducts } from './public-catalog';
 
 it('hides drafts but keeps sold published products readable without private fields', async () => {
 	const { db: d1, sqlite: db } = localDatabase({ seed: false });
@@ -41,4 +41,11 @@ it('lists only published stock with first-photo metadata and durable sold state'
 	});
 	expect(items.every((item) => !('measurements_json' in item))).toBe(true);
 	db.close();
+});
+
+it('serves photo keys only for published garments', async () => {
+	const { db } = localDatabase();
+	expect(await isPublishedPhoto(db, 'test-only/olive-shirt.webp')).toBe(true);
+	expect(await isPublishedPhoto(db, 'test-only/unpublished-skirt.svg')).toBe(false);
+	expect(await isPublishedPhoto(db, 'test-only/missing.webp')).toBe(false);
 });
