@@ -1,11 +1,17 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { addCartId } from '../../../lib/cart/browser-cart';
+	import { BAG_EVENT, addCartId, readCartIds } from '../../../lib/cart/browser-cart';
+	import SiteFooter from '../../../lib/components/SiteFooter.svelte';
+	import SiteHeader from '../../../lib/components/SiteHeader.svelte';
+	import StatusStamp from '../../../lib/components/StatusStamp.svelte';
+	import SwingTag from '../../../lib/components/SwingTag.svelte';
 	import { productJsonLd } from '../../../lib/seo';
-	import { SITE_ORIGIN } from '../../../lib/site';
+	import { SITE_ORIGIN, categoryLabels, formatBdt } from '../../../lib/site';
+	import { onMount } from 'svelte';
 
 	let { data }: { data: PageData } = $props();
 	let added = $state(false);
+	let inBag = $state(false);
 	let activePhoto = $state(0);
 	// Split closing tag so the Svelte parser does not end this script block.
 	let jsonLdTag = $derived(
@@ -19,11 +25,15 @@
 		waist_cm: 'Waist',
 		inseam_cm: 'Inseam'
 	};
-	const price = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
+
+	onMount(() => {
+		inBag = readCartIds(window.localStorage).includes(product.id);
+	});
 
 	function addToBag() {
 		addCartId(window.localStorage, product.id);
-		added = true;
+		added = inBag = true;
+		window.dispatchEvent(new Event(BAG_EVENT));
 	}
 </script>
 
@@ -45,23 +55,17 @@
 	{@html jsonLdTag}
 </svelte:head>
 
-<div class="storefront product-page">
-	{#if testPiece}<div class="preview-strip">Local preview · test pieces only</div>{/if}
-	<header class="site-header">
-		<a class="brand" href="/" aria-label="dathrift home">
-			<img src="/brand/dathrift-logo.png" alt="" width="52" height="52" />
-			<span>dathrift<span class="brand-period">.</span></span>
-		</a>
-		<nav aria-label="Main navigation">
-			<a href="/#shop">Shop the edit</a><a href="/cart">Bag</a>
-		</nav>
-	</header>
-	<main id="main-content">
-		<div class="breadcrumb">
-			<a href="/#shop">The edit</a><span aria-hidden="true">/</span><span>{product.category}</span>
-		</div>
-		<div class="product-layout">
-			<div class="detail-media">
+<SiteHeader preview={testPiece} />
+
+<main id="main-content" class="product-main">
+	<nav class="breadcrumb" aria-label="Breadcrumb">
+		<a href="/#shop">The rack</a><span aria-hidden="true">/</span><a href="/shop/{product.category}"
+			>{categoryLabels[product.category] ?? product.category}</a
+		>
+	</nav>
+	<div class="product-layout">
+		<div class="gallery">
+			<div class="gallery-main" style:view-transition-name="photo-{product.slug}">
 				{#if product.photos[activePhoto]}
 					<img
 						src="/media/{product.photos[activePhoto].key}"
@@ -70,63 +74,62 @@
 						height="1280"
 						fetchpriority="high"
 					/>
-					{#if product.photos.length > 1}
-						<div class="detail-thumbs">
-							{#each product.photos as photo, index (photo.key)}
-								<button
-									type="button"
-									aria-label="Show photo {index + 1}: {photo.alt}"
-									aria-pressed={index === activePhoto}
-									onclick={() => (activePhoto = index)}
-									><img
-										src="/media/{photo.key}"
-										alt=""
-										width="96"
-										height="120"
-										loading="lazy"
-									/></button
-								>
-							{/each}
-						</div>
-					{/if}
 				{:else}
-					<div class="image-unavailable">Image unavailable</div>
+					<div class="gallery-empty">Photo coming</div>
 				{/if}
-				{#if testPiece}<span class="image-note">TEST ONLY / LOCAL PREVIEW</span>{/if}
+				{#if testPiece}<span class="test-note">Test only / local preview</span>{/if}
 			</div>
-			<div class="detail-info">
-				<p class="detail-category">{product.category} · One of one</p>
-				<h1>{product.name}</h1>
-				<p class="detail-price">{price(product.price_bdt)}</p>
-				{#if product.stock_state === 'sold'}
-					<p class="detail-sold">Sold out</p>
-				{:else if product.stock_state === 'reserved'}
-					<p class="detail-sold">Currently unavailable</p>
-				{:else}
-					<button class="bag-button" type="button" onclick={addToBag}
-						>{added ? 'Added to bag' : 'Add to bag'}</button
-					>
-					{#if added}<p class="bag-confirmation">
-							Saved in your bag. <a href="/cart">View bag</a>
-						</p>{/if}
-				{/if}
-				<p class="detail-description">{product.description}</p>
-				<div class="detail-facts">
-					<div>
-						<h2>Condition</h2>
-						<p>{product.condition_notes}</p>
-					</div>
-					<div>
-						<h2>Tagged size</h2>
-						<p>{product.size_label}</p>
-					</div>
-					<div>
-						<h2>Fit notes</h2>
-						<p>{product.fit_note}</p>
-					</div>
+			{#if product.photos.length > 1}
+				<div class="thumbs">
+					{#each product.photos as photo, index (photo.key)}
+						<button
+							type="button"
+							aria-label="Show photo {index + 1}: {photo.alt}"
+							aria-pressed={index === activePhoto}
+							onclick={() => (activePhoto = index)}
+							><img src="/media/{photo.key}" alt="" width="96" height="120" loading="lazy" /></button
+						>
+					{/each}
 				</div>
-				<div class="measurements">
-					<h2>Garment measurements</h2>
+			{/if}
+		</div>
+
+		<div class="detail">
+			<SwingTag size="detail" swing={false}>
+				<p class="tag-meta">
+					{categoryLabels[product.category] ?? product.category} · Size {product.size_label ??
+						'not listed'} · 1 of 1
+				</p>
+				<p class="tag-price">{formatBdt(product.price_bdt)}</p>
+				<h1>{product.name}</h1>
+				{#if product.stock_state === 'sold'}
+					<p class="detail-status"><StatusStamp kind="sold" /> This piece has found its next home.</p>
+				{:else if product.stock_state === 'reserved'}
+					<p class="detail-status"><StatusStamp kind="reserved" /> Currently unavailable</p>
+				{:else if inBag}
+					<p class="detail-status">
+						<StatusStamp kind="bag" pressed={added} />
+						<span class="bag-confirmation">Saved in your bag. <a href="/cart">View bag</a></span>
+					</p>
+				{/if}
+			</SwingTag>
+
+			{#if product.stock_state === 'available' && !inBag}
+				<div class="detail-buy">
+					<button class="button button-gold" type="button" onclick={addToBag}>Add to bag</button>
+				</div>
+			{/if}
+
+			{#if product.description}<p class="detail-copy">{product.description}</p>{/if}
+
+			<section class="care-label" aria-labelledby="condition-title">
+				<h2 id="condition-title">Condition</h2>
+				<p>{product.condition_notes ?? 'Not recorded'}</p>
+			</section>
+
+			<section class="care-label" aria-labelledby="measure-title">
+				<h2 id="measure-title">Garment measurements</h2>
+				{#if Object.keys(product.measurements).length}
 					<dl>
 						{#each Object.entries(product.measurements) as [key, value] (key)}
 							<div>
@@ -135,14 +138,18 @@
 							</div>
 						{/each}
 					</dl>
-					<p>Measurements are of the garment, not the body.</p>
-				</div>
-			</div>
+				{:else}
+					<p>Not measured</p>
+				{/if}
+				<p class="fine">Measured on the garment, not the body.</p>
+			</section>
+
+			<section class="care-label" aria-labelledby="fit-title">
+				<h2 id="fit-title">Fit notes</h2>
+				<p>{product.fit_note ?? 'Not recorded'}</p>
+			</section>
 		</div>
-	</main>
-	<footer class="site-footer">
-		<span>dathrift.</span><span>One piece. One next chapter.</span><a href="/#shop"
-			>Back to the edit ↑</a
-		>
-	</footer>
-</div>
+	</div>
+</main>
+
+<SiteFooter />
