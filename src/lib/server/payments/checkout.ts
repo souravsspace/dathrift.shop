@@ -1,55 +1,51 @@
+import { and, asc, eq, lte, sql } from 'drizzle-orm';
+import type { Database } from '../db/client';
+import { orders, payments } from '../db/schema';
 import {
 	attachPayment,
 	closeUnpaidOrder,
 	holdForReview,
 	settleVerifiedPayment,
-	type OrderDb,
 	type OrderStatus
 } from '../orders/lifecycle';
 import type { ReservedOrder } from '../reservation/reserve';
 import { invoiceForOrder, type PaymentProvider, type ProviderPayment } from './provider';
 
-type PaymentDb = OrderDb & {
-	prepare(sql: string): {
-		bind(...values: (string | number | null)[]): {
-			first(): Promise<Record<string, unknown> | null>;
-			run(): Promise<{ meta: { changes: number } }>;
-			all(): Promise<{ results: Record<string, unknown>[] }>;
-		};
-	};
-};
-
 export type CallbackHint = 'success' | 'failure' | 'cancel' | null;
 
 // Network calls happen outside D1 transactions; only verified provider results change stock.
 export async function startPayment(
-	db: PaymentDb,
+	db: Database,
 	provider: PaymentProvider,
 	order: Pick<ReservedOrder, 'id' | 'total_bdt'>,
 	callbackUrl: string
 ) {
 	const existing = await db
-		.prepare(
-			`SELECT p.redirect_url, p.status, o.status AS order_status FROM payments AS p
-			 JOIN orders AS o ON o.id = p.order_id WHERE p.order_id = ?`
-		)
-		.bind(order.id)
-		.first();
+		.select({
+			redirectUrl: payments.redirectUrl,
+			status: payments.status,
+			orderStatus: orders.status
+		})
+		.from(payments)
+		.innerJoin(orders, eq(orders.id, payments.orderId))
+		.where(eq(payments.orderId, order.id))
+		.get();
 	if (existing) {
 		if (
 			existing.status !== 'created' ||
-			existing.order_status !== 'pending_payment' ||
-			typeof existing.redirect_url !== 'string'
+			existing.orderStatus !== 'pending_payment' ||
+			!existing.redirectUrl
 		)
 			throw new Error('Payment unavailable');
-		return { redirectUrl: existing.redirect_url };
+		return { redirectUrl: existing.redirectUrl };
 	}
 	const row = await db
-		.prepare(`SELECT address_json FROM orders WHERE id = ? AND status = 'pending_payment'`)
-		.bind(order.id)
-		.first();
+		.select({ phone: sql<string>`json_extract(${orders.addressJson}, '$.phone')` })
+		.from(orders)
+		.where(and(eq(orders.id, order.id), eq(orders.status, 'pending_payment')))
+		.get();
 	if (!row) throw new Error('Payment unavailable');
-	const { phone } = JSON.parse(row.address_json as string) as { phone: string };
+	const { phone } = row;
 	try {
 		const created = await provider.create({
 			amountBdt: order.total_bdt,
@@ -73,10 +69,14 @@ export async function startPayment(
 	}
 }
 
-function matches(result: ProviderPayment, payment: Record<string, unknown>, orderId: string) {
+function matches(
+	result: ProviderPayment,
+	payment: { paymentId: string; amountBdt: number },
+	orderId: string
+) {
 	return (
-		result.paymentId === payment.payment_id &&
-		result.amountBdt === payment.amount_bdt &&
+		result.paymentId === payment.paymentId &&
+		result.amountBdt === payment.amountBdt &&
 		result.currency === 'BDT' &&
 		result.invoice === invoiceForOrder(orderId) &&
 		typeof result.trxId === 'string' &&
@@ -85,23 +85,25 @@ function matches(result: ProviderPayment, payment: Record<string, unknown>, orde
 }
 
 export async function verifyPayment(
-	db: PaymentDb,
+	db: Database,
 	provider: PaymentProvider,
 	paymentId: string,
 	hint: CallbackHint
 ): Promise<OrderStatus> {
 	const payment = await db
-		.prepare(
-			`SELECT p.payment_id, p.order_id, p.amount_bdt, o.status,
-			        o.expires_at <= datetime('now') AS expired
-			 FROM payments AS p JOIN orders AS o ON o.id = p.order_id
-			 WHERE p.payment_id = ?`
-		)
-		.bind(paymentId)
-		.first();
+		.select({
+			paymentId: payments.paymentId,
+			orderId: payments.orderId,
+			amountBdt: payments.amountBdt,
+			status: orders.status,
+			expired: sql<number>`${orders.expiresAt} <= datetime('now')`
+		})
+		.from(payments)
+		.innerJoin(orders, eq(orders.id, payments.orderId))
+		.where(eq(payments.paymentId, paymentId))
+		.get();
 	if (!payment) throw new Error('Unknown payment');
-	const orderId = payment.order_id as string;
-	const status = payment.status as OrderStatus;
+	const { orderId, status } = payment;
 	if (status === 'paid') return status;
 
 	const executable = hint === 'success' && status === 'pending_payment' && !payment.expired;
@@ -138,26 +140,29 @@ export async function verifyPayment(
 	return currentStatus(db, orderId);
 }
 
-async function currentStatus(db: PaymentDb, orderId: string) {
-	const row = await db.prepare('SELECT status FROM orders WHERE id = ?').bind(orderId).first();
-	return row?.status as OrderStatus;
+async function currentStatus(db: Database, orderId: string): Promise<OrderStatus> {
+	const row = await db
+		.select({ status: orders.status })
+		.from(orders)
+		.where(eq(orders.id, orderId))
+		.get();
+	if (!row) throw new Error('Unknown order');
+	return row.status;
 }
 
-export async function expireStaleOrders(db: PaymentDb, provider: PaymentProvider, limit = 20) {
-	const { results } = await db
-		.prepare(
-			`SELECT o.id, p.payment_id FROM orders AS o
-			 LEFT JOIN payments AS p ON p.order_id = o.id
-			 WHERE o.status = 'pending_payment' AND o.expires_at <= datetime('now')
-			 ORDER BY o.expires_at LIMIT ?`
-		)
-		.bind(limit)
-		.all();
+export async function expireStaleOrders(db: Database, provider: PaymentProvider, limit = 20) {
+	const stale = await db
+		.select({ id: orders.id, paymentId: payments.paymentId })
+		.from(orders)
+		.leftJoin(payments, eq(payments.orderId, orders.id))
+		.where(and(eq(orders.status, 'pending_payment'), lte(orders.expiresAt, sql`datetime('now')`)))
+		.orderBy(asc(orders.expiresAt))
+		.limit(limit);
 	let expired = 0;
-	for (const row of results) {
-		const status = row.payment_id
-			? await verifyPayment(db, provider, row.payment_id as string, null)
-			: (await closeUnpaidOrder(db, row.id as string, 'expired'))
+	for (const row of stale) {
+		const status = row.paymentId
+			? await verifyPayment(db, provider, row.paymentId, null)
+			: (await closeUnpaidOrder(db, row.id, 'expired'))
 				? 'expired'
 				: null;
 		if (status === 'expired') expired++;
