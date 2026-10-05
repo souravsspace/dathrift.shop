@@ -21,6 +21,9 @@ export async function runMonitoredBackup(
 	scheduledAt: Date,
 	fetcher: typeof fetch = fetch
 ): Promise<string[]> {
+	if (!env.ALERT_EMAIL?.trim() || !env.ALERT_FROM_EMAIL?.trim() || !env.EMAIL) {
+		throw new Error('Missing backup alert configuration');
+	}
 	let latestPreviousBackup: number | null;
 	let keys: string[];
 	try {
