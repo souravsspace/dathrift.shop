@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { categoryLabels } from '../site';
-
 	type Filters = { category?: string; size?: string; maxPrice?: number; availableOnly?: boolean };
 
 	let {
@@ -11,7 +9,7 @@
 		current
 	}: {
 		action: string;
-		categories: string[];
+		categories: { slug: string; name: string }[];
 		sizes: string[];
 		filters: Filters;
 		current?: string;
@@ -22,9 +20,9 @@
 <div class="browse" id="filters">
 	<nav class="categories" aria-label="Shop by category">
 		<a href="/#shop" aria-current={current ? undefined : 'page'}>All pieces</a>
-		{#each categories as category (category)}
-			<a href="/shop/{category}" aria-current={current === category ? 'page' : undefined}
-				>{categoryLabels[category] ?? category}</a
+		{#each categories as category (category.slug)}
+			<a href="/shop/{category.slug}" aria-current={current === category.slug ? 'page' : undefined}
+				>{category.name}</a
 			>
 		{/each}
 	</nav>
