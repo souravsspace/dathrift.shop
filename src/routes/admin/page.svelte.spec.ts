@@ -30,6 +30,9 @@ it('shows private draft rows and creates a local test draft without publishing i
 	render(AdminPage, { data: { actor: 'local-preview' } });
 	await expect.element(page.getByRole('heading', { level: 1 })).toHaveTextContent('Product desk');
 	await expect.element(page.getByText('TEST ONLY — Old top')).toBeInTheDocument();
+	await expect
+		.element(page.getByRole('link', { name: 'Edit TEST ONLY — Old top' }))
+		.toHaveAttribute('href', '/admin/products/test-old');
 	await page.getByRole('textbox', { name: 'Name' }).fill('TEST ONLY — New top');
 	await page.getByRole('textbox', { name: 'Slug' }).fill('test-new-top');
 	await page.getByRole('spinbutton', { name: 'Price in BDT' }).fill('900');
