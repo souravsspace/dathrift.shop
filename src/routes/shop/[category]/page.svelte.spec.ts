@@ -7,8 +7,9 @@ it('gives each category a heading and canonical URL', async () => {
 	render(CategoryPage, {
 		data: {
 			category: 'tops' as const,
+			categoryName: 'Tops',
 			products: [],
-			facets: { categories: ['tops'], sizes: [] },
+			facets: { categories: [{ slug: 'tops', name: 'Tops' }], sizes: [] },
 			filters: { category: 'tops' as const },
 			filtered: false
 		}
