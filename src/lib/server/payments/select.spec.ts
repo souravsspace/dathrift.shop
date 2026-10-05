@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { localD1 } from '../testing/local-d1';
+import { localDatabase } from '../testing/local-d1';
 import { paymentProviderFor } from './select';
 
 const sandbox = {
@@ -12,7 +12,7 @@ const sandbox = {
 };
 
 it('enables the local test wallet only in development and bKash only with sandbox config', () => {
-	const { db } = localD1({ seed: false });
+	const { db } = localDatabase({ seed: false });
 	expect(paymentProviderFor({}, db, true)?.name).toBe('mock');
 	expect(paymentProviderFor({}, db, false)).toBeNull();
 	expect(paymentProviderFor({ PAYMENT_PROVIDER: 'test-wallet' }, db, false)).toBeNull();
