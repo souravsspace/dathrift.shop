@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { addCartId, readCartIds } from './browser-cart';
+import { addCartId, readCartIds, removeCartId } from './browser-cart';
 
 function storage() {
 	const values = new Map<string, string>();
@@ -17,6 +17,14 @@ it('stores only distinct product IDs without a client price or quantity', () => 
 	expect(readCartIds(local)).toEqual(['test-shirt', 'test-dress']);
 	expect(local.getItem('dathrift-cart')).toBe('["test-shirt","test-dress"]');
 	expect(() => addCartId(local, '../unsafe')).toThrow();
+});
+
+it('removes one product without changing the remaining order', () => {
+	const local = storage();
+	addCartId(local, 'test-shirt');
+	addCartId(local, 'test-dress');
+	expect(removeCartId(local, 'test-shirt')).toEqual(['test-dress']);
+	expect(readCartIds(local)).toEqual(['test-dress']);
 });
 
 it('ignores malformed browser state rather than trusting it', () => {
