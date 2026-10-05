@@ -1,3 +1,6 @@
+import { eq } from 'drizzle-orm';
+import type { Database } from '../db/client';
+import { paymentTokens } from '../db/schema';
 import type { PaymentProvider, ProviderPayment } from './provider';
 
 // Only the bKash sandbox is wired; live checkout needs separate owner approval and a code change.
@@ -42,45 +45,27 @@ export function bkashConfigFrom(env: Record<string, unknown>): BkashConfig | nul
 	return { baseUrl: SANDBOX_ORIGIN, username, password, appKey, appSecret };
 }
 
-type TokenDb = {
-	prepare(sql: string): {
-		bind(...values: (string | number)[]): {
-			first(): Promise<Record<string, unknown> | null>;
-			run(): Promise<unknown>;
-		};
-	};
-};
-
-export function d1TokenStore(db: TokenDb): TokenStore {
+export function d1TokenStore(db: Database): TokenStore {
 	return {
 		async read() {
 			const row = await db
-				.prepare(
-					`SELECT id_token, refresh_token, expires_at, refresh_expires_at
-				 FROM payment_tokens WHERE provider = ?`
-				)
-				.bind('bkash')
-				.first();
+				.select()
+				.from(paymentTokens)
+				.where(eq(paymentTokens.provider, 'bkash'))
+				.get();
 			if (!row) return null;
 			return {
-				idToken: row.id_token as string,
-				refreshToken: row.refresh_token as string,
-				expiresAt: Number(row.expires_at),
-				refreshExpiresAt: Number(row.refresh_expires_at)
+				idToken: row.idToken,
+				refreshToken: row.refreshToken,
+				expiresAt: row.expiresAt,
+				refreshExpiresAt: row.refreshExpiresAt
 			};
 		},
 		async write(token) {
 			await db
-				.prepare(
-					`INSERT INTO payment_tokens
-				 (provider, id_token, refresh_token, expires_at, refresh_expires_at)
-				 VALUES (?, ?, ?, ?, ?)
-				 ON CONFLICT (provider) DO UPDATE SET id_token = excluded.id_token,
-				 refresh_token = excluded.refresh_token, expires_at = excluded.expires_at,
-				 refresh_expires_at = excluded.refresh_expires_at`
-				)
-				.bind('bkash', token.idToken, token.refreshToken, token.expiresAt, token.refreshExpiresAt)
-				.run();
+				.insert(paymentTokens)
+				.values({ provider: 'bkash', ...token })
+				.onConflictDoUpdate({ target: paymentTokens.provider, set: token });
 		}
 	};
 }
