@@ -1,12 +1,13 @@
 import { and, asc, desc, eq, lte } from 'drizzle-orm';
 import type { Database } from '../db/client';
-import { inventory, productPhotos, products } from '../db/schema';
+import { categories, inventory, productPhotos, products } from '../db/schema';
 
 export type PublicProduct = {
 	id: string;
 	slug: string;
 	name: string;
-	category: 'tops' | 'bottoms' | 'outerwear' | 'dresses';
+	category: string;
+	category_name: string;
 	price_bdt: number;
 	stock_state: 'available' | 'reserved' | 'sold';
 };
@@ -23,14 +24,13 @@ const publicColumns = {
 	slug: products.slug,
 	name: products.name,
 	category: products.category,
+	category_name: categories.name,
 	price_bdt: products.priceBdt,
 	stock_state: inventory.state
 };
 
-const categories = products.category.enumValues;
-
 export type BrowseFilters = {
-	category?: PublicProduct['category'];
+	category?: string;
 	size?: string;
 	maxPrice?: number;
 	availableOnly?: boolean;
@@ -39,8 +39,9 @@ export type BrowseFilters = {
 // Unknown or malformed values are dropped; any filter parameter marks the page as a variant.
 export function browseFiltersFrom(params: URLSearchParams) {
 	const filters: BrowseFilters = {};
-	const category = categories.find((value) => value === params.get('category'));
-	if (category) filters.category = category;
+	const category = params.get('category');
+	if (category && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(category) && category.length <= 60)
+		filters.category = category;
 	const size = params.get('size')?.trim();
 	if (size && /^[A-Za-z0-9 ./-]{1,20}$/.test(size)) filters.size = size;
 	const maxPrice = Number(params.get('max_price'));
@@ -65,6 +66,7 @@ export async function listPublicProducts(
 		})
 		.from(products)
 		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.innerJoin(categories, eq(categories.slug, products.category))
 		.leftJoin(
 			productPhotos,
 			and(eq(productPhotos.productId, products.id), eq(productPhotos.position, 1))
@@ -87,6 +89,7 @@ export async function getPublicProduct(db: Database, slug: string): Promise<Publ
 		.select(publicColumns)
 		.from(products)
 		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.innerJoin(categories, eq(categories.slug, products.category))
 		.where(and(eq(products.slug, slug), eq(products.publicationState, 'published')))
 		.get();
 	return row ?? null;
@@ -106,10 +109,11 @@ export async function publicFacets(db: Database) {
 	const published = eq(products.publicationState, 'published');
 	const [categoryRows, sizeRows] = await Promise.all([
 		db
-			.selectDistinct({ value: products.category })
+			.selectDistinct({ slug: categories.slug, name: categories.name })
 			.from(products)
+			.innerJoin(categories, eq(categories.slug, products.category))
 			.where(published)
-			.orderBy(asc(products.category)),
+			.orderBy(asc(categories.name)),
 		db
 			.selectDistinct({ value: products.sizeLabel })
 			.from(products)
@@ -117,7 +121,7 @@ export async function publicFacets(db: Database) {
 			.orderBy(asc(products.sizeLabel))
 	]);
 	return {
-		categories: categoryRows.map((row) => row.value),
+		categories: categoryRows,
 		sizes: sizeRows.flatMap((row) => (row.value ? [row.value] : []))
 	};
 }
