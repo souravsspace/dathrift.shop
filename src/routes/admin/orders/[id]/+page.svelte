@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AdminHeader from '../../../../lib/components/AdminHeader.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -13,19 +14,10 @@
 </svelte:head>
 
 <div class="admin-shell">
-	<header class="admin-header">
-		<a class="brand" href="/" aria-label="dathrift home">
-			<img src="/brand/dathrift-logo.png" alt="" width="48" height="48" />
-			<span>dathrift<span class="brand-period">.</span></span>
-		</a>
-		<nav class="admin-nav" aria-label="Staff navigation">
-			<a href="/admin">Products</a><a href="/admin/orders">Orders</a>
-		</nav>
-	</header>
+	<AdminHeader current="orders" />
 	<main class="admin-main">
 		<div class="admin-intro">
 			<div>
-				<p class="admin-eyebrow">Order / {order.status}</p>
 				<h1>Order {order.reference}</h1>
 				<p>Created {order.created_at}{order.preview_only ? ' · TEST ONLY order' : ''}</p>
 			</div>
