@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AdminHeader from '../../lib/components/AdminHeader.svelte';
 	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 
@@ -10,6 +11,7 @@
 		price_bdt: number;
 		publication_state: 'draft' | 'published';
 		stock_state: 'available' | 'reserved' | 'sold';
+		featured?: boolean;
 	};
 
 	let { data }: { data: PageData } = $props();
@@ -72,20 +74,11 @@
 </svelte:head>
 
 <div class="admin-shell">
-	<header class="admin-header">
-		<a class="brand" href="/" aria-label="dathrift home">
-			<img src="/brand/dathrift-logo.png" alt="" width="48" height="48" />
-			<span>dathrift<span class="brand-period">.</span></span>
-		</a>
-		<nav class="admin-nav" aria-label="Staff navigation">
-			<a href="/admin" aria-current="page">Products</a><a href="/admin/orders">Orders</a>
-		</nav>
-	</header>
+	<AdminHeader current="products" />
 
 	<main class="admin-main">
 		<div class="admin-intro">
 			<div>
-				<p class="admin-eyebrow">Inventory / Staff only</p>
 				<h1>Product desk</h1>
 				<p>Create drafts before adding details and publishing. Nothing here reserves stock.</p>
 			</div>
@@ -103,7 +96,6 @@
 		<div class="admin-columns">
 			<section class="admin-panel" aria-labelledby="create-title">
 				<div class="admin-panel-heading">
-					<span>01 / Add a piece</span>
 					<h2 id="create-title">New draft</h2>
 				</div>
 				<form onsubmit={createDraft}>
@@ -150,9 +142,7 @@
 							/>
 						</div>
 					</div>
-					<button type="submit" disabled={saving}
-						>{saving ? 'Creating…' : 'Create draft'} <span aria-hidden="true">↗</span></button
-					>
+					<button type="submit" disabled={saving}>{saving ? 'Creating…' : 'Create draft'}</button>
 					{#if message}<p class="admin-success" role="status">{message}</p>{/if}
 					{#if error}<p class="admin-error" role="alert">{error}</p>{/if}
 				</form>
@@ -161,7 +151,6 @@
 			<section class="admin-panel admin-list" aria-labelledby="list-title">
 				<div class="admin-panel-heading admin-list-heading">
 					<div>
-						<span>02 / Current inventory</span>
 						<h2 id="list-title">All pieces</h2>
 					</div>
 					<button type="button" onclick={loadProducts} disabled={loading}>Refresh</button>
@@ -175,13 +164,16 @@
 						{#each products as product (product.id)}
 							<li>
 								<div>
-									<strong>{product.name}</strong>
+									<strong
+										>{product.name}{#if product.featured}<span class="admin-chip">Home hero</span
+											>{/if}</strong
+									>
 									<small>{product.category} / {product.slug}</small>
 								</div>
 								<div class="admin-row-meta">
 									<span>৳{new Intl.NumberFormat('en-BD').format(product.price_bdt)}</span>
 									<small>{product.publication_state} · {product.stock_state}</small>
-									<a href="/admin/products/{product.id}" aria-label="Edit {product.name}">Edit ↗</a>
+									<a href="/admin/products/{product.id}" aria-label="Edit {product.name}">Edit</a>
 								</div>
 							</li>
 						{/each}
