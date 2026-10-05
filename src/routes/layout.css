@@ -1491,3 +1491,54 @@ h3 {
 		text-align: left;
 	}
 }
+
+/* Photo drop zone: the native file input stays reachable, the label is the visible target. */
+.admin-drop {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	min-height: 96px;
+	margin: 16px 0 0 !important;
+	padding: 14px;
+	border: 1.5px dashed rgb(4 36 26 / 0.3);
+	border-radius: 8px;
+	background: #fff;
+	font-weight: 400 !important;
+	cursor: pointer;
+	transition:
+		border-color 200ms var(--ease-out),
+		background-color 200ms var(--ease-out);
+}
+
+.admin-drop:hover {
+	border-color: var(--color-moss);
+	background: rgb(29 92 68 / 0.04);
+}
+
+.admin-drop img {
+	width: 64px;
+	aspect-ratio: 4 / 5;
+	border-radius: 4px;
+	object-fit: cover;
+}
+
+.admin-drop span {
+	display: grid;
+	gap: 4px;
+	color: var(--color-ink-soft);
+	font-size: 0.82rem;
+	line-height: 1.4;
+}
+
+.admin-drop strong {
+	color: var(--color-ink);
+	font-size: 0.95rem;
+}
+
+.admin-drop-input {
+	width: 100% !important;
+	min-height: 0 !important;
+	margin-top: 8px;
+	padding: 6px !important;
+	font-size: 0.82rem !important;
+}
