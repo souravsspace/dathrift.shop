@@ -17,11 +17,6 @@
 		{ value: 'outerwear', label: 'Outerwear' },
 		{ value: 'dresses', label: 'Dresses' }
 	];
-	const testImages: Record<string, string> = {
-		'test-olive-cotton-shirt': '/test-only/olive-shirt.webp',
-		'test-cream-midi-dress': '/test-only/cream-dress.webp',
-		'test-sold-denim-jacket': '/test-only/denim-jacket.webp'
-	};
 	const price = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 </script>
 
@@ -63,7 +58,7 @@
 			<div class="hero-visual">
 				{#if hasTestPieces}
 					<img
-						src="/test-only/cream-dress.webp"
+						src="/media/test-only/cream-dress.webp"
 						alt="Generated test-only visual of a cream midi dress on a hanger"
 						width="1024"
 						height="1280"
@@ -104,9 +99,9 @@
 						<article class="product-card">
 							<a href="/products/{product.slug}" aria-label="View {product.name}">
 								<div class="product-image" class:sold={product.stock_state !== 'available'}>
-									{#if testImages[product.slug]}
+									{#if product.photo_key}
 										<img
-											src={testImages[product.slug]}
+											src="/media/{product.photo_key}"
 											alt={product.photo_alt ?? product.name}
 											width="1024"
 											height="1280"
