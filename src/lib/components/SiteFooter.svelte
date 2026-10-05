@@ -48,14 +48,14 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 16px 28px;
-		font-size: 0.86rem;
+		font-size: var(--text-ui);
 	}
 
 	.footer-brand {
 		display: inline-flex;
 		align-items: center;
 		gap: 10px;
-		font-size: 1.2rem;
+		font-size: var(--text-lead);
 		font-stretch: 112%;
 		font-weight: 800;
 		text-decoration: none;
