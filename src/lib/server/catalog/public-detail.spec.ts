@@ -9,7 +9,8 @@ it('keeps drafts private and returns sold garment details with ordered photo des
 		name: 'TEST ONLY — Sold denim jacket',
 		stock_state: 'sold',
 		condition_notes: 'Wear at elbows; photographed.',
-		measurements: { chest_cm: 108, length_cm: 66 },
+		category_name: 'Outerwear',
+		measurements: { chest_in: 42.5, length_in: 26 },
 		photos: [{ key: 'test-only/denim-jacket.webp', alt: 'Generated test-only denim jacket visual' }]
 	});
 	db.close();
