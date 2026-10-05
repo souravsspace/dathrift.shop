@@ -278,7 +278,11 @@ a {
 	margin: 37px 0 34px;
 }
 
-.category-list button {
+.category-list button,
+.category-list a {
+	display: inline-flex;
+	align-items: center;
+	text-decoration: none;
 	min-height: 44px;
 	padding: 10px 17px;
 	border: 1px solid #bdc8bb;
@@ -292,7 +296,9 @@ a {
 }
 
 .category-list button:hover,
-.category-list button.active {
+.category-list button.active,
+.category-list a:hover,
+.category-list a[aria-current='page'] {
 	border-color: #103b2e;
 	background: #103b2e;
 	color: #f8f4ea;
@@ -901,7 +907,8 @@ a {
 		padding: 0 18px 8px;
 	}
 
-	.category-list button {
+	.category-list button,
+	.category-list a {
 		flex: 0 0 auto;
 	}
 
@@ -1623,4 +1630,49 @@ a {
 	display: flex;
 	gap: 10px;
 	align-items: flex-start;
+}
+
+.browse-filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 14px;
+	margin: -14px 0 34px;
+	font-size: 0.78rem;
+}
+
+.browse-filters label {
+	font-weight: 600;
+}
+
+.browse-filters select {
+	min-height: 44px;
+	padding: 8px 32px 8px 12px;
+	border: 1px solid #bdc8bb;
+	border-radius: 0;
+	background-color: #fffdf7;
+	color: #153d32;
+	font: inherit;
+}
+
+.browse-check {
+	display: inline-flex;
+	gap: 8px;
+	align-items: center;
+	min-height: 44px;
+}
+
+.browse-check input {
+	accent-color: #123e30;
+}
+
+.browse-filters button {
+	min-height: 44px;
+	padding: 8px 18px;
+	border: 0;
+	background: #123e30;
+	color: #fffdf7;
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
 }
