@@ -84,6 +84,11 @@ h3 {
 	text-wrap: balance;
 }
 
+/* Swinging tags may briefly cross the viewport edge; clip without creating a scroll container. */
+main {
+	overflow-x: clip;
+}
+
 /* Page transitions: a quick crossfade, while shared garment photos morph between pages. */
 ::view-transition-old(root) {
 	animation: 160ms var(--ease-out) both page-out;
@@ -1361,8 +1366,9 @@ h3 {
 }
 
 .admin-row-meta a {
-	display: inline-block;
-	margin-top: 6px;
+	display: inline-flex;
+	align-items: center;
+	min-height: 32px;
 }
 
 .admin-chip {
@@ -1567,6 +1573,9 @@ h3 {
 
 .admin-row-meta .admin-stamps {
 	justify-content: flex-end;
+	/* Rotated stamps need room so they stay inside the ledger column and clear the Edit link. */
+	margin: 12px 0 14px;
+	padding: 0 8px 0 4px;
 }
 
 @media (max-width: 560px) {
