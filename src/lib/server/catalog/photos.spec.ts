@@ -30,6 +30,33 @@ it('rejects unsafe media and cleans R2 after a failed draft metadata write', asy
 	expect(remove).toHaveBeenCalledOnce();
 });
 
+it('accepts only WebP photos within the 3 MB upload limit', async () => {
+	const put = vi.fn(async () => ({}));
+	const bucket = { put, delete: vi.fn(async () => undefined) };
+	const { db } = localDatabase();
+	const jpeg = new Uint8Array(16).fill(0);
+	jpeg.set([0xff, 0xd8, 0xff]);
+	const png = new Uint8Array(16).fill(0);
+	png.set([137, 80, 78, 71, 13, 10, 26, 10]);
+	const oversized = new Uint8Array(3 * 1024 * 1024 + 1);
+	oversized.set(webp);
+	for (const [bytes, contentType] of [
+		[jpeg, 'image/jpeg'],
+		[png, 'image/png'],
+		[webp, 'image/jpeg'],
+		[oversized, 'image/webp']
+	] as const)
+		await expect(
+			addProductPhoto(db, bucket, 'test-draft', {
+				bytes,
+				contentType,
+				position: 2,
+				altText: 'TEST ONLY garment'
+			})
+		).rejects.toThrow('Invalid photo');
+	expect(put).not.toHaveBeenCalled();
+});
+
 it('stores validated WebP bytes and ordered metadata for a draft', async () => {
 	const put = vi.fn(async () => ({}));
 	const remove = vi.fn(async () => undefined);
