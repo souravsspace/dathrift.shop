@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"db:local:setup": "CI=1 wrangler d1 migrations apply DB --local -c wrangler.jsonc && wrangler d1 execute DB --local -c wrangler.jsonc --file db/seed/local.sql -y && wrangler r2 object put dathrift-local-products/test-only/olive-shirt.webp --local -c wrangler.jsonc --content-type image/webp --file static/test-only/olive-shirt.webp -y && wrangler r2 object put dathrift-local-products/test-only/cream-dress.webp --local -c wrangler.jsonc --content-type image/webp --file static/test-only/cream-dress.webp -y && wrangler r2 object put dathrift-local-products/test-only/denim-jacket.webp --local -c wrangler.jsonc --content-type image/webp --file static/test-only/denim-jacket.webp -y",
+		"db:local:setup": "CI=1 wrangler d1 migrations apply DB --local -c wrangler.jsonc && wrangler d1 execute DB --local -c wrangler.jsonc --file db/seed/local.sql -y && wrangler r2 object put dathrift-local-products/test-only/olive-shirt.webp --local -c wrangler.jsonc --content-type image/webp --file db/seed/assets/olive-shirt.webp -y && wrangler r2 object put dathrift-local-products/test-only/cream-dress.webp --local -c wrangler.jsonc --content-type image/webp --file db/seed/assets/cream-dress.webp -y && wrangler r2 object put dathrift-local-products/test-only/denim-jacket.webp --local -c wrangler.jsonc --content-type image/webp --file db/seed/assets/denim-jacket.webp -y",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
