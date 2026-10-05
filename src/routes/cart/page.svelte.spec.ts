@@ -34,4 +34,7 @@ it('shows a fresh server quote and never offers checkout before shipping approva
 		.element(page.getByRole('complementary', { name: 'Bag summary' }).getByText('৳850'))
 		.toBeInTheDocument();
 	await expect.element(page.getByText('Checkout is not available yet')).toBeInTheDocument();
+	await expect
+		.element(page.getByRole('link', { name: 'Preview delivery total' }))
+		.toHaveAttribute('href', '/checkout');
 });
