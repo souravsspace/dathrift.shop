@@ -1,4 +1,4 @@
-CREATE TABLE phase1_markers (
+CREATE TABLE foundation_markers (
 	id TEXT PRIMARY KEY NOT NULL,
 	value TEXT NOT NULL,
 	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
