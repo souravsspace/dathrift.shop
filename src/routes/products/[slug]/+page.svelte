@@ -38,7 +38,7 @@
 </script>
 
 <svelte:head>
-	<title>{product.name} | dathrift</title>
+	<title>{product.name} | daThriftShop</title>
 	<meta name="description" content={product.description ?? product.name} />
 	<link rel="canonical" href="{SITE_ORIGIN}/products/{product.slug}" />
 	<meta property="og:type" content="product" />
