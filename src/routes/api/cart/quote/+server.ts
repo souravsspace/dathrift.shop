@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { databaseFrom } from '../../../../lib/server/db/client';
 import { normalizeCartIds } from '../../../../lib/server/cart/cart';
+import { bagLineDetails } from '../../../../lib/server/cart/bag';
 import { repriceCart } from '../../../../lib/server/cart/pricing';
 import type { RequestHandler } from './$types';
 
@@ -19,7 +20,15 @@ export const POST: RequestHandler = async ({ request }) => {
 	const db = databaseFrom(env);
 	if (!db) return new Response('Catalog unavailable', { status: 503, headers });
 	try {
-		return Response.json(await repriceCart(ids, db), { headers });
+		const quote = await repriceCart(ids, db);
+		const details = await bagLineDetails(
+			db,
+			quote.items.map((item) => item.id)
+		);
+		return Response.json(
+			{ ...quote, items: quote.items.map((item) => ({ ...item, ...details.get(item.id) })) },
+			{ headers }
+		);
 	} catch {
 		return new Response('Catalog unavailable', { status: 503, headers });
 	}
