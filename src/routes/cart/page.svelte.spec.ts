@@ -8,7 +8,7 @@ afterEach(() => {
 	window.localStorage.clear();
 });
 
-it('shows a fresh server quote and never offers checkout before shipping approval', async () => {
+it('shows a fresh server quote and links to checkout without holding stock', async () => {
 	window.localStorage.setItem('dathrift-cart', '["test-shirt"]');
 	vi.stubGlobal(
 		'fetch',
@@ -33,8 +33,8 @@ it('shows a fresh server quote and never offers checkout before shipping approva
 	await expect
 		.element(page.getByRole('complementary', { name: 'Bag summary' }).getByText('৳850'))
 		.toBeInTheDocument();
-	await expect.element(page.getByText('Checkout is not available yet')).toBeInTheDocument();
+	await expect.element(page.getByText('Nothing is held until you pay.')).toBeInTheDocument();
 	await expect
-		.element(page.getByRole('link', { name: 'Preview delivery total' }))
+		.element(page.getByRole('link', { name: 'Continue to checkout' }))
 		.toHaveAttribute('href', '/checkout');
 });
