@@ -166,3 +166,13 @@ export const fulfillments = sqliteTable('fulfillments', {
 		.notNull()
 		.default(sql`CURRENT_TIMESTAMP`)
 });
+
+export const slugRedirects = sqliteTable('slug_redirects', {
+	oldSlug: text('old_slug').primaryKey(),
+	productId: text('product_id')
+		.notNull()
+		.references(() => products.id),
+	createdAt: text('created_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`)
+});
