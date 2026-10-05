@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { localD1 } from '../testing/local-d1';
+import { localDatabase } from '../testing/local-d1';
 import { reserveCheckout } from './reserve';
 
 const address = {
@@ -11,7 +11,7 @@ const address = {
 };
 
 it('reserves two distinct available pieces with immutable D1 prices and one delivery fee', async () => {
-	const { db: d1, sqlite: db } = localD1();
+	const { db: d1, sqlite: db } = localDatabase();
 	const order = await reserveCheckout(d1, ['test-shirt', 'test-dress'], address, true);
 	expect(order).toMatchObject({
 		subtotal_bdt: 2300,
@@ -38,7 +38,7 @@ it('reserves two distinct available pieces with immutable D1 prices and one deli
 });
 
 it('rolls back all items and the order when any one-off unit is unavailable', async () => {
-	const { db: d1, sqlite: db } = localD1();
+	const { db: d1, sqlite: db } = localDatabase();
 	await expect(reserveCheckout(d1, ['test-dress', 'test-sold'], address, true)).rejects.toThrow();
 	expect(db.prepare("SELECT state FROM inventory WHERE product_id = 'test-dress'").get()).toEqual({
 		state: 'available'
@@ -48,7 +48,7 @@ it('rolls back all items and the order when any one-off unit is unavailable', as
 });
 
 it('returns the same held order when one checkout submission is retried', async () => {
-	const { db: d1, sqlite: db } = localD1();
+	const { db: d1, sqlite: db } = localDatabase();
 	const key = 'c0ffee00-0000-4000-8000-000000000001';
 	const first = await reserveCheckout(d1, ['test-dress'], address, true, key);
 	const retry = await reserveCheckout(d1, ['test-dress'], address, true, key);
