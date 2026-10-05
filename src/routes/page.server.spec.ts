@@ -30,11 +30,11 @@ it('applies query filters server-side and flags the page as a filtered variant',
 	const data = (await load(event('?category=tops&available=1'))) as {
 		products: { slug: string }[];
 		filtered: boolean;
-		facets: { categories: string[] };
+		facets: { categories: { slug: string; name: string }[] };
 	};
 	expect(data.products.map((product) => product.slug)).toEqual(['test-olive-cotton-shirt']);
 	expect(data.filtered).toBe(true);
-	expect(data.facets.categories).toContain('outerwear');
+	expect(data.facets.categories).toContainEqual({ slug: 'outerwear', name: 'Outerwear' });
 });
 
 it('loads the owner-featured hero piece for the home page', async () => {
