@@ -18,3 +18,9 @@ export function addCartId(storage: CartStorage, id: string): string[] {
 	storage.setItem(key, JSON.stringify(ids));
 	return ids;
 }
+
+export function removeCartId(storage: CartStorage, id: string): string[] {
+	const ids = readCartIds(storage).filter((item) => item !== id);
+	storage.setItem(key, JSON.stringify(ids));
+	return ids;
+}
