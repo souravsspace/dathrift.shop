@@ -1,26 +1,26 @@
 {
 	"$schema": "./node_modules/wrangler/config-schema.json",
-	"name": "dathrift-phase1-preview",
-	"main": "src/phase1/entry.ts",
+	"name": "dathrift-dev-foundation",
+	"main": "src/foundation/entry.ts",
 	"compatibility_date": "2026-10-04",
 	"workers_dev": false,
 	"preview_urls": false,
 	"vars": {
-		"ALLOWED_HOST": "dathrift-phase1-preview.souravsspace.workers.dev",
+		"ALLOWED_HOST": "dathrift-dev-foundation.souravsspace.workers.dev",
 		"ACCOUNT_ID": "ec8d4a8a8415976daf6f8479a89aa529",
-		"DATABASE_ID": "15af6bbd-631f-48e5-80f8-de382d626b50"
+		"DATABASE_ID": "00000000-0000-0000-0000-000000000000"
 	},
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "dathrift-phase1-primary-test",
-			"database_id": "15af6bbd-631f-48e5-80f8-de382d626b50"
+			"database_name": "dathrift-dev-primary",
+			"database_id": "00000000-0000-0000-0000-000000000000"
 		}
 	],
 	"r2_buckets": [
 		{
 			"binding": "BACKUP_BUCKET",
-			"bucket_name": "dathrift-phase1-d1-backups-test"
+			"bucket_name": "dathrift-dev-d1-backups"
 		}
 	],
 	"send_email": [{ "name": "EMAIL" }],
@@ -29,9 +29,9 @@
 	},
 	"workflows": [
 		{
-			"name": "dathrift-phase1-d1-backup",
+			"name": "dathrift-dev-d1-backup",
 			"binding": "BACKUP_WORKFLOW",
-			"class_name": "Phase1BackupWorkflow",
+			"class_name": "D1BackupWorkflow",
 			"schedules": ["*/30 * * * *"]
 		}
 	]
