@@ -1,10 +1,12 @@
 import { expect, it } from 'vitest';
 import { publicationErrors } from './publication';
 
+const photo = { r2_key: 'test-only/top.jpg', alt_text: 'Front of test-only top' };
+
 it('refuses publication without honest garment details and a described photo', () => {
 	const product = {
 		name: 'Test-only top',
-		category: 'tops',
+		measurement_set: 'top' as const,
 		price_bdt: 1200,
 		description: '',
 		condition_notes: '',
@@ -21,33 +23,61 @@ it('refuses publication without honest garment details and a described photo', (
 		'fit_note',
 		'photos'
 	]);
+	expect(publicationErrors({ ...product, measurement_set: null }, [])).toContain('category');
 });
 
-it('requires category-specific centimeter measurements before publishing', () => {
+it('requires the category measurement set in half inches before publishing', () => {
 	const product = {
 		name: 'Test-only top',
-		category: 'tops',
+		measurement_set: 'top' as const,
 		price_bdt: 1200,
 		description: 'Cotton top used only in tests',
 		condition_notes: 'Small mark on left cuff',
 		size_label: 'M',
-		measurements_json: '{"chest_cm":52}',
+		measurements_json: '{"chest_in":20.5}',
 		fit_note: 'Fits relaxed'
 	};
-	const photos = [{ r2_key: 'test-only/top.jpg', alt_text: 'Front of test-only top' }];
 
-	expect(publicationErrors(product, photos)).toEqual(['measurements_json']);
+	expect(publicationErrors(product, [photo])).toEqual(['measurements_json']);
 	expect(
-		publicationErrors({ ...product, measurements_json: '{"chest_cm":52,"length_cm":68}' }, photos)
+		publicationErrors({ ...product, measurements_json: '{"chest_in":20.5,"length_in":27}' }, [
+			photo
+		])
 	).toEqual([]);
+	expect(
+		publicationErrors({ ...product, measurements_json: '{"chest_in":20.3,"length_in":27}' }, [
+			photo
+		])
+	).toEqual(['measurements_json']);
+	expect(
+		publicationErrors({ ...product, measurements_json: '{"chest_cm":52,"length_cm":68}' }, [photo])
+	).toEqual(['measurements_json']);
 	expect(
 		publicationErrors(
 			{
 				...product,
-				category: 'bottoms',
-				measurements_json: '{"waist_cm":38,"inseam_cm":74}'
+				measurement_set: 'bottom',
+				measurements_json: '{"waist_in":30,"inseam_in":29.5}'
 			},
-			photos
+			[photo]
 		)
 	).toEqual([]);
+	expect(
+		publicationErrors({ ...product, measurement_set: 'none', measurements_json: null }, [photo])
+	).toEqual([]);
+});
+
+it('accepts one to ten described photos', () => {
+	const product = {
+		name: 'Test-only bag',
+		measurement_set: 'none' as const,
+		price_bdt: 900,
+		description: 'Leather bag used only in tests',
+		condition_notes: 'Scuff on base',
+		size_label: 'One size',
+		measurements_json: null,
+		fit_note: 'Shoulder strap'
+	};
+	expect(publicationErrors(product, Array(10).fill(photo))).toEqual([]);
+	expect(publicationErrors(product, Array(11).fill(photo))).toEqual(['photos']);
 });
