@@ -11,9 +11,9 @@ it('shows the approved archive direction with honest local fixture and sold labe
 					id: 'test-shirt',
 					slug: 'test-olive-cotton-shirt',
 					name: 'TEST ONLY — Olive cotton shirt',
-					category: 'tops',
+					category: 'tops' as const,
 					price_bdt: 850,
-					stock_state: 'available',
+					stock_state: 'available' as const,
 					size_label: 'L',
 					condition_notes: 'Light fading at cuffs',
 					photo_key: 'test-only/olive-shirt.webp',
@@ -23,15 +23,18 @@ it('shows the approved archive direction with honest local fixture and sold labe
 					id: 'test-sold',
 					slug: 'test-sold-denim-jacket',
 					name: 'TEST ONLY — Sold denim jacket',
-					category: 'outerwear',
+					category: 'outerwear' as const,
 					price_bdt: 1750,
-					stock_state: 'sold',
+					stock_state: 'sold' as const,
 					size_label: 'M',
 					condition_notes: 'Wear at elbows',
 					photo_key: 'test-only/denim-jacket.webp',
 					photo_alt: 'Generated test-only denim jacket'
 				}
-			]
+			],
+			facets: { categories: ['outerwear', 'tops'], sizes: ['L', 'M'] },
+			filters: {},
+			filtered: false
 		}
 	});
 	await expect.element(page.getByRole('heading', { level: 1 })).toHaveTextContent('One of a kind');
