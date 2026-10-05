@@ -1,5 +1,8 @@
 import { expect, it, vi } from 'vitest';
+import { localD1 } from '../lib/server/testing/local-d1';
 import worker from './preview';
+
+const binding = (value: unknown) => value as Parameters<typeof worker.fetch>[1]['DB'];
 
 it('denies anonymous marker writes before touching D1', async () => {
 	const prepare = vi.fn();
@@ -9,7 +12,7 @@ it('denies anonymous marker writes before touching D1', async () => {
 			body: JSON.stringify({ id: 'probe-1', value: 'persisted' })
 		}),
 		{
-			DB: { prepare },
+			DB: binding({ prepare }),
 			ALLOWED_HOST: 'foundation-dev.dathrift.shop',
 			STAFF_EMAILS: 'owner@example.com'
 		},
@@ -21,23 +24,9 @@ it('denies anonymous marker writes before touching D1', async () => {
 });
 
 it('writes and reads a marker for an allowlisted Access identity', async () => {
-	const markers = new Map<string, string>();
-	const db = {
-		prepare: (query: string) => ({
-			bind: (id: string, value?: string) => ({
-				run: async () => {
-					if (!query.startsWith('INSERT')) throw new Error('Unexpected write');
-					markers.set(id, value ?? '');
-				},
-				first: async () => {
-					if (!query.startsWith('SELECT')) throw new Error('Unexpected read');
-					return markers.has(id) ? { value: markers.get(id)! } : null;
-				}
-			})
-		})
-	};
+	const db = localD1({ seed: false, migrations: 'db/foundation' }).db;
 	const env = {
-		DB: db,
+		DB: binding(db),
 		ALLOWED_HOST: 'foundation-dev.dathrift.shop',
 		STAFF_EMAILS: 'owner@example.com'
 	};
@@ -69,7 +58,7 @@ it('denies writes when the staff allowlist secret is missing', async () => {
 			body: JSON.stringify({ id: 'probe-2', value: 'must-not-write' })
 		}),
 		{
-			DB: { prepare },
+			DB: binding({ prepare }),
 			ALLOWED_HOST: 'foundation-dev.dathrift.shop',
 			STAFF_EMAILS: undefined
 		},
@@ -83,7 +72,7 @@ it('denies writes when the staff allowlist secret is missing', async () => {
 it('denies an alternate hostname and a non-allowlisted Access identity', async () => {
 	const prepare = vi.fn();
 	const env = {
-		DB: { prepare },
+		DB: binding({ prepare }),
 		ALLOWED_HOST: 'foundation-dev.dathrift.shop',
 		STAFF_EMAILS: 'owner@example.com'
 	};
