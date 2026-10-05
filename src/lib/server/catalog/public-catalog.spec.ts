@@ -52,8 +52,8 @@ it('lists only published stock with first-photo metadata and durable sold state'
 	]);
 	expect(items.find((item) => item.slug === 'test-sold-denim-jacket')).toMatchObject({
 		stock_state: 'sold',
-		photo_key: 'test-only/sold-denim-jacket.svg',
-		photo_alt: 'TEST ONLY: denim jacket illustration'
+		photo_key: 'test-only/denim-jacket.webp',
+		photo_alt: 'Generated test-only denim jacket visual'
 	});
 	expect(items.every((item) => !('measurements_json' in item))).toBe(true);
 	db.close();
