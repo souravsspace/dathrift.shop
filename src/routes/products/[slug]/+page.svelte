@@ -87,7 +87,13 @@
 							aria-label="Show photo {index + 1}: {photo.alt}"
 							aria-pressed={index === activePhoto}
 							onclick={() => (activePhoto = index)}
-							><img src="/media/{photo.key}" alt="" width="96" height="120" loading="lazy" /></button
+							><img
+								src="/media/{photo.key}"
+								alt=""
+								width="96"
+								height="120"
+								loading="lazy"
+							/></button
 						>
 					{/each}
 				</div>
@@ -103,7 +109,9 @@
 				<p class="tag-price">{formatBdt(product.price_bdt)}</p>
 				<h1>{product.name}</h1>
 				{#if product.stock_state === 'sold'}
-					<p class="detail-status"><StatusStamp kind="sold" /> This piece has found its next home.</p>
+					<p class="detail-status">
+						<StatusStamp kind="sold" /> This piece has found its next home.
+					</p>
 				{:else if product.stock_state === 'reserved'}
 					<p class="detail-status"><StatusStamp kind="reserved" /> Currently unavailable</p>
 				{:else if inBag}
