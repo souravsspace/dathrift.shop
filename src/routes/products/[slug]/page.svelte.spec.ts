@@ -8,6 +8,7 @@ const product = {
 	slug: 'test-sold-denim-jacket',
 	name: 'TEST ONLY — Sold denim jacket',
 	category: 'outerwear',
+	category_name: 'Outerwear',
 	brand: null,
 	price_bdt: 1750,
 	stock_state: 'sold' as const,
@@ -15,7 +16,7 @@ const product = {
 	condition_notes: 'Wear at elbows; photographed.',
 	size_label: 'M',
 	fit_note: 'Regular fit.',
-	measurements: { chest_cm: 108, length_cm: 66 },
+	measurements: { chest_in: 42.5, length_in: 26 },
 	photos: [{ key: 'test-only/denim-jacket.webp', alt: 'Generated test-only denim jacket' }]
 };
 
@@ -23,7 +24,7 @@ it('keeps sold piece readable with condition and measurements but no buy action'
 	render(ProductPage, { data: { product } });
 	await expect.element(page.getByRole('heading', { level: 1 })).toHaveTextContent(product.name);
 	await expect.element(page.getByText('Wear at elbows; photographed.')).toBeInTheDocument();
-	await expect.element(page.getByText('108 cm')).toBeInTheDocument();
+	await expect.element(page.getByText('42.5 in')).toBeInTheDocument();
 	await expect
 		.element(page.getByRole('img', { name: 'Generated test-only denim jacket' }))
 		.toHaveAttribute('src', '/media/test-only/denim-jacket.webp');
