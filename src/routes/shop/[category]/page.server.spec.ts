@@ -18,6 +18,7 @@ it('renders real category pages and 404s unknown or empty categories', async () 
 	(env as { DB?: unknown }).DB = localD1().db;
 	expect(await load(event('tops'))).toMatchObject({
 		category: 'tops',
+		categoryName: 'Tops',
 		filtered: false,
 		products: [{ slug: 'test-olive-cotton-shirt' }]
 	});
