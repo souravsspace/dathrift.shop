@@ -1,0 +1,13 @@
+{
+	"name": "dathrift",
+	"short_name": "dathrift",
+	"description": "One-of-a-kind pre-loved clothing with honest condition notes and garment measurements.",
+	"start_url": "/",
+	"display": "standalone",
+	"background_color": "#04241a",
+	"theme_color": "#04241a",
+	"icons": [
+		{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+		{ "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+	]
+}
