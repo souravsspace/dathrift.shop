@@ -1,7 +1,8 @@
 import { localDatabase } from '../testing/local-d1';
 import { expect, it } from 'vitest';
+import { createCategory } from './categories';
 import {
-	correctPublishedSlug,
+	changeSlug,
 	createDraft,
 	getStaffProduct,
 	listStaffProducts,
@@ -28,8 +29,26 @@ it('creates one private draft and available unit atomically, rejecting invalid i
 			)
 			.all()
 	).toEqual([{ slug: input.slug, publication_state: 'draft', state: 'available' }]);
-	await expect(createDraft(d1, input)).rejects.toThrow();
+	await expect(createDraft(d1, input)).rejects.toThrow('Slug unavailable');
 	expect(db.prepare('SELECT COUNT(*) AS n FROM inventory').get()).toEqual({ n: 1 });
+	const saree = { ...input, slug: 'test-red-saree', category: 'sarees' };
+	await expect(createDraft(d1, saree)).rejects.toThrow('Unknown category');
+	await createCategory(d1, { name: 'Sarees', measurement_set: 'none' });
+	expect(await createDraft(d1, saree)).toMatchObject({ slug: 'test-red-saree' });
+	db.close();
+});
+
+it('publishes a piece whose category needs no measurements', async () => {
+	const { db: d1, sqlite: db } = localDatabase({ seed: false });
+	await createCategory(d1, { name: 'Bags', measurement_set: 'none' });
+	db.exec(`INSERT INTO products (id, slug, name, category, price_bdt, description, condition_notes,
+		size_label, fit_note) VALUES ('b', 'test-bag', 'TEST ONLY — Bag', 'bags', 700, 'Local fixture',
+		'Scuffed base', 'One size', 'Long strap')`);
+	db.exec("INSERT INTO inventory (product_id) VALUES ('b')");
+	db.exec(
+		"INSERT INTO product_photos (product_id, position, r2_key, alt_text) VALUES ('b', 1, 'test-only/bag.webp', 'TEST ONLY bag')"
+	);
+	expect(await publishProduct(d1, 'b')).toEqual({ id: 'b', publication_state: 'published' });
 	db.close();
 });
 
@@ -41,8 +60,12 @@ it('publishes only a complete photographed draft and can unpublish an available 
 	db.exec("INSERT INTO inventory (product_id) VALUES ('a')");
 	await expect(publishProduct(d1, 'a')).rejects.toThrow('Incomplete product');
 	db.exec(`UPDATE products SET description = 'Local fixture', condition_notes = 'Small mark',
-		size_label = 'S', measurements_json = '{"chest_cm":90,"length_cm":60}', fit_note = 'Regular'
+		size_label = 'S', measurements_json = '{"chest_in":35.2,"length_in":23.5}', fit_note = 'Regular'
 		WHERE id = 'a'`);
+	await expect(publishProduct(d1, 'a')).rejects.toThrow('Incomplete product');
+	db.exec(
+		`UPDATE products SET measurements_json = '{"chest_in":35.5,"length_in":23.5}' WHERE id = 'a'`
+	);
 	await expect(publishProduct(d1, 'a')).rejects.toThrow('Incomplete product');
 	db.exec(
 		"INSERT INTO product_photos (product_id, position, r2_key, alt_text) VALUES ('a', 1, 'test-only/top.webp', 'TEST ONLY top')"
@@ -68,7 +91,7 @@ it('updates a draft garment without changing its stable slug or publication stat
 		description: 'A local fixture.',
 		condition_notes: 'Small mark at hem.',
 		size_label: 'M',
-		measurements_json: '{"waist_cm":78,"inseam_cm":70}',
+		measurements_json: '{"waist_in":30.5,"inseam_in":27.5}',
 		fit_note: 'Relaxed through the leg.'
 	};
 	await expect(updateDraftDetails(d1, 'test-draft', { ...details, price_bdt: 0 })).rejects.toThrow(
@@ -103,7 +126,9 @@ it('lists every staff piece and reads one with ordered private photo metadata', 
 	expect(await getStaffProduct(db, 'test-draft')).toMatchObject({
 		id: 'test-draft',
 		slug: 'test-unpublished-skirt',
-		measurements_json: '{"waist_cm":76,"inseam_cm":67}',
+		category_name: 'Bottoms',
+		measurement_set: 'bottom',
+		measurements_json: '{"waist_in":30,"inseam_in":26.5}',
 		stock_state: 'available',
 		photos: [
 			{
@@ -125,23 +150,25 @@ it('tells staff which piece leads the home page', async () => {
 	expect(await getStaffProduct(db, 'test-shirt')).toMatchObject({ featured: false });
 });
 
-it('corrects a published slug once while keeping the old URL as a redirect', async () => {
+it('changes a draft slug freely and corrects a published one while keeping a redirect', async () => {
 	const { db, sqlite } = localDatabase();
-	await expect(correctPublishedSlug(db, 'test-shirt', 'Bad Slug')).rejects.toThrow('Invalid slug');
-	await expect(correctPublishedSlug(db, 'test-draft', 'new-skirt')).rejects.toThrow(
-		'Product not published'
-	);
-	expect(await correctPublishedSlug(db, 'test-shirt', 'test-olive-shirt')).toEqual({
+	await expect(changeSlug(db, 'test-shirt', 'Bad Slug')).rejects.toThrow('Invalid slug');
+	await expect(changeSlug(db, 'missing', 'new-skirt')).rejects.toThrow('Product not found');
+	expect(await changeSlug(db, 'test-draft', 'test-new-skirt')).toEqual({
+		id: 'test-draft',
+		slug: 'test-new-skirt'
+	});
+	expect(await changeSlug(db, 'test-shirt', 'test-olive-shirt')).toEqual({
 		id: 'test-shirt',
 		slug: 'test-olive-shirt'
 	});
 	expect(sqlite.prepare('SELECT old_slug, product_id FROM slug_redirects').all()).toEqual([
 		{ old_slug: 'test-olive-cotton-shirt', product_id: 'test-shirt' }
 	]);
-	await expect(correctPublishedSlug(db, 'test-dress', 'test-olive-cotton-shirt')).rejects.toThrow(
+	await expect(changeSlug(db, 'test-dress', 'test-olive-cotton-shirt')).rejects.toThrow(
 		'Slug unavailable'
 	);
-	await expect(correctPublishedSlug(db, 'test-dress', 'test-olive-shirt')).rejects.toThrow(
+	await expect(changeSlug(db, 'test-dress', 'test-olive-shirt')).rejects.toThrow(
 		'Slug unavailable'
 	);
 });
