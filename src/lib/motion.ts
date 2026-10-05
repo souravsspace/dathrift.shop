@@ -32,32 +32,29 @@ export const reveal: Attachment<HTMLElement> = (node) => {
 	};
 };
 
-/** A tag swings on its eyelet when a pointer arrives, then settles under spring damping. */
+/**
+ * Attached to the still hanger: when a mouse or pen arrives, its tag (.swinger) swings once away
+ * from the pointer like a pendulum and settles. Pointer moves and re-entries during the swing
+ * are ignored, so a restless cursor can never restart or jolt it; touch taps straight through.
+ */
 export const swing: Attachment<HTMLElement> = (node) => {
 	if (calm()) return;
-	let lastX = 0;
+	const tag = node.querySelector<HTMLElement>('.swinger') ?? node;
+	let swinging = false;
 	const enter = (event: PointerEvent) => {
+		if (swinging || event.pointerType === 'touch') return;
 		const rect = node.getBoundingClientRect();
-		const from = event.clientX < rect.left + rect.width / 2 ? 1 : -1;
-		lastX = event.clientX;
-		animate(
-			node,
-			{ rotate: [from * 7, 0] },
-			{ type: 'spring', stiffness: 160, damping: 5, mass: 0.8 }
+		const away = event.clientX < rect.left + rect.width / 2 ? 1 : -1;
+		swinging = true;
+		const controls = animate(
+			tag,
+			{ rotate: [0, away * 5, away * -2.6, away * 1.2, away * -0.4, 0] },
+			{ duration: 1.3, times: [0, 0.18, 0.42, 0.64, 0.84, 1], ease: 'easeInOut' }
 		);
-	};
-	const move = (event: PointerEvent) => {
-		const push = Math.max(-4, Math.min(4, (event.clientX - lastX) * 0.4));
-		lastX = event.clientX;
-		if (Math.abs(push) > 1.5)
-			animate(node, { rotate: [push, 0] }, { type: 'spring', stiffness: 160, damping: 6 });
+		void controls.finished.finally(() => (swinging = false));
 	};
 	node.addEventListener('pointerenter', enter);
-	node.addEventListener('pointermove', move);
-	return () => {
-		node.removeEventListener('pointerenter', enter);
-		node.removeEventListener('pointermove', move);
-	};
+	return () => node.removeEventListener('pointerenter', enter);
 };
 
 /** The hero tag drops onto its thread once and swings to rest. */
