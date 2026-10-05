@@ -90,7 +90,8 @@
 	}
 
 	.hang-hero .tag {
-		padding: calc(var(--hole-top) + var(--hole) + 22px) clamp(22px, 3vw, 34px) clamp(24px, 3vw, 34px);
+		padding: calc(var(--hole-top) + var(--hole) + 22px) clamp(22px, 3vw, 34px)
+			clamp(24px, 3vw, 34px);
 	}
 
 	.hang-detail {
@@ -104,7 +105,8 @@
 	}
 
 	.hang-detail .tag {
-		padding: calc(var(--hole-top) + var(--hole) + 22px) clamp(20px, 3.4vw, 40px) clamp(24px, 3.4vw, 40px);
+		padding: calc(var(--hole-top) + var(--hole) + 22px) clamp(20px, 3.4vw, 40px)
+			clamp(24px, 3.4vw, 40px);
 	}
 
 	@media (max-width: 600px) {
