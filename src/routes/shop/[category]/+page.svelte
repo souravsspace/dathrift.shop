@@ -1,6 +1,8 @@
 <script lang="ts">
 	import BrowseFilters from '../../../lib/components/BrowseFilters.svelte';
 	import ProductGrid from '../../../lib/components/ProductGrid.svelte';
+	import SiteFooter from '../../../lib/components/SiteFooter.svelte';
+	import SiteHeader from '../../../lib/components/SiteHeader.svelte';
 	import { SITE_ORIGIN, categoryLabels } from '../../../lib/site';
 	import type { PageData } from './$types';
 
@@ -20,39 +22,21 @@
 	{:else if data.filtered}<meta name="robots" content="noindex, follow" />{/if}
 </svelte:head>
 
-<div class="storefront">
-	{#if hasTestPieces}<div class="preview-strip">Local preview · test pieces only</div>{/if}
-	<header class="site-header">
-		<a class="brand" href="/" aria-label="dathrift home">
-			<img src="/brand/dathrift-logo.png" alt="" width="52" height="52" />
-			<span>dathrift<span class="brand-period">.</span></span>
-		</a>
-		<nav aria-label="Main navigation">
-			<a href="/#shop">Shop the edit</a><a href="/cart">Bag</a>
-		</nav>
-	</header>
-	<main id="main-content">
-		<section class="shop-section" aria-labelledby="category-title">
-			<div class="section-heading">
-				<div>
-					<h1 id="category-title">{label}</h1>
-					<p>Individual finds. Honest details. Just one of each.</p>
-				</div>
-				<span>{data.products.length} {data.products.length === 1 ? 'piece' : 'pieces'}</span>
-			</div>
-			<BrowseFilters
-				action="/shop/{data.category}"
-				categories={data.facets.categories}
-				sizes={data.facets.sizes}
-				filters={data.filters}
-				current={data.category}
-			/>
-			<ProductGrid products={data.products} empty="No pieces match these filters." />
-		</section>
-	</main>
-	<footer class="site-footer">
-		<span>dathrift.</span><span>One piece. One next chapter.</span><a href="#main-content"
-			>Back to top ↑</a
-		>
-	</footer>
-</div>
+<SiteHeader preview={hasTestPieces} current="shop" />
+
+<main id="main-content" class="rack-section">
+	<div class="rack-heading">
+		<h1 id="category-title">{label}</h1>
+		<p>{data.products.length} {data.products.length === 1 ? 'piece' : 'pieces'}, one of each</p>
+	</div>
+	<BrowseFilters
+		action="/shop/{data.category}"
+		categories={data.facets.categories}
+		sizes={data.facets.sizes}
+		filters={data.filters}
+		current={data.category}
+	/>
+	<ProductGrid products={data.products} empty="No pieces match these filters." />
+</main>
+
+<SiteFooter />
