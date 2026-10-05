@@ -1704,3 +1704,9 @@ a {
 	aspect-ratio: 4 / 5;
 	object-fit: cover;
 }
+
+.admin-slug-form {
+	margin-top: 26px;
+	padding-top: 20px;
+	border-top: 1px solid #d9d8cb;
+}
