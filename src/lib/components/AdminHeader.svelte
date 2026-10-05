@@ -3,9 +3,9 @@
 </script>
 
 <header class="admin-header">
-	<a class="admin-brand" href="/" aria-label="dathrift home">
+	<a class="admin-brand" href="/" aria-label="daThriftShop home">
 		<img src="/brand/dathrift-logo.webp" alt="" width="32" height="32" />
-		<span>dathrift</span>
+		<span>daThriftShop</span>
 		<small>Staff</small>
 	</a>
 	<nav class="admin-nav" aria-label="Staff navigation">
