@@ -24,3 +24,6 @@ export function removeCartId(storage: CartStorage, id: string): string[] {
 	storage.setItem(key, JSON.stringify(ids));
 	return ids;
 }
+
+// Fired on window after the bag changes so the header count can follow without a reload.
+export const BAG_EVENT = 'dathrift:bag';
