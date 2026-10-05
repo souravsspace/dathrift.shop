@@ -1,6 +1,8 @@
 # Phase 4 — atomic one-off inventory reservation
 
-**Status:** not started. Highest-risk state transition; requires real D1 concurrency evidence before payment or live use.
+**Status:** local code complete; exit gate open until the race is repeated on remote D1.
+
+Local evidence (2026-10-06): migration `0008_order_lifecycle.sql` records which order holds each unit (`inventory.reserved_order_id`) and guards every order status transition with triggers; paid sells only that order's held units, close/expiry releases only its own holds, and a late provider success after release goes to `payment_review` without selling twice. Retried submissions reuse one order through `checkout_key`. Tests prove one winner among eight concurrent checkouts and an external sale racing a checkout, on SQLite and on the local workerd D1 engine (`workerd-race.spec.ts`). Expiry runs when checkout starts and when a pending status page is read; there is no scheduled sweep yet.
 
 ## Invariant and data lifecycle
 
