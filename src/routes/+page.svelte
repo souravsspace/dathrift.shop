@@ -1,11 +1,18 @@
 <script lang="ts">
 	import BrowseFilters from '../lib/components/BrowseFilters.svelte';
 	import ProductGrid from '../lib/components/ProductGrid.svelte';
-	import { SITE_ORIGIN } from '../lib/site';
+	import SiteFooter from '../lib/components/SiteFooter.svelte';
+	import SiteHeader from '../lib/components/SiteHeader.svelte';
+	import SwingTag from '../lib/components/SwingTag.svelte';
+	import { hang } from '../lib/motion';
+	import { SITE_ORIGIN, categoryLabels, formatBdt } from '../lib/site';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-	let hasTestPieces = $derived(data.products.some((product) => product.slug.startsWith('test-')));
+	let hero = $derived(data.hero);
+	let hasTestPieces = $derived(
+		[...data.products, ...(hero ? [hero] : [])].some((product) => product.slug.startsWith('test-'))
+	);
 </script>
 
 <svelte:head>
@@ -23,89 +30,108 @@
 	{:else if data.filtered}<meta name="robots" content="noindex, follow" />{/if}
 </svelte:head>
 
-<div class="storefront">
-	{#if hasTestPieces}
-		<div class="preview-strip">Local preview · test pieces only</div>
-	{/if}
-	<header class="site-header">
-		<a class="brand" href="/" aria-label="dathrift home">
-			<img src="/brand/dathrift-logo.png" alt="" width="52" height="52" />
-			<span>dathrift<span class="brand-period">.</span></span>
-		</a>
-		<nav aria-label="Main navigation">
-			<a href="#shop">Shop the edit</a>
-			<a href="#our-approach">Our approach</a>
-		</nav>
-	</header>
+<SiteHeader preview={hasTestPieces} current="shop" />
 
-	<main id="main-content">
-		<section class="hero" aria-labelledby="hero-title">
-			<div class="hero-copy">
-				<h1 id="hero-title">One of a kind.<br /><em>Found again.</em></h1>
-				<p>
-					Pre-loved clothing, picked piece by piece. Every mark, measurement, and detail belongs to
-					its story.
-				</p>
-				<a class="hero-link" href="#shop">Explore the edit <span aria-hidden="true">↗</span></a>
-				<span class="hero-index">Clothing with a past. Room for what’s next.</span>
+<main id="main-content">
+	<section class="hero" aria-labelledby="hero-title">
+		<div class="hero-copy">
+			<h1 id="hero-title">Every piece here is <span>one of one.</span></h1>
+			<p>
+				Pre-loved clothing, each piece tagged with its real measurements and every flaw we found.
+				When it is gone, it is gone.
+			</p>
+			<div class="hero-actions">
+				<a class="button button-gold" href="#shop">Shop the rack</a>
+				{#if hero}<a
+						class="button button-line"
+						href="/products/{hero.slug}"
+						aria-label="See the {hero.name}">See this piece</a
+					>{/if}
 			</div>
-			<div class="hero-visual">
-				{#if hasTestPieces}
-					<img
-						src="/media/test-only/cream-dress.webp"
-						alt="Generated test-only visual of a cream midi dress on a hanger"
-						width="1024"
-						height="1280"
-						fetchpriority="high"
-					/>
-					<span class="image-note">TEST ONLY / LOCAL PREVIEW</span>
-				{:else}
-					<div class="hero-mark" aria-hidden="true">
-						<img src="/brand/dathrift-logo.png" alt="" width="320" height="320" />
-					</div>
-				{/if}
-			</div>
-		</section>
+		</div>
 
-		<section class="shop-section" id="shop" aria-labelledby="shop-title">
-			<div class="section-heading">
-				<div>
-					<h2 id="shop-title">The current edit</h2>
-					<p>Individual finds. Honest details. Just one of each.</p>
+		<div class="hero-piece">
+			{#if hero}
+				<a
+					class="hero-photo"
+					href="/products/{hero.slug}"
+					tabindex="-1"
+					style:view-transition-name="photo-{hero.slug}"
+				>
+					{#if hero.photo_key}
+						<img
+							src="/media/{hero.photo_key}"
+							alt={hero.photo_alt ?? hero.name}
+							width="1024"
+							height="1280"
+							fetchpriority="high"
+						/>
+					{/if}
+				</a>
+				<div class="hero-tag" {@attach hang}>
+					<SwingTag size="hero">
+						<p class="tag-meta">
+							{hero.featured ? 'Featured' : 'Just in'} · {categoryLabels[hero.category] ??
+								hero.category} · {hero.size_label ?? 'Size not listed'}
+						</p>
+						<p class="tag-price">{formatBdt(hero.price_bdt)}</p>
+						<p class="tag-name">{hero.name}</p>
+						<p class="tag-one">1 of 1</p>
+					</SwingTag>
 				</div>
-				<span>{data.products.length} {data.products.length === 1 ? 'piece' : 'pieces'}</span>
-			</div>
+				{#if hasTestPieces}<span class="test-note">Test only / local preview</span>{/if}
+			{:else}
+				<img class="hero-mark" src="/brand/dathrift-logo.webp" alt="" width="640" height="640" />
+			{/if}
+		</div>
+	</section>
 
-			<BrowseFilters
-				action="/"
-				categories={data.facets.categories}
-				sizes={data.facets.sizes}
-				filters={data.filters}
-			/>
+	<section class="rack-section" id="shop" aria-labelledby="shop-title">
+		<div class="rack-heading">
+			<h2 id="shop-title">The rack</h2>
+			<p>{data.products.length} {data.products.length === 1 ? 'piece' : 'pieces'}, one of each</p>
+		</div>
+		<BrowseFilters
+			action="/"
+			categories={data.facets.categories}
+			sizes={data.facets.sizes}
+			filters={data.filters}
+		/>
+		<ProductGrid
+			products={data.products}
+			empty={data.filtered
+				? 'No pieces match these filters.'
+				: 'The rack is empty right now. Check back soon.'}
+		/>
+	</section>
 
-			<ProductGrid
-				products={data.products}
-				empty={data.filtered
-					? 'No pieces match these filters.'
-					: 'No pieces in the edit right now. Check back soon.'}
-			/>
-		</section>
+	<section class="read-tag" aria-labelledby="read-tag-title">
+		<div class="read-tag-copy">
+			<h2 id="read-tag-title">Read the tag before it’s yours.</h2>
+			<p>
+				A second life deserves a clear first look. Every tag on the rack carries the same four
+				facts, written before the piece goes live.
+			</p>
+		</div>
+		<ol class="tag-legend">
+			<li>
+				<strong>Price</strong>
+				<span>What the piece costs. Delivery is added once, after your address is checked.</span>
+			</li>
+			<li>
+				<strong>Measurements</strong>
+				<span>Measured on the garment in centimetres, not on a body or guessed from the label.</span>
+			</li>
+			<li>
+				<strong>Condition</strong>
+				<span>Every mark, fade and repair we found, written down and photographed.</span>
+			</li>
+			<li>
+				<strong>One of one</strong>
+				<span>No restocks. A sold piece keeps its page, stamped sold.</span>
+			</li>
+		</ol>
+	</section>
+</main>
 
-		<section class="approach" id="our-approach" aria-labelledby="approach-title">
-			<div class="approach-symbol" aria-hidden="true">✳</div>
-			<div>
-				<h2 id="approach-title">Know the piece<br /><em>before it’s yours.</em></h2>
-				<p>
-					A second life deserves a clear first look. Each listing describes its condition, fit, and
-					garment measurements, so you can decide with care.
-				</p>
-			</div>
-		</section>
-	</main>
-
-	<footer class="site-footer">
-		<span>dathrift.</span>
-		<span>One piece. One next chapter.</span>
-		<a href="#main-content">Back to top ↑</a>
-	</footer>
-</div>
+<SiteFooter />
