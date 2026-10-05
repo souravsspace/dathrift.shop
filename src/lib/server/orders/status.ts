@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
-import { deliveryAreas, fulfillments, orderItems, orders, products } from '../db/schema';
+import { deliveryAreas, fulfillments, orderItems, orders, payments, products } from '../db/schema';
 import type { OrderStatus } from './lifecycle';
 
 export type OrderSummary = {
@@ -81,4 +81,14 @@ export async function orderForStatusToken(
 			: null,
 		items
 	};
+}
+
+export async function statusTokenForPayment(db: Database, paymentId: string) {
+	const row = await db
+		.select({ token: orders.statusToken })
+		.from(payments)
+		.innerJoin(orders, eq(orders.id, payments.orderId))
+		.where(eq(payments.paymentId, paymentId))
+		.get();
+	return row?.token ?? null;
 }
