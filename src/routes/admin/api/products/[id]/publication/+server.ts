@@ -1,4 +1,5 @@
 import { env } from 'cloudflare:workers';
+import { databaseFrom } from '../../../../../../lib/server/db/client';
 import { publishProduct, unpublishProduct } from '../../../../../../lib/server/catalog/admin';
 import { staffActorForRequest } from '../../../../../../lib/server/staff-auth';
 import type { RequestHandler } from './$types';
@@ -20,7 +21,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
 	}
 	if (state !== 'published' && state !== 'draft')
 		return new Response('Invalid state', { status: 400, headers });
-	const db = (env as { DB?: Parameters<typeof publishProduct>[0] }).DB;
+	const db = databaseFrom(env);
 	if (!db) return new Response('Catalog unavailable', { status: 503, headers });
 	try {
 		return Response.json(
