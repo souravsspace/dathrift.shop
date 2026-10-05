@@ -37,7 +37,7 @@
 </script>
 
 <svelte:head>
-	<title>Order {order.reference} | dathrift</title>
+	<title>Order {order.reference} | daThriftShop</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
