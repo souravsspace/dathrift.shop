@@ -306,7 +306,7 @@ Confident, round, and few.
 
 ### Swing Tag (signature)
 
-The ivory die-cut tag described in Shapes, in three sizes (card, detail, hero). Contents, top to bottom: mono meta line (category · size), condensed price, product name, then on the product page dashed-rule sections for Condition, Measurements (mono, tabular, "measured on the garment"), Fit, and the buy action or status stamp. Tags hang straight at rest. On pointer arrival a tag swings from its eyelet on a spring (stiffness 160, damping 5, starting ±7°) and small pointer moves nudge it up to ±4°. The hero tag drops in once from 48px above at -10° and swings to rest. The product-page tag does not swing.
+The ivory die-cut tag described in Shapes, in three sizes (card, detail, hero). Contents, top to bottom: mono meta line (category · size), condensed price, product name, then on the product page dashed-rule sections for Condition, Measurements (mono, tabular, "measured on the garment"), Fit, and the buy action or status stamp. Tags hang straight at rest. When a mouse or pen arrives, the tag swings once away from the pointer like a pendulum (5°, then 2.6°, 1.2°, 0.4°, rest over 1.3s), pivoting at the top of its thread where it is hooked. The listener sits on the still hanger, and pointer moves or re-entries during a swing are ignored, so a restless cursor never restarts or jolts it; touch taps straight through. The hero tag drops in once from 48px above at -10° and swings to rest. The product-page tag does not swing.
 
 ### Status Stamp (signature)
 
@@ -314,7 +314,7 @@ An uppercase condensed label inside a 2px border with a 1px outline 2px out, rot
 
 ### Motion
 
-One grammar, shared by every surface: tags swing on springs, stamps press once, rack rows rise 28px into place once as they scroll in (700ms, 50ms stagger), page navigation crossfades (160ms out, 380ms in) while the garment photo morphs between rack and product page. All of it is skipped under prefers-reduced-motion, and content is visible by default before any motion runs.
+One grammar, shared by every surface: tags swing once like a pendulum, stamps press once, rack rows rise 28px into place once as they scroll in (700ms, 50ms stagger), page navigation crossfades (160ms out, 380ms in) while the garment photo morphs between rack and product page. All of it is skipped under prefers-reduced-motion, and content is visible by default before any motion runs.
 
 ## Do's and Don'ts
 
