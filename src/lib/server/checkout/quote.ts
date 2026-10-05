@@ -1,10 +1,9 @@
 import { normalizeCartIds } from '../cart/cart';
+import type { Database } from '../db/client';
 import { repriceCart } from '../cart/pricing';
 import { quoteShipping } from '../shipping/quote';
 
-type CheckoutDb = Parameters<typeof repriceCart>[1] & Parameters<typeof quoteShipping>[0];
-
-export async function quoteCheckout(ids: unknown, address: unknown, db: CheckoutDb) {
+export async function quoteCheckout(ids: unknown, address: unknown, db: Database) {
 	const productIds = normalizeCartIds(ids);
 	if (!productIds.length) throw new Error('Cart unavailable');
 	const cart = await repriceCart(productIds, db);
