@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
+		"db:local:setup": "CI=1 wrangler d1 migrations apply DB --local -c wrangler.jsonc && wrangler d1 execute DB --local -c wrangler.jsonc --file db/seed/local.sql -y",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
