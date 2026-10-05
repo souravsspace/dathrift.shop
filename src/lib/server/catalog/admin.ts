@@ -105,7 +105,8 @@ export async function updateDraftDetails(db: Database, id: string, input: unknow
 			fitNote: input.fit_note?.trim() || null
 		})
 		.where(and(eq(products.id, id), eq(products.publicationState, 'draft')));
-	if (result.meta.changes !== 1) throw new Error('Draft not found');
+	// D1 counts trigger writes in meta.changes, so only zero means the row was not written.
+	if (result.meta.changes === 0) throw new Error('Draft not found');
 	return { id, publication_state: 'draft' as const };
 }
 
@@ -168,7 +169,7 @@ export async function publishProduct(db: Database, id: string) {
 				   AND json_extract(${products.measurementsJson}, '$.length_cm') > 0 END`
 			)
 		);
-	if (result.meta.changes !== 1) throw new Error('Draft changed; retry publication');
+	if (result.meta.changes === 0) throw new Error('Draft changed; retry publication');
 	return { id, publication_state: 'published' as const };
 }
 
@@ -177,7 +178,7 @@ export async function unpublishProduct(db: Database, id: string) {
 		.update(products)
 		.set({ publicationState: 'draft' })
 		.where(and(eq(products.id, id), eq(products.publicationState, 'published'), availableUnit(id)));
-	if (result.meta.changes !== 1) throw new Error('Product not available');
+	if (result.meta.changes === 0) throw new Error('Product not available');
 	return { id, publication_state: 'draft' as const };
 }
 
