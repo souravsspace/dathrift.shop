@@ -18,7 +18,7 @@ it('explains a missing piece without exposing internals and keeps it out of the 
 });
 
 it('treats an outage as temporary rather than an empty shop', async () => {
-	state.page = { status: 503, error: { message: 'Catalog unavailable' } };
+	Object.assign(state.page, { status: 503, error: { message: 'Catalog unavailable' } });
 	render(ErrorPage);
 	await expect
 		.element(page.getByRole('heading', { level: 1 }))
