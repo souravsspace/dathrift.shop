@@ -1,3 +1,6 @@
+import { and, asc, eq, sql } from 'drizzle-orm';
+import type { Database } from '../db/client';
+import { inventory, productPhotos, products } from '../db/schema';
 import { publicationErrors } from './publication';
 
 type DraftInput = {
@@ -5,12 +8,6 @@ type DraftInput = {
 	name: string;
 	category: 'tops' | 'bottoms' | 'outerwear' | 'dresses';
 	price_bdt: number;
-};
-
-type Statement = { run(): unknown };
-type AdminDb = {
-	prepare(sql: string): { bind(...values: (string | number)[]): Statement };
-	batch(statements: Statement[]): Promise<unknown>;
 };
 
 function isDraftInput(value: unknown): value is DraftInput {
@@ -30,17 +27,18 @@ function isDraftInput(value: unknown): value is DraftInput {
 	);
 }
 
-export async function createDraft(db: AdminDb, input: unknown) {
+export async function createDraft(db: Database, input: unknown) {
 	if (!isDraftInput(input)) throw new Error('Invalid draft');
 	const id = crypto.randomUUID();
 	await db.batch([
-		db
-			.prepare(
-				`INSERT INTO products (id, slug, name, category, price_bdt)
-				 VALUES (?, ?, ?, ?, ?)`
-			)
-			.bind(id, input.slug, input.name.trim(), input.category, input.price_bdt),
-		db.prepare(`INSERT INTO inventory (product_id, state) VALUES (?, 'available')`).bind(id)
+		db.insert(products).values({
+			id,
+			slug: input.slug,
+			name: input.name.trim(),
+			category: input.category,
+			priceBdt: input.price_bdt
+		}),
+		db.insert(inventory).values({ productId: id, state: 'available' })
 	]);
 	return { id, slug: input.slug, publication_state: 'draft' as const };
 }
@@ -87,116 +85,97 @@ function isDraftDetails(value: unknown): value is DraftDetails {
 	);
 }
 
-export async function updateDraftDetails(
-	db: {
-		prepare(sql: string): {
-			bind(...values: (string | number | null)[]): {
-				run(): Promise<{ meta?: { changes: number }; changes?: number | bigint }>;
-			};
-		};
-	},
-	id: string,
-	input: unknown
-) {
+const availableUnit = (id: string) =>
+	sql`EXISTS (SELECT 1 FROM ${inventory} WHERE ${inventory.productId} = ${id} AND ${inventory.state} = 'available')`;
+
+export async function updateDraftDetails(db: Database, id: string, input: unknown) {
 	if (!isDraftDetails(input)) throw new Error('Invalid details');
 	const result = await db
-		.prepare(
-			`UPDATE products SET name = ?, category = ?, price_bdt = ?, brand = ?,
-			 description = ?, condition_notes = ?, size_label = ?, measurements_json = ?, fit_note = ?
-			 WHERE id = ? AND publication_state = 'draft'`
-		)
-		.bind(
-			input.name.trim(),
-			input.category,
-			input.price_bdt,
-			input.brand?.trim() || null,
-			input.description?.trim() || null,
-			input.condition_notes?.trim() || null,
-			input.size_label?.trim() || null,
-			input.measurements_json,
-			input.fit_note?.trim() || null,
-			id
-		)
-		.run();
-	if ((result.meta?.changes ?? result.changes ?? 0) !== 1) throw new Error('Draft not found');
+		.update(products)
+		.set({
+			name: input.name.trim(),
+			category: input.category,
+			priceBdt: input.price_bdt,
+			brand: input.brand?.trim() || null,
+			description: input.description?.trim() || null,
+			conditionNotes: input.condition_notes?.trim() || null,
+			sizeLabel: input.size_label?.trim() || null,
+			measurementsJson: input.measurements_json,
+			fitNote: input.fit_note?.trim() || null
+		})
+		.where(and(eq(products.id, id), eq(products.publicationState, 'draft')));
+	if (result.meta.changes !== 1) throw new Error('Draft not found');
 	return { id, publication_state: 'draft' as const };
 }
 
-type PublicationDb = {
-	prepare(sql: string): {
-		bind(...values: string[]): {
-			first(): Promise<Record<string, unknown> | null>;
-			all(): Promise<{ results: Record<string, unknown>[] }>;
-			run(): Promise<{ meta?: { changes: number }; changes?: number | bigint }>;
-		};
-	};
-};
-
-const changed = (result: { meta?: { changes: number }; changes?: number | bigint }) =>
-	Number(result.meta?.changes ?? result.changes ?? 0) === 1;
-
-export async function publishProduct(db: PublicationDb, id: string) {
+export async function publishProduct(db: Database, id: string) {
 	const product = await db
-		.prepare(
-			`SELECT p.name, p.category, p.price_bdt, p.description, p.condition_notes,
-		 p.size_label, p.measurements_json, p.fit_note FROM products AS p
-		 JOIN inventory AS i ON i.product_id = p.id
-		 WHERE p.id = ? AND p.publication_state = 'draft' AND i.state = 'available'`
+		.select({
+			name: products.name,
+			category: products.category,
+			price_bdt: products.priceBdt,
+			description: products.description,
+			condition_notes: products.conditionNotes,
+			size_label: products.sizeLabel,
+			measurements_json: products.measurementsJson,
+			fit_note: products.fitNote
+		})
+		.from(products)
+		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.where(
+			and(
+				eq(products.id, id),
+				eq(products.publicationState, 'draft'),
+				eq(inventory.state, 'available')
+			)
 		)
-		.bind(id)
-		.first();
+		.get();
 	if (!product) throw new Error('Draft not available');
-	const { results: photos } = await db
-		.prepare(`SELECT r2_key, alt_text FROM product_photos WHERE product_id = ? ORDER BY position`)
-		.bind(id)
-		.all();
-	if (
-		publicationErrors(
-			product as Parameters<typeof publicationErrors>[0],
-			photos as Parameters<typeof publicationErrors>[1]
-		).length
-	)
-		throw new Error('Incomplete product');
+	const photos = await db
+		.select({ r2_key: productPhotos.r2Key, alt_text: productPhotos.altText })
+		.from(productPhotos)
+		.where(eq(productPhotos.productId, id))
+		.orderBy(asc(productPhotos.position));
+	if (publicationErrors(product, photos).length) throw new Error('Incomplete product');
+	// Re-check every requirement in the write itself so a concurrent edit cannot publish a gap.
 	const result = await db
-		.prepare(
-			`UPDATE products SET publication_state = 'published'
-		 WHERE id = ? AND publication_state = 'draft'
-		 AND EXISTS (SELECT 1 FROM inventory WHERE product_id = ? AND state = 'available')
-		 AND trim(name) != '' AND price_bdt > 0
-		 AND trim(coalesce(description, '')) != ''
-		 AND trim(coalesce(condition_notes, '')) != ''
-		 AND trim(coalesce(size_label, '')) != ''
-		 AND trim(coalesce(fit_note, '')) != ''
-		 AND (SELECT count(*) FROM product_photos WHERE product_id = ?) BETWEEN 1 AND 8
-		 AND NOT EXISTS (SELECT 1 FROM product_photos WHERE product_id = ?
-		   AND (trim(r2_key) = '' OR trim(alt_text) = ''))
-		 AND measurements_json IS NOT NULL
-		 AND CASE WHEN category = 'bottoms' THEN
-		   json_type(measurements_json, '$.waist_cm') IN ('integer', 'real')
-		   AND json_extract(measurements_json, '$.waist_cm') > 0
-		   AND json_type(measurements_json, '$.inseam_cm') IN ('integer', 'real')
-		   AND json_extract(measurements_json, '$.inseam_cm') > 0
-		 ELSE
-		   json_type(measurements_json, '$.chest_cm') IN ('integer', 'real')
-		   AND json_extract(measurements_json, '$.chest_cm') > 0
-		   AND json_type(measurements_json, '$.length_cm') IN ('integer', 'real')
-		   AND json_extract(measurements_json, '$.length_cm') > 0 END`
-		)
-		.bind(id, id, id, id)
-		.run();
-	if (!changed(result)) throw new Error('Draft changed; retry publication');
+		.update(products)
+		.set({ publicationState: 'published' })
+		.where(
+			and(
+				eq(products.id, id),
+				eq(products.publicationState, 'draft'),
+				availableUnit(id),
+				sql`trim(${products.name}) != '' AND ${products.priceBdt} > 0
+				 AND trim(coalesce(${products.description}, '')) != ''
+				 AND trim(coalesce(${products.conditionNotes}, '')) != ''
+				 AND trim(coalesce(${products.sizeLabel}, '')) != ''
+				 AND trim(coalesce(${products.fitNote}, '')) != ''
+				 AND (SELECT count(*) FROM ${productPhotos} WHERE ${productPhotos.productId} = ${id}) BETWEEN 1 AND 8
+				 AND NOT EXISTS (SELECT 1 FROM ${productPhotos} WHERE ${productPhotos.productId} = ${id}
+				   AND (trim(${productPhotos.r2Key}) = '' OR trim(${productPhotos.altText}) = ''))
+				 AND ${products.measurementsJson} IS NOT NULL
+				 AND CASE WHEN ${products.category} = 'bottoms' THEN
+				   json_type(${products.measurementsJson}, '$.waist_cm') IN ('integer', 'real')
+				   AND json_extract(${products.measurementsJson}, '$.waist_cm') > 0
+				   AND json_type(${products.measurementsJson}, '$.inseam_cm') IN ('integer', 'real')
+				   AND json_extract(${products.measurementsJson}, '$.inseam_cm') > 0
+				 ELSE
+				   json_type(${products.measurementsJson}, '$.chest_cm') IN ('integer', 'real')
+				   AND json_extract(${products.measurementsJson}, '$.chest_cm') > 0
+				   AND json_type(${products.measurementsJson}, '$.length_cm') IN ('integer', 'real')
+				   AND json_extract(${products.measurementsJson}, '$.length_cm') > 0 END`
+			)
+		);
+	if (result.meta.changes !== 1) throw new Error('Draft changed; retry publication');
 	return { id, publication_state: 'published' as const };
 }
 
-export async function unpublishProduct(db: PublicationDb, id: string) {
+export async function unpublishProduct(db: Database, id: string) {
 	const result = await db
-		.prepare(
-			`UPDATE products SET publication_state = 'draft'
-		 WHERE id = ? AND publication_state = 'published'
-		 AND EXISTS (SELECT 1 FROM inventory WHERE product_id = ? AND state = 'available')`
-		)
-		.bind(id, id)
-		.run();
-	if (!changed(result)) throw new Error('Product not available');
+		.update(products)
+		.set({ publicationState: 'draft' })
+		.where(and(eq(products.id, id), eq(products.publicationState, 'published'), availableUnit(id)));
+	if (result.meta.changes !== 1) throw new Error('Product not available');
 	return { id, publication_state: 'draft' as const };
 }
