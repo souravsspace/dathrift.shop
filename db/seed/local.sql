@@ -32,6 +32,10 @@ INSERT OR IGNORE INTO product_photos (product_id, position, r2_key, alt_text) VA
 	('test-sold', 1, 'test-only/denim-jacket.webp', 'Generated test-only denim jacket visual');
 
 -- Keep an existing local fixture database aligned with the current demo assets.
+INSERT OR IGNORE INTO delivery_areas (district_key, area_key, display_name, fee_bdt, preview_only)
+VALUES ('test-dhaka', 'test-central', 'TEST ONLY — Central area', 80, 1),
+	('test-other', 'test-town', 'TEST ONLY — Other town', 130, 1);
+
 UPDATE product_photos SET r2_key = 'test-only/cream-dress.webp',
 	alt_text = 'Generated test-only cream midi dress visual'
 	WHERE product_id = 'test-dress' AND position = 1;
