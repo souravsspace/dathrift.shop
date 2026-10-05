@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, expect, it } from 'vitest';
+import { localD1 } from '../lib/server/testing/local-d1';
 import { load } from './+page.server';
 
 afterEach(() => {
@@ -11,27 +12,12 @@ it('fails closed when the product database is unavailable', async () => {
 });
 
 it('loads only the server-selected catalog rows for storefront rendering', async () => {
-	(env as { DB?: unknown }).DB = {
-		prepare: () => ({
-			all: async () => ({
-				results: [
-					{
-						id: 'test-shirt',
-						slug: 'test-olive-cotton-shirt',
-						name: 'TEST ONLY — Olive cotton shirt',
-						category: 'tops',
-						price_bdt: 850,
-						stock_state: 'available',
-						size_label: 'L',
-						condition_notes: 'Light fading at cuffs',
-						photo_key: 'test-only/olive-shirt.webp',
-						photo_alt: 'Olive shirt'
-					}
-				]
-			})
-		})
+	(env as { DB?: unknown }).DB = localD1().db;
+	const { products } = (await load({} as Parameters<typeof load>[0])) as {
+		products: { slug: string; stock_state: string }[];
 	};
-	expect(await load({} as Parameters<typeof load>[0])).toMatchObject({
-		products: [{ slug: 'test-olive-cotton-shirt', stock_state: 'available' }]
-	});
+	expect(products).toContainEqual(
+		expect.objectContaining({ slug: 'test-olive-cotton-shirt', stock_state: 'available' })
+	);
+	expect(products.map((product) => product.slug)).not.toContain('test-unpublished-skirt');
 });
