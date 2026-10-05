@@ -17,8 +17,6 @@
 	};
 
 	let { products, empty }: { products: Listing[]; empty: string } = $props();
-	// A slight alternating hang keeps identical tags reading as a physical rack.
-	const tilts = [-2.5, 1.5, -1, 2.5];
 </script>
 
 {#if products.length}
@@ -44,7 +42,7 @@
 						{/if}
 					</div>
 					<div class="piece-tag">
-						<SwingTag tilt={tilts[index % tilts.length]}>
+						<SwingTag>
 							<p class="tag-meta">
 								{categoryLabels[product.category] ?? product.category} · {product.size_label ??
 									'Size not listed'}
