@@ -4,11 +4,15 @@ import worker from './preview';
 it('denies anonymous marker writes before touching D1', async () => {
 	const prepare = vi.fn();
 	const response = await worker.fetch(
-		new Request('https://phase1.dathrift.shop/__phase1/markers', {
+		new Request('https://foundation-dev.dathrift.shop/__foundation/markers', {
 			method: 'POST',
 			body: JSON.stringify({ id: 'probe-1', value: 'persisted' })
 		}),
-		{ DB: { prepare }, ALLOWED_HOST: 'phase1.dathrift.shop', STAFF_EMAILS: 'owner@example.com' },
+		{
+			DB: { prepare },
+			ALLOWED_HOST: 'foundation-dev.dathrift.shop',
+			STAFF_EMAILS: 'owner@example.com'
+		},
 		{}
 	);
 
@@ -32,10 +36,14 @@ it('writes and reads a marker for an allowlisted Access identity', async () => {
 			})
 		})
 	};
-	const env = { DB: db, ALLOWED_HOST: 'phase1.dathrift.shop', STAFF_EMAILS: 'owner@example.com' };
+	const env = {
+		DB: db,
+		ALLOWED_HOST: 'foundation-dev.dathrift.shop',
+		STAFF_EMAILS: 'owner@example.com'
+	};
 	const ctx = { access: { getIdentity: async () => ({ email: 'owner@example.com' }) } };
 	const write = await worker.fetch(
-		new Request('https://phase1.dathrift.shop/__phase1/markers', {
+		new Request('https://foundation-dev.dathrift.shop/__foundation/markers', {
 			method: 'POST',
 			body: JSON.stringify({ id: 'probe-1', value: 'persisted' })
 		}),
@@ -43,7 +51,7 @@ it('writes and reads a marker for an allowlisted Access identity', async () => {
 		ctx
 	);
 	const read = await worker.fetch(
-		new Request('https://phase1.dathrift.shop/__phase1/markers/probe-1'),
+		new Request('https://foundation-dev.dathrift.shop/__foundation/markers/probe-1'),
 		env,
 		ctx
 	);
@@ -56,13 +64,13 @@ it('writes and reads a marker for an allowlisted Access identity', async () => {
 it('denies writes when the staff allowlist secret is missing', async () => {
 	const prepare = vi.fn();
 	const response = await worker.fetch(
-		new Request('https://phase1.dathrift.shop/__phase1/markers', {
+		new Request('https://foundation-dev.dathrift.shop/__foundation/markers', {
 			method: 'POST',
 			body: JSON.stringify({ id: 'probe-2', value: 'must-not-write' })
 		}),
 		{
 			DB: { prepare },
-			ALLOWED_HOST: 'phase1.dathrift.shop',
+			ALLOWED_HOST: 'foundation-dev.dathrift.shop',
 			STAFF_EMAILS: undefined
 		},
 		{ access: { getIdentity: async () => ({ email: 'owner@example.com' }) } }
@@ -76,11 +84,11 @@ it('denies an alternate hostname and a non-allowlisted Access identity', async (
 	const prepare = vi.fn();
 	const env = {
 		DB: { prepare },
-		ALLOWED_HOST: 'phase1.dathrift.shop',
+		ALLOWED_HOST: 'foundation-dev.dathrift.shop',
 		STAFF_EMAILS: 'owner@example.com'
 	};
 	const request = (host: string) =>
-		new Request(`https://${host}/__phase1/markers`, {
+		new Request(`https://${host}/__foundation/markers`, {
 			method: 'POST',
 			body: JSON.stringify({ id: 'probe-3', value: 'must-not-write' })
 		});
@@ -88,6 +96,8 @@ it('denies an alternate hostname and a non-allowlisted Access identity', async (
 	const stranger = { access: { getIdentity: async () => ({ email: 'stranger@example.com' }) } };
 
 	expect((await worker.fetch(request('alternate.workers.dev'), env, owner)).status).toBe(404);
-	expect((await worker.fetch(request('phase1.dathrift.shop'), env, stranger)).status).toBe(403);
+	expect((await worker.fetch(request('foundation-dev.dathrift.shop'), env, stranger)).status).toBe(
+		403
+	);
 	expect(prepare).not.toHaveBeenCalled();
 });
