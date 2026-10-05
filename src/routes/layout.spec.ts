@@ -42,3 +42,15 @@ it('spells the shop name daThriftShop wherever it is shown', () => {
 	);
 	expect(files.filter((file) => bareName.test(readFileSync(`src/${file}`, 'utf8')))).toEqual([]);
 });
+
+it('draws the taka sign from a self-hosted glyph in both brand faces', () => {
+	const css = readFileSync('src/routes/layout.css', 'utf8');
+	for (const family of ['Archivo', 'Martian Mono']) {
+		const face = new RegExp(
+			`@font-face \\{[^}]*font-family: '${family}';[^}]*taka\\.woff2[^}]*unicode-range: U\\+09F3;`
+		);
+		expect(css).toMatch(face);
+	}
+	expect(readFileSync('static/fonts/taka.woff2').length).toBeGreaterThan(0);
+	expect(readFileSync('static/fonts/noto-sans-bengali-OFL.txt', 'utf8')).toContain('Open Font');
+});
