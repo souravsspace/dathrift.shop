@@ -34,7 +34,7 @@ async function checkout(ids: string[]) {
 	};
 }
 
-const callback = (query: string) =>
+const callback = async (query: string) =>
 	GET({
 		url: new URL(`http://127.0.0.1:5173/checkout/callback?${query}`)
 	} as Parameters<typeof GET>[0]);
