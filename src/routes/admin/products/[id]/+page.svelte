@@ -6,11 +6,15 @@
 	import type { PageData } from './$types';
 
 	type Photo = { position: number; r2_key: string; alt_text: string };
+	type MeasurementSet = 'top' | 'bottom' | 'none';
+	type Category = { slug: string; name: string; measurement_set: MeasurementSet };
 	type Product = {
 		id: string;
 		slug: string;
 		name: string;
-		category: 'tops' | 'bottoms' | 'outerwear' | 'dresses';
+		category: string;
+		category_name: string | null;
+		measurement_set: MeasurementSet | null;
 		price_bdt: number;
 		publication_state: 'draft' | 'published';
 		stock_state: 'available' | 'reserved' | 'sold';
@@ -24,14 +28,25 @@
 		photos: Photo[];
 	};
 
+	const MAX_PHOTOS = 10;
+
 	let { data }: { data: PageData } = $props();
 	let product = $state<Product | null>(null);
+	let categories = $state<Category[]>([]);
 	let loading = $state(true);
 	let busy = $state(false);
 	let message = $state('');
 	let error = $state('');
 	let name = $state('');
-	let category = $state<Product['category']>('tops');
+	let category = $state('');
+	// Measurements follow the category picked in the form, before it is saved.
+	let measurementSet = $derived<MeasurementSet | null>(
+		categories.find((item) => item.slug === category)?.measurement_set ??
+			(category === product?.category ? (product?.measurement_set ?? null) : null)
+	);
+	let categoryLabel = $derived(
+		categories.find((item) => item.slug === category)?.name ?? product?.category_name ?? category
+	);
 	let price = $state('');
 	let brand = $state('');
 	let description = $state('');
@@ -49,9 +64,11 @@
 	let photoAlt = $state('');
 	let saleReason = $state('');
 	let newSlug = $state('');
+	let draftSlug = $state('');
 
 	function assignProduct(value: Product) {
 		product = value;
+		draftSlug = value.slug;
 		name = value.name;
 		category = value.category;
 		price = String(value.price_bdt);
@@ -62,10 +79,10 @@
 		fit = value.fit_note ?? '';
 		try {
 			const measurements = JSON.parse(value.measurements_json ?? '{}') as Record<string, number>;
-			chest = measurements.chest_cm ? String(measurements.chest_cm) : '';
-			length = measurements.length_cm ? String(measurements.length_cm) : '';
-			waist = measurements.waist_cm ? String(measurements.waist_cm) : '';
-			inseam = measurements.inseam_cm ? String(measurements.inseam_cm) : '';
+			chest = measurements.chest_in ? String(measurements.chest_in) : '';
+			length = measurements.length_in ? String(measurements.length_in) : '';
+			waist = measurements.waist_in ? String(measurements.waist_in) : '';
+			inseam = measurements.inseam_in ? String(measurements.inseam_in) : '';
 		} catch {
 			chest = length = waist = inseam = '';
 		}
@@ -85,8 +102,18 @@
 		}
 	}
 
+	async function loadCategories() {
+		try {
+			const response = await fetch('/admin/api/categories');
+			if (response.ok) categories = await response.json();
+		} catch {
+			// The current category still shows; only switching categories needs the list.
+		}
+	}
+
 	onMount(() => {
 		void loadProduct();
+		void loadCategories();
 	});
 
 	async function saveDetails(event: SubmitEvent) {
@@ -95,9 +122,11 @@
 		busy = true;
 		message = error = '';
 		const measurements =
-			category === 'bottoms'
-				? { waist_cm: Number(waist), inseam_cm: Number(inseam) }
-				: { chest_cm: Number(chest), length_cm: Number(length) };
+			measurementSet === 'bottom'
+				? { waist_in: Number(waist), inseam_in: Number(inseam) }
+				: measurementSet === 'top'
+					? { chest_in: Number(chest), length_in: Number(length) }
+					: null;
 		try {
 			const response = await fetch(`/admin/api/products/${data.id}`, {
 				method: 'PATCH',
@@ -110,11 +139,17 @@
 					description: description || null,
 					condition_notes: condition || null,
 					size_label: size || null,
-					measurements_json: JSON.stringify(measurements),
+					measurements_json: measurements && JSON.stringify(measurements),
 					fit_note: fit || null
 				})
 			});
 			if (!response.ok) throw new Error('Save failed.');
+			product = {
+				...product,
+				category,
+				category_name: categoryLabel,
+				measurement_set: measurementSet
+			};
 			message = 'Draft details saved';
 		} catch {
 			error = 'Could not save details. Check fields and retry.';
@@ -193,6 +228,26 @@
 		}
 	}
 
+	async function makeCover(photo: Photo) {
+		if (!product) return;
+		busy = true;
+		message = error = '';
+		try {
+			const response = await fetch(`/admin/api/products/${data.id}/photos/cover`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ r2_key: photo.r2_key })
+			});
+			if (!response.ok) throw new Error('Cover failed.');
+			product = { ...product, photos: await response.json() };
+			message = 'Cover photo changed';
+		} catch {
+			error = 'Could not change the cover photo. Refresh and try again.';
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function setPublication(state: 'draft' | 'published') {
 		if (!product) return;
 		busy = true;
@@ -209,33 +264,35 @@
 		} catch (reason) {
 			error =
 				reason instanceof Error && reason.message === 'Incomplete product'
-					? 'Complete details, measurements and at least one photo before publishing.'
+					? 'Save every detail, the measurements in half inches and at least one photo before publishing.'
 					: 'Could not change publication. Refresh and try again.';
 		} finally {
 			busy = false;
 		}
 	}
 
-	async function correctSlug(event: SubmitEvent) {
+	async function changeSlug(event: SubmitEvent) {
 		event.preventDefault();
 		if (!product) return;
+		const draft = product.publication_state === 'draft';
 		busy = true;
 		message = error = '';
 		try {
 			const response = await fetch(`/admin/api/products/${data.id}/slug`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ slug: newSlug })
+				body: JSON.stringify({ slug: draft ? draftSlug : newSlug })
 			});
 			if (!response.ok) throw new Error(await response.text());
 			product = { ...product, slug: ((await response.json()) as { slug: string }).slug };
+			draftSlug = product.slug;
 			newSlug = '';
-			message = 'Slug corrected. The old URL now redirects here.';
+			message = draft ? 'Slug changed' : 'Slug corrected. The old URL now redirects here.';
 		} catch (reason) {
 			error =
 				reason instanceof Error && reason.message === 'Slug unavailable'
 					? 'That slug is already used or reserved by a redirect.'
-					: 'Could not correct the slug. Use lowercase letters, numbers and hyphens.';
+					: 'Could not change the slug. Use lowercase letters, numbers and hyphens.';
 		} finally {
 			busy = false;
 		}
@@ -280,7 +337,7 @@
 			<div class="admin-intro">
 				<div>
 					<h1>{product.name}</h1>
-					<p>/{product.slug}</p>
+					<p>/products/{product.slug}</p>
 					<div class="admin-stamps">
 						<StatusStamp kind={product.publication_state} />
 						{#if product.stock_state !== 'available'}<StatusStamp
@@ -315,20 +372,26 @@
 									id="edit-category"
 									bind:value={category}
 									disabled={product.publication_state !== 'draft'}
-									><option value="tops">Tops</option><option value="bottoms">Bottoms</option><option
-										value="outerwear">Outerwear</option
-									><option value="dresses">Dresses</option></select
 								>
+									{#each categories.length ? categories : [{ slug: product.category, name: categoryLabel }] as item (item.slug)}
+										<option value={item.slug}>{item.name}</option>
+									{/each}
+								</select>
 							</div>
 							<div>
-								<label for="edit-price">Price in BDT</label><input
-									id="edit-price"
-									type="number"
-									min="1"
-									step="1"
-									bind:value={price}
-									disabled={product.publication_state !== 'draft'}
-								/>
+								<label for="edit-price">Price (৳)</label>
+								<div class="admin-affix">
+									<span aria-hidden="true">৳</span>
+									<input
+										id="edit-price"
+										type="number"
+										inputmode="numeric"
+										min="1"
+										step="1"
+										bind:value={price}
+										disabled={product.publication_state !== 'draft'}
+									/>
+								</div>
 							</div>
 						</div>
 						<label for="edit-brand">Brand (optional)</label><input
@@ -351,47 +414,56 @@
 							bind:value={size}
 							disabled={product.publication_state !== 'draft'}
 						/>
-						<div class="admin-form-pair">
-							{#if category === 'bottoms'}<div>
-									<label for="edit-waist">Waist (cm)</label><input
-										id="edit-waist"
-										type="number"
-										min="0"
-										step="0.1"
-										bind:value={waist}
-										disabled={product.publication_state !== 'draft'}
-									/>
-								</div>
-								<div>
-									<label for="edit-inseam">Inseam (cm)</label><input
-										id="edit-inseam"
-										type="number"
-										min="0"
-										step="0.1"
-										bind:value={inseam}
-										disabled={product.publication_state !== 'draft'}
-									/>
-								</div>{:else}<div>
-									<label for="edit-chest">Chest (cm)</label><input
-										id="edit-chest"
-										type="number"
-										min="0"
-										step="0.1"
-										bind:value={chest}
-										disabled={product.publication_state !== 'draft'}
-									/>
-								</div>
-								<div>
-									<label for="edit-length">Length (cm)</label><input
-										id="edit-length"
-										type="number"
-										min="0"
-										step="0.1"
-										bind:value={length}
-										disabled={product.publication_state !== 'draft'}
-									/>
-								</div>{/if}
-						</div>
+						{#if measurementSet === 'none'}
+							<p class="admin-hint">{categoryLabel} need no measurements.</p>
+						{:else}
+							<div class="admin-form-pair">
+								{#if measurementSet === 'bottom'}<div>
+										<label for="edit-waist">Waist (in)</label><input
+											id="edit-waist"
+											type="number"
+											inputmode="decimal"
+											min="0.5"
+											step="0.5"
+											bind:value={waist}
+											disabled={product.publication_state !== 'draft'}
+										/>
+									</div>
+									<div>
+										<label for="edit-inseam">Inseam (in)</label><input
+											id="edit-inseam"
+											type="number"
+											inputmode="decimal"
+											min="0.5"
+											step="0.5"
+											bind:value={inseam}
+											disabled={product.publication_state !== 'draft'}
+										/>
+									</div>{:else}<div>
+										<label for="edit-chest">Chest (in)</label><input
+											id="edit-chest"
+											type="number"
+											inputmode="decimal"
+											min="0.5"
+											step="0.5"
+											bind:value={chest}
+											disabled={product.publication_state !== 'draft'}
+										/>
+									</div>
+									<div>
+										<label for="edit-length">Length (in)</label><input
+											id="edit-length"
+											type="number"
+											inputmode="decimal"
+											min="0.5"
+											step="0.5"
+											bind:value={length}
+											disabled={product.publication_state !== 'draft'}
+										/>
+									</div>{/if}
+							</div>
+							<p class="admin-hint">Measured on the garment, to the nearest half inch.</p>
+						{/if}
 						<label for="edit-fit">Fit note</label><textarea
 							id="edit-fit"
 							bind:value={fit}
@@ -408,24 +480,32 @@
 							<h2 id="photos-title">Photos</h2>
 						</div>
 						<p class="admin-hint">
-							1–8 ordered photos. Show every flaw; describe the image for accessibility.
+							{product.photos.length} of {MAX_PHOTOS} photos. The cover shows first in the shop; show
+							every flaw and describe each image for screen readers.
 						</p>
 						<div class="admin-photo-grid">
-							{#each product.photos as photo (photo.position)}<figure>
+							{#each product.photos as photo (photo.r2_key)}<figure>
 									<img src="/media/{photo.r2_key}" alt={photo.alt_text} />
+									{#if photo.position === 1}<span class="admin-chip">Cover</span>{:else}<button
+											type="button"
+											class="admin-cover-button"
+											disabled={busy}
+											aria-label="Make photo {photo.position} the cover"
+											onclick={() => makeCover(photo)}>Make cover</button
+										>{/if}
 									<figcaption>
 										{String(photo.position).padStart(2, '0')} / {photo.alt_text}
 									</figcaption>
 								</figure>{/each}
 						</div>
-						{#if product.publication_state === 'draft' && product.photos.length < 8}<form
+						{#if product.publication_state === 'draft' && product.photos.length < MAX_PHOTOS}<form
 								onsubmit={uploadPhoto}
 							>
 								<input
 									id="photo-file"
 									class="admin-drop-input"
 									type="file"
-									accept="image/*"
+									accept="image/*,.heic,.heif"
 									onchange={(event) => choosePhoto(event.currentTarget.files?.[0])}
 									required
 								/><label class="admin-drop" for="photo-file">
@@ -434,7 +514,8 @@
 										<strong>Add photo</strong>
 										{converting
 											? 'Converting to WebP…'
-											: photoNote || 'Any image up to 10 MB. It is resized and converted to WebP.'}
+											: photoNote ||
+												'Any photo up to 10 MB, iPhone HEIC included. It is resized and converted to WebP.'}
 									</span>
 								</label><label for="photo-alt">Photo description</label><input
 									id="photo-alt"
@@ -459,7 +540,29 @@
 								type="button"
 								disabled={busy || product.stock_state !== 'available'}
 								onclick={() => setPublication('published')}>Publish piece</button
-							>{:else}<a
+							>
+							<form class="admin-slug-form" onsubmit={changeSlug}>
+								<label for="draft-slug">Slug</label>
+								<div class="admin-affix">
+									<span aria-hidden="true">/products/</span>
+									<input
+										id="draft-slug"
+										bind:value={draftSlug}
+										required
+										maxlength="160"
+										pattern="[a-z0-9]+(-[a-z0-9]+)*"
+										autocapitalize="none"
+										spellcheck="false"
+									/>
+								</div>
+								<p class="admin-hint">
+									Change it freely until publishing. After that, a change keeps the old link
+									redirecting here.
+								</p>
+								<button type="submit" disabled={busy || draftSlug === product.slug}
+									>Change slug</button
+								>
+							</form>{:else}<a
 								class="admin-public-link"
 								href="/products/{product.slug}"
 								target="_blank"
@@ -487,7 +590,7 @@
 								disabled={busy || product.stock_state !== 'available'}
 								onclick={() => setPublication('draft')}>Unpublish piece</button
 							>
-							<form class="admin-slug-form" onsubmit={correctSlug}>
+							<form class="admin-slug-form" onsubmit={changeSlug}>
 								<label for="corrected-slug">Corrected slug</label>
 								<input
 									id="corrected-slug"
