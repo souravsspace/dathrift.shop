@@ -50,6 +50,10 @@ it('creates one payment for the server total and releases holds when creation fa
 	const wallet = provider({});
 	const started = await startPayment(db, wallet, held, 'https://shop.test/checkout/callback');
 	expect(started.redirectUrl).toBe('https://wallet.test/pay-1');
+	expect(state(sqlite, 'SELECT amount_bdt, status FROM payments')).toEqual({
+		amount_bdt: 2380,
+		status: 'created'
+	});
 	expect(wallet.create).toHaveBeenCalledWith({
 		amountBdt: 2380,
 		invoice: invoiceForOrder(held.id),
