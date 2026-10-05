@@ -17,6 +17,7 @@ type BackupStep = {
 };
 
 type ExportResult = {
+	success?: boolean;
 	at_bookmark?: string;
 	status?: 'complete' | 'error';
 	error?: string;
@@ -46,7 +47,7 @@ export async function runScheduledBackup(
 		});
 		if (!response.ok) throw new Error(`D1 export HTTP ${response.status}`);
 		const body = (await response.json()) as { success?: boolean; result?: ExportResult };
-		if (!body.success || !body.result || body.result.status === 'error') {
+		if (!body.success || !body.result?.success || body.result.status === 'error') {
 			throw new Error(`D1 export failed: ${body.result?.error ?? 'unknown error'}`);
 		}
 		return body.result;
