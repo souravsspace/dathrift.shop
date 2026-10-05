@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { encodeWithWasm, toWebp } from './to-webp';
+import heicUrl from './fixtures/test-only-dress.heic?url';
 
 const isWebp = (bytes: Uint8Array) =>
 	String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' &&
@@ -47,4 +48,16 @@ it('rejects files that are not images or are larger than 10 MB', async () => {
 it('explains when the browser cannot read an image format', async () => {
 	const broken = new File([new Uint8Array([1, 2, 3, 4])], 'photo.heic', { type: 'image/heic' });
 	await expect(toWebp(broken)).rejects.toThrow('This browser cannot read that image');
+});
+
+it('converts an iPhone HEIC photo even where the browser cannot decode HEIC itself', async () => {
+	const bytes = await (await fetch(heicUrl)).arrayBuffer();
+	// Some phones hand over HEIC files with no MIME type at all.
+	for (const type of ['image/heic', '']) {
+		const result = await toWebp(new File([bytes], 'IMG_0420.HEIC', { type }));
+		expect(result.file.type).toBe('image/webp');
+		expect(result.file.name).toBe('IMG_0420.webp');
+		expect({ width: result.width, height: result.height }).toEqual({ width: 240, height: 300 });
+		expect(isWebp(new Uint8Array(await result.file.arrayBuffer()))).toBe(true);
+	}
 });
