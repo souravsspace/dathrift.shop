@@ -85,7 +85,7 @@
 		padding: 0 18px;
 		border: 1px solid rgb(251 235 214 / 0.22);
 		border-radius: 999px;
-		font-size: 0.88rem;
+		font-size: var(--text-ui);
 		font-weight: 600;
 		text-decoration: none;
 		transition:
@@ -109,7 +109,7 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 10px;
-		font-size: 0.85rem;
+		font-size: var(--text-ui);
 	}
 
 	.field,
@@ -138,7 +138,7 @@
 		width: 20px;
 		height: 20px;
 		border-color: rgb(251 235 214 / 0.5);
-		border-radius: 5px;
+		border-radius: 4px;
 		background-color: transparent;
 		color: var(--color-gold);
 	}
