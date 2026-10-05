@@ -52,8 +52,8 @@ export async function runMonitoredBackup(
 			env.EMAIL.send({
 				to: env.ALERT_EMAIL,
 				from: env.ALERT_FROM_EMAIL,
-				subject: 'dathrift Phase 1 backup failed',
-				text: `The scheduled nonproduction D1 backup failed at ${scheduledAt.toISOString()}. Inspect the Phase 1 Workflow logs.`
+				subject: 'dathrift development backup failed',
+				text: `The scheduled nonproduction D1 backup failed at ${scheduledAt.toISOString()}. Inspect the backup Workflow logs.`
 			})
 		);
 		throw error;
@@ -66,8 +66,8 @@ export async function runMonitoredBackup(
 			env.EMAIL.send({
 				to: env.ALERT_EMAIL,
 				from: env.ALERT_FROM_EMAIL,
-				subject: 'dathrift Phase 1 backup stale',
-				text: `The latest previous nonproduction D1 backup was over one hour old at ${observedAt.toISOString()}. Inspect the Phase 1 Workflow and private R2 bucket.`
+				subject: 'dathrift development backup stale',
+				text: `The latest previous nonproduction D1 backup was over one hour old at ${observedAt.toISOString()}. Inspect the backup Workflow and private R2 bucket.`
 			})
 		);
 	}
