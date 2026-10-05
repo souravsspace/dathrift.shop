@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, expect, it } from 'vitest';
+import { localD1 } from '../../../../lib/server/testing/local-d1';
 import { POST } from './+server';
 
 afterEach(() => {
@@ -27,22 +28,7 @@ const event = (origin = 'http://127.0.0.1:5173') =>
 
 it('returns current item and one preview shipping fee without creating an order', async () => {
 	expect((await POST(event('https://evil.example'))).status).toBe(403);
-	(env as { DB?: unknown }).DB = {
-		prepare: (sql: string) => ({
-			bind: () => ({
-				first: async () =>
-					sql.includes('delivery_areas')
-						? { fee_bdt: 80, preview_only: 1 }
-						: {
-								slug: 'test-shirt',
-								name: 'TEST ONLY Shirt',
-								price_bdt: 850,
-								publication_state: 'published',
-								stock_state: 'available'
-							}
-			})
-		})
-	};
+	(env as { DB?: unknown }).DB = localD1().db;
 	const response = await POST(event());
 	expect(response.status).toBe(200);
 	expect(response.headers.get('Cache-Control')).toBe('no-store');
