@@ -1,10 +1,10 @@
 import { expect, it } from 'vitest';
-import { localD1 } from '../testing/local-d1';
+import { localDatabase } from '../testing/local-d1';
 import { reserveCheckout } from '../reservation/reserve';
 import { orderForStatusToken } from './status';
 
 it('shows a scoped order summary without the full address or phone', async () => {
-	const { db } = localD1();
+	const { db } = localDatabase();
 	const order = await reserveCheckout(
 		db,
 		['test-shirt'],
