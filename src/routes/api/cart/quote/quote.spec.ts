@@ -25,7 +25,13 @@ it('returns server repricing and unavailable lines without a checkout total', as
 			bind: (id: string) => ({
 				first: async () =>
 					id === 'test-shirt'
-						? { price_bdt: 850, publication_state: 'published', stock_state: 'available' }
+						? {
+								name: 'TEST ONLY — Olive shirt',
+								slug: 'test-olive-shirt',
+								price_bdt: 850,
+								publication_state: 'published',
+								stock_state: 'available'
+							}
 						: { price_bdt: 1750, publication_state: 'published', stock_state: 'sold' }
 			})
 		})
@@ -34,7 +40,14 @@ it('returns server repricing and unavailable lines without a checkout total', as
 	expect(response.status).toBe(200);
 	expect(response.headers.get('Cache-Control')).toBe('no-store');
 	expect(await response.json()).toEqual({
-		items: [{ id: 'test-shirt', price_bdt: 850 }],
+		items: [
+			{
+				id: 'test-shirt',
+				slug: 'test-olive-shirt',
+				name: 'TEST ONLY — Olive shirt',
+				price_bdt: 850
+			}
+		],
 		unavailable: ['test-sold'],
 		subtotal_bdt: null
 	});
