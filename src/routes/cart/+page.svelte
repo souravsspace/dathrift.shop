@@ -3,10 +3,19 @@
 	import { BAG_EVENT, readCartIds, removeCartId } from '../../lib/cart/browser-cart';
 	import SiteFooter from '../../lib/components/SiteFooter.svelte';
 	import SiteHeader from '../../lib/components/SiteHeader.svelte';
+	import SwingTag from '../../lib/components/SwingTag.svelte';
 	import { formatBdt as price } from '../../lib/site';
 
 	type Quote = {
-		items: { id: string; slug: string; name: string; price_bdt: number }[];
+		items: {
+			id: string;
+			slug: string;
+			name: string;
+			price_bdt: number;
+			size_label?: string | null;
+			photo_key?: string | null;
+			photo_alt?: string | null;
+		}[];
 		unavailable: string[];
 		subtotal_bdt: number | null;
 	};
@@ -82,20 +91,31 @@
 			<ul class="bag-lines">
 				{#each quote.items as item (item.id)}
 					<li class="bag-line">
-						<div>
-							<a href="/products/{item.slug}">{item.name}</a>
-							<p>One of one</p>
-						</div>
-						<div class="bag-line-end">
-							<span class="line-price">{price(item.price_bdt)}</span>
-							<button class="text-button" type="button" onclick={() => remove(item.id)}
-								>Remove</button
-							>
+						<a class="bag-thumb" href="/products/{item.slug}" tabindex="-1" aria-hidden="true">
+							{#if item.photo_key}<img
+									src="/media/{item.photo_key}"
+									alt=""
+									width="300"
+									height="375"
+									loading="lazy"
+								/>{/if}
+						</a>
+						<div class="bag-line-tag">
+							<SwingTag>
+								<p class="tag-meta">Size {item.size_label ?? 'not listed'} · 1 of 1</p>
+								<p class="tag-price">{price(item.price_bdt)}</p>
+								<p class="tag-name"><a href="/products/{item.slug}">{item.name}</a></p>
+								<div class="bag-line-actions">
+									<button class="text-button" type="button" onclick={() => remove(item.id)}
+										>Remove</button
+									>
+								</div>
+							</SwingTag>
 						</div>
 					</li>
 				{/each}
 				{#each quote.unavailable as id (id)}
-					<li class="bag-line unavailable">
+					<li class="bag-unavailable">
 						<div>
 							<strong>Unavailable piece</strong>
 							<p>{id} is no longer available. Remove it to continue.</p>
