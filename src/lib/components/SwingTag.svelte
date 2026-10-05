@@ -100,10 +100,6 @@
 		--hole-top: 28px;
 	}
 
-	.hang-detail .thread {
-		display: none;
-	}
-
 	.hang-detail .tag {
 		padding: calc(var(--hole-top) + var(--hole) + 22px) clamp(20px, 3.4vw, 40px)
 			clamp(24px, 3.4vw, 40px);
