@@ -20,9 +20,9 @@
 <a class="skip-link" href="#main-content">Skip to content</a>
 {#if preview}<div class="preview-strip">Local preview · test pieces only</div>{/if}
 <header class="site-header">
-	<a class="brand" href="/" aria-label="dathrift home">
+	<a class="brand" href="/" aria-label="daThriftShop home">
 		<img src="/brand/dathrift-logo.webp" alt="" width="40" height="40" />
-		<span>dathrift</span>
+		<span>daThriftShop</span>
 	</a>
 	<nav aria-label="Main navigation">
 		<a href="/#shop" aria-current={current === 'shop' ? 'page' : undefined}>Shop</a>
