@@ -1,10 +1,11 @@
+import { env } from 'cloudflare:workers';
 import { getPublicProduct } from '../../../../lib/server/catalog/public-catalog';
 import type { RequestHandler } from './$types';
 
 type CatalogDb = Parameters<typeof getPublicProduct>[0];
 
-export const GET: RequestHandler = async ({ params, platform }) => {
-	const db = (platform as { env?: { DB?: CatalogDb } } | undefined)?.env?.DB;
+export const GET: RequestHandler = async ({ params }) => {
+	const db = (env as { DB?: CatalogDb }).DB;
 	if (!db) return unavailable();
 	try {
 		const product = await getPublicProduct(db, params.slug);
