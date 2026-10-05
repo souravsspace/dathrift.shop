@@ -30,7 +30,7 @@ it('rejects unsafe media and cleans R2 after a failed draft metadata write', asy
 	expect(remove).toHaveBeenCalledOnce();
 });
 
-it('accepts only WebP photos within the 3 MB upload limit', async () => {
+it('accepts only WebP photos within the 10 MB upload limit', async () => {
 	const put = vi.fn(async () => ({}));
 	const bucket = { put, delete: vi.fn(async () => undefined) };
 	const { db } = localDatabase();
@@ -38,7 +38,7 @@ it('accepts only WebP photos within the 3 MB upload limit', async () => {
 	jpeg.set([0xff, 0xd8, 0xff]);
 	const png = new Uint8Array(16).fill(0);
 	png.set([137, 80, 78, 71, 13, 10, 26, 10]);
-	const oversized = new Uint8Array(3 * 1024 * 1024 + 1);
+	const oversized = new Uint8Array(10 * 1024 * 1024 + 1);
 	oversized.set(webp);
 	for (const [bytes, contentType] of [
 		[jpeg, 'image/jpeg'],
@@ -80,4 +80,20 @@ it('stores validated WebP bytes and ordered metadata for a draft', async () => {
 		httpMetadata: { contentType: 'image/webp' }
 	});
 	expect(remove).not.toHaveBeenCalled();
+});
+
+it('accepts a large WebP up to the 10 MB limit', async () => {
+	const put = vi.fn(async () => ({}));
+	const { db } = localDatabase();
+	const large = new Uint8Array(5 * 1024 * 1024);
+	large.set(webp);
+	await expect(
+		addProductPhoto(db, { put, delete: vi.fn(async () => undefined) }, 'test-draft', {
+			bytes: large,
+			contentType: 'image/webp',
+			position: 2,
+			altText: 'TEST ONLY large photo'
+		})
+	).resolves.toMatchObject({ position: 2 });
+	expect(put).toHaveBeenCalledOnce();
 });
