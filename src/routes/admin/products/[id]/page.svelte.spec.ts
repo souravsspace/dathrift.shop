@@ -81,10 +81,87 @@ it('corrects a published slug and explains the old URL keeps redirecting', async
 		.element(page.getByText('Slug corrected. The old URL now redirects here.'))
 		.toBeInTheDocument();
 	await expect
-		.element(page.getByRole('link', { name: 'View public page ↗' }))
+		.element(page.getByRole('link', { name: 'View public page' }))
 		.toHaveAttribute('href', '/products/olive-shirt');
 	expect(fetch).toHaveBeenCalledWith(
 		'/admin/api/products/test-shirt/slug',
 		expect.objectContaining({ method: 'POST', body: JSON.stringify({ slug: 'olive-shirt' }) })
 	);
+});
+
+const draftWithPhoto = (overrides: Record<string, unknown> = {}) => ({
+	id: 'test-draft',
+	slug: 'test-skirt',
+	name: 'TEST ONLY — Skirt',
+	category: 'bottoms',
+	price_bdt: 900,
+	publication_state: 'draft',
+	stock_state: 'available',
+	featured: false,
+	brand: null,
+	description: 'Local garment',
+	condition_notes: 'Small mark',
+	size_label: 'M',
+	measurements_json: '{"waist_cm":76,"inseam_cm":67}',
+	fit_note: 'Relaxed',
+	photos: [],
+	...overrides
+});
+
+async function pngFile() {
+	const canvas = document.createElement('canvas');
+	canvas.width = 2400;
+	canvas.height = 3000;
+	canvas.getContext('2d')!.fillRect(0, 0, 2400, 3000);
+	const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/png'));
+	return new File([blob], 'hem.png', { type: 'image/png' });
+}
+
+it('converts any picked image to WebP before uploading it', async () => {
+	let uploaded: File | null = null;
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(async (url: string, options?: RequestInit) => {
+			if (options?.method === 'POST' && url.endsWith('/photos')) {
+				uploaded = (options.body as FormData).get('photo') as File;
+				return Response.json(
+					{ position: 1, r2_key: 'products/test-draft/a.webp', alt_text: 'TEST ONLY hem' },
+					{ status: 201 }
+				);
+			}
+			return Response.json(draftWithPhoto());
+		})
+	);
+	render(ProductEditor, { data: { actor: 'local-preview', id: 'test-draft' } });
+	await page.getByLabelText('Add photo').upload(await pngFile());
+	await expect.element(page.getByText(/WebP · 1600 × 2000/)).toBeInTheDocument();
+	await page.getByRole('textbox', { name: 'Photo description' }).fill('TEST ONLY hem');
+	await page.getByRole('button', { name: 'Upload photo' }).click();
+	await expect.element(page.getByText('Photo uploaded')).toBeInTheDocument();
+	expect(uploaded).not.toBeNull();
+	expect(uploaded!.type).toBe('image/webp');
+	expect(uploaded!.name).toBe('hem.webp');
+});
+
+it('features a published piece on the home page and removes it again', async () => {
+	const calls: string[] = [];
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(async (url: string, options?: RequestInit) => {
+			if (options?.method === 'POST' && url.endsWith('/feature')) {
+				calls.push(String(options.body));
+				const { featured } = JSON.parse(String(options.body)) as { featured: boolean };
+				return Response.json(featured ? { id: 'test-draft', featured } : { featured });
+			}
+			return Response.json(draftWithPhoto({ publication_state: 'published' }));
+		})
+	);
+	render(ProductEditor, { data: { actor: 'local-preview', id: 'test-draft' } });
+	await page.getByRole('button', { name: 'Feature on home page' }).click();
+	await expect.element(page.getByText('Leads the home page')).toBeInTheDocument();
+	await page.getByRole('button', { name: 'Remove from home page' }).click();
+	await expect
+		.element(page.getByRole('button', { name: 'Feature on home page' }))
+		.toBeInTheDocument();
+	expect(calls).toEqual(['{"featured":true}', '{"featured":false}']);
 });
