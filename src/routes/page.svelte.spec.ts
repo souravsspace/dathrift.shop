@@ -3,7 +3,7 @@ import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Home from './+page.svelte';
 
-it('shows the approved archive direction with honest local fixture and sold labels', async () => {
+it('shows the swing-tag storefront with honest local fixture and sold labels', async () => {
 	render(Home, {
 		data: {
 			products: [
@@ -33,11 +33,12 @@ it('shows the approved archive direction with honest local fixture and sold labe
 				}
 			],
 			facets: { categories: ['outerwear', 'tops'], sizes: ['L', 'M'] },
+			hero: null,
 			filters: {},
 			filtered: false
 		}
 	});
-	await expect.element(page.getByRole('heading', { level: 1 })).toHaveTextContent('One of a kind');
+	await expect.element(page.getByRole('heading', { level: 1 })).toHaveTextContent('one of one');
 	await expect.element(page.getByText('Local preview · test pieces only')).toBeInTheDocument();
 	await expect.element(page.getByText('TEST ONLY — Olive cotton shirt')).toBeInTheDocument();
 	await expect
@@ -64,6 +65,7 @@ it('offers crawlable category links and a no-JavaScript filter form', async () =
 		data: {
 			products: [shirt],
 			facets: { categories: ['tops'], sizes: ['L'] },
+			hero: null,
 			filters: {},
 			filtered: false
 		}
@@ -92,4 +94,27 @@ it('keeps filtered variants out of the index', async () => {
 	expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe(
 		'noindex, follow'
 	);
+});
+
+it('leads with the featured piece on its swing tag', async () => {
+	render(Home, {
+		data: {
+			products: [],
+			facets: { categories: [], sizes: [] },
+			hero: {
+				...shirt,
+				photo_alt: 'Featured olive shirt on a hanger',
+				featured: true
+			},
+			filters: {},
+			filtered: false
+		}
+	});
+	await expect
+		.element(page.getByRole('img', { name: 'Featured olive shirt on a hanger' }))
+		.toHaveAttribute('src', '/media/products/shirt/1.webp');
+	await expect.element(page.getByText('৳850')).toBeInTheDocument();
+	await expect
+		.element(page.getByRole('link', { name: 'See the Olive cotton shirt' }))
+		.toHaveAttribute('href', '/products/olive-cotton-shirt');
 });
