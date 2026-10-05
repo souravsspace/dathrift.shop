@@ -1,10 +1,18 @@
+import { and, eq, sql } from 'drizzle-orm';
 import { normalizeCartIds } from '../cart/cart';
+import type { Database } from '../db/client';
+import { deliveryAreas, orderItems, orders, products } from '../db/schema';
 import { normalizeShippingAddress } from '../shipping/quote';
 
-type Statement = { first(): Promise<Record<string, unknown> | null> };
-type ReservationDb = {
-	prepare(sql: string): { bind(...values: (string | number | null)[]): Statement };
-	batch(statements: Statement[]): Promise<({ results?: Record<string, unknown>[] } | unknown)[]>;
+const orderColumns = {
+	id: orders.id,
+	status_token: orders.statusToken,
+	status: orders.status,
+	subtotal_bdt: orders.subtotalBdt,
+	shipping_bdt: orders.shippingBdt,
+	total_bdt: orders.totalBdt,
+	preview_only: orders.previewOnly,
+	expires_at: orders.expiresAt
 };
 
 export type ReservedOrder = {
@@ -14,22 +22,18 @@ export type ReservedOrder = {
 	subtotal_bdt: number;
 	shipping_bdt: number;
 	total_bdt: number;
-	preview_only: number;
+	preview_only: boolean;
 	expires_at: string;
 };
 
-const orderColumns = `id, status_token, status, subtotal_bdt, shipping_bdt,
-			 total_bdt, preview_only, expires_at`;
-
-async function orderForKey(db: ReservationDb, key: string) {
-	return (await db
-		.prepare(`SELECT ${orderColumns} FROM orders WHERE checkout_key = ?`)
-		.bind(key)
-		.first()) as ReservedOrder | null;
+async function orderForKey(db: Database, key: string) {
+	return ((await db.select(orderColumns).from(orders).where(eq(orders.checkoutKey, key)).get()) ??
+		null) as ReservedOrder | null;
 }
 
+// D1 triggers reserve each unit inside the batch; any unavailable unit rolls back the whole order.
 export async function reserveCheckout(
-	db: ReservationDb,
+	db: Database,
 	inputIds: unknown,
 	inputAddress: unknown,
 	allowPreview = false,
@@ -46,43 +50,42 @@ export async function reserveCheckout(
 	const address = normalizeShippingAddress(inputAddress);
 	const id = crypto.randomUUID();
 	const token = crypto.randomUUID();
-	const statements = [
-		db
-			.prepare(
-				`INSERT INTO orders
-			 (id, status_token, address_json, shipping_bdt, total_bdt, preview_only, checkout_key)
-			 SELECT ?, ?, ?, fee_bdt, fee_bdt, preview_only, ? FROM delivery_areas
-			 WHERE district_key = ? AND area_key = ? AND active = 1
-			 AND (preview_only = 0 OR ? = 1)`
-			)
-			.bind(
-				id,
-				token,
-				JSON.stringify(address),
-				checkoutKey,
-				address.district,
-				address.area,
-				allowPreview ? 1 : 0
-			),
-		...ids.map((productId) =>
-			db
-				.prepare(
-					`INSERT INTO order_items (order_id, product_id, price_bdt)
-			 VALUES (?, ?, (SELECT price_bdt FROM products WHERE id = ?))`
-				)
-				.bind(id, productId, productId)
-		),
-		db.prepare(`SELECT ${orderColumns} FROM orders WHERE id = ?`).bind(id)
-	];
+	const area = and(
+		eq(deliveryAreas.districtKey, address.district),
+		eq(deliveryAreas.areaKey, address.area),
+		eq(deliveryAreas.active, true),
+		allowPreview ? undefined : eq(deliveryAreas.previewOnly, false)
+	);
+	const areaValue = (column: typeof deliveryAreas.feeBdt | typeof deliveryAreas.previewOnly) =>
+		sql`(SELECT ${column} FROM ${deliveryAreas} WHERE ${area})`;
 	let result;
 	try {
-		result = await db.batch(statements);
+		result = await db.batch([
+			// A missing or unapproved area yields NULL fees, so NOT NULL aborts the whole batch.
+			db.insert(orders).values({
+				id,
+				statusToken: token,
+				addressJson: JSON.stringify(address),
+				shippingBdt: areaValue(deliveryAreas.feeBdt),
+				totalBdt: areaValue(deliveryAreas.feeBdt),
+				previewOnly: areaValue(deliveryAreas.previewOnly),
+				checkoutKey
+			}),
+			...ids.map((productId) =>
+				db.insert(orderItems).values({
+					orderId: id,
+					productId,
+					priceBdt: sql`(SELECT ${products.priceBdt} FROM ${products} WHERE ${products.id} = ${productId})`
+				})
+			),
+			db.select(orderColumns).from(orders).where(eq(orders.id, id))
+		]);
 	} catch (error) {
 		const retried = checkoutKey && (await orderForKey(db, checkoutKey));
 		if (retried) return retried;
 		throw error;
 	}
-	const order = (result.at(-1) as { results?: Record<string, unknown>[] })?.results?.[0];
+	const order = (result.at(-1) as ReservedOrder[])[0];
 	if (!order || !Number.isSafeInteger(order.total_bdt)) throw new Error('Reservation unavailable');
-	return order as ReservedOrder;
+	return order;
 }
