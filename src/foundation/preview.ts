@@ -1,16 +1,13 @@
+import { eq } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/d1';
+import { foundationMarkers } from './schema';
+
 type FoundationContext = {
 	access?: { getIdentity(): Promise<{ email?: string } | null> };
 };
 
 type FoundationEnv = {
-	DB: {
-		prepare(query: string): {
-			bind(...values: string[]): {
-				run(): Promise<unknown>;
-				first(): Promise<{ value: string } | null>;
-			};
-		};
-	};
+	DB: Parameters<typeof drizzle>[0];
 	ALLOWED_HOST: string;
 	STAFF_EMAILS?: string;
 };
@@ -29,17 +26,19 @@ export default {
 		if (request.method === 'POST' && url.pathname === '/__foundation/markers') {
 			const marker = await request.json().catch(() => null);
 			if (!isMarker(marker)) return new Response('Invalid marker', { status: 400 });
-			await env.DB.prepare('INSERT INTO foundation_markers (id, value) VALUES (?, ?)')
-				.bind(marker.id, marker.value)
-				.run();
+			await drizzle(env.DB)
+				.insert(foundationMarkers)
+				.values({ id: marker.id, value: marker.value });
 			return new Response(null, { status: 201 });
 		}
 
 		if (request.method === 'GET' && url.pathname.startsWith('/__foundation/markers/')) {
 			const id = url.pathname.slice('/__foundation/markers/'.length);
-			const marker = await env.DB.prepare('SELECT value FROM foundation_markers WHERE id = ?')
-				.bind(id)
-				.first();
+			const marker = await drizzle(env.DB)
+				.select({ value: foundationMarkers.value })
+				.from(foundationMarkers)
+				.where(eq(foundationMarkers.id, id))
+				.get();
 			return marker
 				? Response.json({ id, value: marker.value }, { headers: { 'Cache-Control': 'no-store' } })
 				: new Response('Not found', { status: 404 });
