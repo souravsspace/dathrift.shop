@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import AdminHeader from '../../../../lib/components/AdminHeader.svelte';
+	import StatusStamp from '../../../../lib/components/StatusStamp.svelte';
 	import { toWebp } from '../../../../lib/images/to-webp';
 	import type { PageData } from './$types';
 
@@ -279,11 +280,14 @@
 			<div class="admin-intro">
 				<div>
 					<h1>{product.name}</h1>
-					<p>
-						{product.publication_state} · {product.stock_state} · /{product.slug}{#if product.featured}<span
-								class="admin-chip">Home hero</span
-							>{/if}
-					</p>
+					<p>/{product.slug}</p>
+					<div class="admin-stamps">
+						<StatusStamp kind={product.publication_state} />
+						{#if product.stock_state !== 'available'}<StatusStamp
+								kind={product.stock_state === 'sold' ? 'sold' : 'reserved'}
+							/>{/if}
+						{#if product.featured}<span class="admin-chip">Home hero</span>{/if}
+					</div>
 				</div>
 				<span class="admin-actor"
 					>{data.actor === 'local-preview' ? 'Local preview' : data.actor}</span
