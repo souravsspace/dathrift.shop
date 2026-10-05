@@ -1,12 +1,13 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../db/client';
-import { inventory, productPhotos, products, slugRedirects } from '../db/schema';
+import { categories, inventory, productPhotos, products, slugRedirects } from '../db/schema';
 
 export type PublicProductDetail = {
 	id: string;
 	slug: string;
 	name: string;
 	category: string;
+	category_name: string;
 	brand: string | null;
 	price_bdt: number;
 	stock_state: 'available' | 'reserved' | 'sold';
@@ -28,6 +29,7 @@ export async function getPublicProductDetail(
 			slug: products.slug,
 			name: products.name,
 			category: products.category,
+			category_name: categories.name,
 			brand: products.brand,
 			price_bdt: products.priceBdt,
 			description: products.description,
@@ -39,6 +41,7 @@ export async function getPublicProductDetail(
 		})
 		.from(products)
 		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.innerJoin(categories, eq(categories.slug, products.category))
 		.where(and(eq(products.slug, slug), eq(products.publicationState, 'published')))
 		.get();
 	if (!row) return null;
