@@ -19,7 +19,7 @@
 	const prices = [500, 1000, 1500, 2500];
 </script>
 
-<div class="browse">
+<div class="browse" id="filters">
 	<nav class="categories" aria-label="Shop by category">
 		<a href="/#shop" aria-current={current ? undefined : 'page'}>All pieces</a>
 		{#each categories as category (category)}
@@ -29,7 +29,7 @@
 		{/each}
 	</nav>
 
-	<form class="filters" method="GET" {action} data-sveltekit-reset="false">
+	<form class="filters" method="GET" action="{action}#filters" data-sveltekit-reset="false">
 		<div class="field">
 			<label for="filter-size">Size</label>
 			<select id="filter-size" name="size">
@@ -54,13 +54,15 @@
 		</label>
 		<button type="submit">Apply</button>
 		{#if filters.size || filters.maxPrice || filters.availableOnly}
-			<a class="clear" href={action} data-sveltekit-reset="false">Clear</a>
+			<a class="clear" href="{action}#filters" data-sveltekit-reset="false">Clear</a>
 		{/if}
 	</form>
 </div>
 
 <style>
 	.browse {
+		/* Clear the sticky site header when a full page load jumps to #filters. */
+		scroll-margin-top: 88px;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
