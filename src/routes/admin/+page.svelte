@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AdminHeader from '../../lib/components/AdminHeader.svelte';
+	import StatusStamp from '../../lib/components/StatusStamp.svelte';
 	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 
@@ -172,7 +173,12 @@
 								</div>
 								<div class="admin-row-meta">
 									<span>৳{new Intl.NumberFormat('en-BD').format(product.price_bdt)}</span>
-									<small>{product.publication_state} · {product.stock_state}</small>
+									<div class="admin-stamps">
+										<StatusStamp kind={product.publication_state} />
+										{#if product.stock_state !== 'available'}<StatusStamp
+												kind={product.stock_state === 'sold' ? 'sold' : 'reserved'}
+											/>{/if}
+									</div>
 									<a href="/admin/products/{product.id}" aria-label="Edit {product.name}">Edit</a>
 								</div>
 							</li>
