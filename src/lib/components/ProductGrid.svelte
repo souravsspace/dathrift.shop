@@ -69,7 +69,7 @@
 <style>
 	.rack {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
 		gap: 72px clamp(20px, 2.6vw, 40px);
 		margin: 0;
 		padding: 0;
