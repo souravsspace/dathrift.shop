@@ -9,7 +9,13 @@ it('seeds unmistakably test-only stock locally, including available, sold, and d
 	}
 	const seed = readFileSync('db/seed/local.sql', 'utf8');
 	db.exec(seed);
+	db.prepare(
+		"UPDATE product_photos SET r2_key = 'test-only/old-dress.svg' WHERE product_id = 'test-dress'"
+	).run();
 	db.exec(seed);
+	expect(
+		db.prepare("SELECT r2_key FROM product_photos WHERE product_id = 'test-dress'").get()
+	).toEqual({ r2_key: 'test-only/cream-dress.webp' });
 	const products = db.prepare('SELECT id, slug, name, publication_state FROM products').all();
 	expect(products).toHaveLength(4);
 	for (const product of products) {
