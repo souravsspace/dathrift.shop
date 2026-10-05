@@ -23,12 +23,16 @@
 			"bucket_name": "dathrift-phase1-d1-backups-test"
 		}
 	],
+	"send_email": [{ "name": "EMAIL" }],
+	"secrets": {
+		"required": ["STAFF_EMAILS", "D1_REST_API_TOKEN", "ALERT_EMAIL", "ALERT_FROM_EMAIL"]
+	},
 	"workflows": [
 		{
 			"name": "dathrift-phase1-d1-backup",
 			"binding": "BACKUP_WORKFLOW",
 			"class_name": "Phase1BackupWorkflow",
-			"schedules": ["0 * * * *"]
+			"schedules": ["*/30 * * * *"]
 		}
 	]
 }
