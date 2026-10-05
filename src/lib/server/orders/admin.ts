@@ -115,6 +115,8 @@ export async function getStaffOrder(db: Database, id: string) {
 	};
 }
 
+const fulfillmentStates = fulfillments.state.enumValues;
+
 type FulfillmentInput = {
 	state: string;
 	courier?: string | null;
@@ -134,13 +136,13 @@ export async function recordFulfillment(
 	actor: string,
 	input: FulfillmentInput
 ) {
-	if (input.state !== 'preparing' && input.state !== 'dispatched' && input.state !== 'delivered')
-		throw new Error('Invalid fulfillment');
+	const state = fulfillmentStates.find((value) => value === input.state);
+	if (!state) throw new Error('Invalid fulfillment');
 	const courier = clean(input.courier, 60);
 	const trackingCode = clean(input.tracking_code, 100);
-	if (input.state === 'dispatched' && !trackingCode) throw new Error('Invalid fulfillment');
+	if (state === 'dispatched' && !trackingCode) throw new Error('Invalid fulfillment');
 	const values = {
-		state: input.state,
+		state,
 		courier,
 		trackingCode,
 		actorEmail: actor,
@@ -165,5 +167,5 @@ export async function recordFulfillment(
 			throw new Error('Invalid fulfillment transition');
 		throw error;
 	}
-	return { order_id: orderId, state: input.state };
+	return { order_id: orderId, state };
 }
