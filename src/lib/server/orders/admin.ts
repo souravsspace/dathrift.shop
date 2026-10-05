@@ -162,9 +162,9 @@ export async function recordFulfillment(
 			});
 	} catch (error) {
 		const text = databaseErrorText(error);
-		if (text.includes('Order not paid')) throw new Error('Order not paid');
+		if (text.includes('Order not paid')) throw new Error('Order not paid', { cause: error });
 		if (text.includes('Invalid fulfillment transition'))
-			throw new Error('Invalid fulfillment transition');
+			throw new Error('Invalid fulfillment transition', { cause: error });
 		throw error;
 	}
 	return { order_id: orderId, state };
