@@ -1,4 +1,5 @@
 import { env } from 'cloudflare:workers';
+import { databaseFrom } from '../../../../lib/server/db/client';
 import { normalizeCartIds } from '../../../../lib/server/cart/cart';
 import { repriceCart } from '../../../../lib/server/cart/pricing';
 import type { RequestHandler } from './$types';
@@ -15,7 +16,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	} catch {
 		return new Response('Invalid cart', { status: 400, headers });
 	}
-	const db = (env as { DB?: Parameters<typeof repriceCart>[1] }).DB;
+	const db = databaseFrom(env);
 	if (!db) return new Response('Catalog unavailable', { status: 503, headers });
 	try {
 		return Response.json(await repriceCart(ids, db), { headers });
