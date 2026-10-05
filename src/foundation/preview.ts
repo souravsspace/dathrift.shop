@@ -1,8 +1,8 @@
-type Phase1Context = {
+type FoundationContext = {
 	access?: { getIdentity(): Promise<{ email?: string } | null> };
 };
 
-type Phase1Env = {
+type FoundationEnv = {
 	DB: {
 		prepare(query: string): {
 			bind(...values: string[]): {
@@ -16,7 +16,7 @@ type Phase1Env = {
 };
 
 export default {
-	async fetch(request: Request, env: Phase1Env, ctx: Phase1Context): Promise<Response> {
+	async fetch(request: Request, env: FoundationEnv, ctx: FoundationContext): Promise<Response> {
 		const url = new URL(request.url);
 		if (url.hostname !== env.ALLOWED_HOST) return new Response('Not found', { status: 404 });
 		if (!ctx.access) return new Response('Access required', { status: 403 });
@@ -26,18 +26,18 @@ export default {
 			return new Response('Access required', { status: 403 });
 		}
 
-		if (request.method === 'POST' && url.pathname === '/__phase1/markers') {
+		if (request.method === 'POST' && url.pathname === '/__foundation/markers') {
 			const marker = await request.json().catch(() => null);
 			if (!isMarker(marker)) return new Response('Invalid marker', { status: 400 });
-			await env.DB.prepare('INSERT INTO phase1_markers (id, value) VALUES (?, ?)')
+			await env.DB.prepare('INSERT INTO foundation_markers (id, value) VALUES (?, ?)')
 				.bind(marker.id, marker.value)
 				.run();
 			return new Response(null, { status: 201 });
 		}
 
-		if (request.method === 'GET' && url.pathname.startsWith('/__phase1/markers/')) {
-			const id = url.pathname.slice('/__phase1/markers/'.length);
-			const marker = await env.DB.prepare('SELECT value FROM phase1_markers WHERE id = ?')
+		if (request.method === 'GET' && url.pathname.startsWith('/__foundation/markers/')) {
+			const id = url.pathname.slice('/__foundation/markers/'.length);
+			const marker = await env.DB.prepare('SELECT value FROM foundation_markers WHERE id = ?')
 				.bind(id)
 				.first();
 			return marker
