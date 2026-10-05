@@ -6,11 +6,6 @@
 	let added = $state(false);
 	let product = $derived(data.product);
 	let testPiece = $derived(product.slug.startsWith('test-'));
-	const testImages: Record<string, string> = {
-		'test-olive-cotton-shirt': '/test-only/olive-shirt.webp',
-		'test-cream-midi-dress': '/test-only/cream-dress.webp',
-		'test-sold-denim-jacket': '/test-only/denim-jacket.webp'
-	};
 	const labels: Record<string, string> = {
 		chest_cm: 'Chest',
 		length_cm: 'Length',
@@ -48,9 +43,9 @@
 		</div>
 		<div class="product-layout">
 			<div class="detail-media">
-				{#if testImages[product.slug]}
+				{#if product.photos[0]}
 					<img
-						src={testImages[product.slug]}
+						src="/media/{product.photos[0].key}"
 						alt={product.photos[0]?.alt ?? product.name}
 						width="1024"
 						height="1280"
