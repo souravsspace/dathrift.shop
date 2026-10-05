@@ -22,7 +22,7 @@ SvelteKit on Cloudflare Workers, D1 for product/order state, R2 for product phot
 
 - One sellable unit per product; cart addition never reserves stock.
 - Published sold items remain readable; draft items stay private.
-- Staff enter honest condition notes, centimeter measurements and photo alt text.
+- Staff enter honest condition notes, measurements in half inches (the set each category requires: chest and length, waist and inseam, or none) and photo alt text. Staff manage categories and choose each piece's cover photo (up to ten photos).
 - Bangladesh delivery areas and courier terms need owner approval before live claims.
 - A browser payment redirect cannot mark an order paid.
 
