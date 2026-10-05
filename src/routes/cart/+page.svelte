@@ -114,9 +114,9 @@
 					</div>
 					<p>Delivery is calculated only after an approved address is checked.</p>
 					{#if quote.subtotal_bdt !== null}<a class="bag-quote-link" href="/checkout"
-							>Preview delivery total ↗</a
+							>Continue to checkout ↗</a
 						>{/if}
-					<p class="checkout-notice">Checkout is not available yet</p>
+					<p class="checkout-notice">Nothing is held until you pay.</p>
 				</aside>
 			</div>
 		{/if}
