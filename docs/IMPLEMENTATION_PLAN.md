@@ -14,7 +14,7 @@
 | 7. SEO/policy            | Not started                          | [Crawlability, accessibility and truthful policy](phases/07_SEO_ACCESSIBILITY_POLICY.md).                                                                                     |
 | 8. Release               | Not started                          | [Production readiness and post-deploy proof](phases/08_RELEASE.md).                                                                                                           |
 
-**Next work:** complete Phase 1 one test-first vertical slice at a time. Keep it incomplete until authenticated remote access, D1 persistence, a scheduled private R2 export/alert and an isolated restore meet the measured **≤1-hour RPO / ≤4-hour RTO** targets. The owner permits later phases to be built locally in order while remote gates await owner action; this does **not** close any phase or authorize new Cloudflare resources, public deployment, live checkout or policy claims. No storefront UI before approval of a concrete visual concept.
+**Next work:** implement the remaining phases locally in order, one test-first vertical slice at a time, then perform the live/remote verification pass. Local checks still run while coding; postponing live tests does **not** waive any exit gate. Keep Phase 1 incomplete until authenticated remote access, D1 persistence, a scheduled private R2 export/alert and an isolated restore meet the measured **≤1-hour RPO / ≤4-hour RTO** targets. No local code authorizes new Cloudflare resources, public deployment, live checkout or policy claims. No storefront UI before approval of a concrete visual concept.
 
 ### Environment and resource names
 
