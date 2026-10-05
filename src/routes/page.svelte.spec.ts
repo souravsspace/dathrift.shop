@@ -12,6 +12,7 @@ it('shows the swing-tag storefront with honest local fixture and sold labels', a
 					slug: 'test-olive-cotton-shirt',
 					name: 'TEST ONLY — Olive cotton shirt',
 					category: 'tops' as const,
+					category_name: 'Tops',
 					price_bdt: 850,
 					stock_state: 'available' as const,
 					size_label: 'L',
@@ -24,6 +25,7 @@ it('shows the swing-tag storefront with honest local fixture and sold labels', a
 					slug: 'test-sold-denim-jacket',
 					name: 'TEST ONLY — Sold denim jacket',
 					category: 'outerwear' as const,
+					category_name: 'Outerwear',
 					price_bdt: 1750,
 					stock_state: 'sold' as const,
 					size_label: 'M',
@@ -32,7 +34,13 @@ it('shows the swing-tag storefront with honest local fixture and sold labels', a
 					photo_alt: 'Generated test-only denim jacket'
 				}
 			],
-			facets: { categories: ['outerwear', 'tops'], sizes: ['L', 'M'] },
+			facets: {
+				categories: [
+					{ slug: 'outerwear', name: 'Outerwear' },
+					{ slug: 'tops', name: 'Tops' }
+				],
+				sizes: ['L', 'M']
+			},
 			hero: null,
 			filters: {},
 			filtered: false
@@ -52,6 +60,7 @@ const shirt = {
 	slug: 'olive-cotton-shirt',
 	name: 'Olive cotton shirt',
 	category: 'tops' as const,
+	category_name: 'Tops',
 	price_bdt: 850,
 	stock_state: 'available' as const,
 	size_label: 'L',
@@ -64,7 +73,7 @@ it('offers crawlable category links and a no-JavaScript filter form', async () =
 	render(Home, {
 		data: {
 			products: [shirt],
-			facets: { categories: ['tops'], sizes: ['L'] },
+			facets: { categories: [{ slug: 'tops', name: 'Tops' }], sizes: ['L'] },
 			hero: null,
 			filters: {},
 			filtered: false
@@ -85,7 +94,7 @@ it('keeps filtered variants out of the index', async () => {
 	render(Home, {
 		data: {
 			products: [],
-			facets: { categories: ['tops'], sizes: ['L'] },
+			facets: { categories: [{ slug: 'tops', name: 'Tops' }], sizes: ['L'] },
 			hero: null,
 			filters: { size: 'XS' },
 			filtered: true
