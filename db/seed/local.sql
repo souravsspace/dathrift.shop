@@ -45,3 +45,5 @@ UPDATE product_photos SET r2_key = 'test-only/olive-shirt.webp',
 UPDATE product_photos SET r2_key = 'test-only/denim-jacket.webp',
 	alt_text = 'Generated test-only denim jacket visual'
 	WHERE product_id = 'test-sold' AND position = 1;
+
+INSERT OR IGNORE INTO home_feature (slot, product_id) VALUES ('hero', 'test-dress');
