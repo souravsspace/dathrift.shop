@@ -1,23 +1,11 @@
 <script lang="ts">
+	import BrowseFilters from '../lib/components/BrowseFilters.svelte';
+	import ProductGrid from '../lib/components/ProductGrid.svelte';
+	import { SITE_ORIGIN } from '../lib/site';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-	let category = $state('all');
-	let visibleProducts = $derived(
-		category === 'all'
-			? data.products
-			: data.products.filter((product) => product.category === category)
-	);
 	let hasTestPieces = $derived(data.products.some((product) => product.slug.startsWith('test-')));
-
-	const categories = [
-		{ value: 'all', label: 'All pieces' },
-		{ value: 'tops', label: 'Tops' },
-		{ value: 'bottoms', label: 'Bottoms' },
-		{ value: 'outerwear', label: 'Outerwear' },
-		{ value: 'dresses', label: 'Dresses' }
-	];
-	const price = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 </script>
 
 <svelte:head>
@@ -26,7 +14,13 @@
 		name="description"
 		content="Explore one-of-a-kind pre-loved clothing with honest condition notes and garment measurements."
 	/>
-	{#if hasTestPieces}<meta name="robots" content="noindex, nofollow" />{/if}
+	<link rel="canonical" href="{SITE_ORIGIN}/" />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="dathrift — one-of-a-kind pre-loved clothing" />
+	<meta property="og:url" content="{SITE_ORIGIN}/" />
+	<meta property="og:image" content="{SITE_ORIGIN}/brand/dathrift-logo.png" />
+	{#if hasTestPieces}<meta name="robots" content="noindex, nofollow" />
+	{:else if data.filtered}<meta name="robots" content="noindex, follow" />{/if}
 </svelte:head>
 
 <div class="storefront">
@@ -82,56 +76,19 @@
 				<span>{data.products.length} {data.products.length === 1 ? 'piece' : 'pieces'}</span>
 			</div>
 
-			<div class="category-list" aria-label="Filter by category">
-				{#each categories as option (option.value)}
-					<button
-						type="button"
-						class:active={category === option.value}
-						aria-pressed={category === option.value}
-						onclick={() => (category = option.value)}>{option.label}</button
-					>
-				{/each}
-			</div>
+			<BrowseFilters
+				action="/"
+				categories={data.facets.categories}
+				sizes={data.facets.sizes}
+				filters={data.filters}
+			/>
 
-			{#if visibleProducts.length}
-				<div class="product-grid">
-					{#each visibleProducts as product (product.id)}
-						<article class="product-card">
-							<a href="/products/{product.slug}" aria-label="View {product.name}">
-								<div class="product-image" class:sold={product.stock_state !== 'available'}>
-									{#if product.photo_key}
-										<img
-											src="/media/{product.photo_key}"
-											alt={product.photo_alt ?? product.name}
-											width="1024"
-											height="1280"
-											loading="lazy"
-										/>
-									{:else}
-										<span class="image-unavailable">Image unavailable</span>
-									{/if}
-									{#if product.stock_state !== 'available'}<span class="sold-badge">Sold out</span
-										>{/if}
-								</div>
-								<div class="product-info">
-									<span class="product-category"
-										>{product.category} · Size {product.size_label ?? '—'}</span
-									>
-									<h3>{product.name}</h3>
-									<div class="product-bottom">
-										<span>{price(product.price_bdt)}</span>
-										<span aria-hidden="true">↗</span>
-									</div>
-								</div>
-							</a>
-						</article>
-					{/each}
-				</div>
-			{:else}
-				<p class="empty-state">
-					No pieces in this category right now. Try another part of the edit.
-				</p>
-			{/if}
+			<ProductGrid
+				products={data.products}
+				empty={data.filtered
+					? 'No pieces match these filters.'
+					: 'No pieces in the edit right now. Check back soon.'}
+			/>
 		</section>
 
 		<section class="approach" id="our-approach" aria-labelledby="approach-title">
