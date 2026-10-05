@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, lte } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import { inventory, productPhotos, products } from '../db/schema';
 
@@ -27,7 +27,34 @@ const publicColumns = {
 	stock_state: inventory.state
 };
 
-export async function listPublicProducts(db: Database): Promise<PublicListing[]> {
+const categories = products.category.enumValues;
+
+export type BrowseFilters = {
+	category?: PublicProduct['category'];
+	size?: string;
+	maxPrice?: number;
+	availableOnly?: boolean;
+};
+
+// Unknown or malformed values are dropped; any filter parameter marks the page as a variant.
+export function browseFiltersFrom(params: URLSearchParams) {
+	const filters: BrowseFilters = {};
+	const category = categories.find((value) => value === params.get('category'));
+	if (category) filters.category = category;
+	const size = params.get('size')?.trim();
+	if (size && /^[A-Za-z0-9 ./-]{1,20}$/.test(size)) filters.size = size;
+	const maxPrice = Number(params.get('max_price'));
+	if (params.has('max_price') && Number.isSafeInteger(maxPrice) && maxPrice > 0)
+		filters.maxPrice = maxPrice;
+	if (params.get('available') === '1') filters.availableOnly = true;
+	const active = ['category', 'size', 'max_price', 'available'].some((key) => params.has(key));
+	return { filters, active };
+}
+
+export async function listPublicProducts(
+	db: Database,
+	filters: BrowseFilters = {}
+): Promise<PublicListing[]> {
 	return db
 		.select({
 			...publicColumns,
@@ -42,9 +69,17 @@ export async function listPublicProducts(db: Database): Promise<PublicListing[]>
 			productPhotos,
 			and(eq(productPhotos.productId, products.id), eq(productPhotos.position, 1))
 		)
-		.where(eq(products.publicationState, 'published'))
+		.where(
+			and(
+				eq(products.publicationState, 'published'),
+				filters.category ? eq(products.category, filters.category) : undefined,
+				filters.size ? eq(products.sizeLabel, filters.size) : undefined,
+				filters.maxPrice ? lte(products.priceBdt, filters.maxPrice) : undefined,
+				filters.availableOnly ? eq(inventory.state, 'available') : undefined
+			)
+		)
 		.orderBy(desc(products.createdAt), desc(products.id))
-		.limit(24);
+		.limit(48);
 }
 
 export async function getPublicProduct(db: Database, slug: string): Promise<PublicProduct | null> {
@@ -65,4 +100,24 @@ export async function isPublishedPhoto(db: Database, key: string): Promise<boole
 		.where(and(eq(productPhotos.r2Key, key), eq(products.publicationState, 'published')))
 		.get();
 	return Boolean(row);
+}
+
+export async function publicFacets(db: Database) {
+	const published = eq(products.publicationState, 'published');
+	const [categoryRows, sizeRows] = await Promise.all([
+		db
+			.selectDistinct({ value: products.category })
+			.from(products)
+			.where(published)
+			.orderBy(asc(products.category)),
+		db
+			.selectDistinct({ value: products.sizeLabel })
+			.from(products)
+			.where(published)
+			.orderBy(asc(products.sizeLabel))
+	]);
+	return {
+		categories: categoryRows.map((row) => row.value),
+		sizes: sizeRows.flatMap((row) => (row.value ? [row.value] : []))
+	};
 }
