@@ -41,7 +41,7 @@ it('emails the owner when the previous private backup is older than one hour', a
 	const send = vi.fn(async () => ({ messageId: 'alert-2' }));
 	const put = vi.fn();
 	const list = vi.fn(async () => ({
-		objects: [{ customMetadata: { scheduled_at: '2026-10-05T00:00:00.000Z' } }],
+		objects: [{ customMetadata: { scheduled_at: '2026-10-05T00:30:00.000Z' } }],
 		truncated: false
 	}));
 	const fetcher = vi.fn(async (input: string | URL | Request) =>
@@ -74,17 +74,18 @@ it('emails the owner when the previous private backup is older than one hour', a
 				ALERT_FROM_EMAIL: 'alerts@example.com'
 			},
 			step,
-			new Date('2026-10-05T01:30:00.000Z'),
-			fetcher
+			new Date('2026-10-05T01:00:00.000Z'),
+			fetcher,
+			new Date('2026-10-05T01:45:00.000Z')
 		)
-	).resolves.toEqual(['hourly/2026-10-05T01-30-00Z.sql']);
+	).resolves.toEqual(['hourly/2026-10-05T01-00-00Z.sql']);
 	expect(list).toHaveBeenCalledExactlyOnceWith({ prefix: 'hourly/', include: ['customMetadata'] });
 	expect(put).toHaveBeenCalledOnce();
 	expect(send).toHaveBeenCalledExactlyOnceWith({
 		to: 'owner@example.com',
 		from: 'alerts@example.com',
 		subject: 'dathrift Phase 1 backup stale',
-		text: 'The latest previous nonproduction D1 backup was over one hour old at 2026-10-05T01:30:00.000Z. Inspect the Phase 1 Workflow and private R2 bucket.'
+		text: 'The latest previous nonproduction D1 backup was over one hour old at 2026-10-05T01:45:00.000Z. Inspect the Phase 1 Workflow and private R2 bucket.'
 	});
 });
 
