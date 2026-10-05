@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { reveal } from '../motion';
-	import { categoryLabels, formatBdt } from '../site';
+	import { formatBdt } from '../site';
 	import StatusStamp from './StatusStamp.svelte';
 	import SwingTag from './SwingTag.svelte';
 
@@ -9,6 +9,7 @@
 		slug: string;
 		name: string;
 		category: string;
+		category_name: string;
 		price_bdt: number;
 		stock_state: 'available' | 'reserved' | 'sold';
 		size_label: string | null;
@@ -44,8 +45,7 @@
 					<div class="piece-tag">
 						<SwingTag>
 							<p class="tag-meta">
-								{categoryLabels[product.category] ?? product.category} · {product.size_label ??
-									'Size not listed'}
+								{product.category_name} · {product.size_label ?? 'Size not listed'}
 							</p>
 							<p class="tag-price">{formatBdt(product.price_bdt)}</p>
 							<h3 class="tag-name">{product.name}</h3>
