@@ -86,6 +86,7 @@ it('keeps filtered variants out of the index', async () => {
 		data: {
 			products: [],
 			facets: { categories: ['tops'], sizes: ['L'] },
+			hero: null,
 			filters: { size: 'XS' },
 			filtered: true
 		}
