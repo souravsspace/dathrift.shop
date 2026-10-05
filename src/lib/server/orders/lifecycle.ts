@@ -3,7 +3,7 @@ type Statement = {
 	run(): Promise<{ meta: { changes: number } }>;
 };
 export type OrderDb = {
-	prepare(sql: string): { bind(...values: (string | number)[]): Statement };
+	prepare(sql: string): { bind(...values: (string | number | null)[]): Statement };
 	batch(statements: Statement[]): Promise<{ meta: { changes: number } }[]>;
 };
 
@@ -14,13 +14,15 @@ export async function attachPayment(
 	orderId: string,
 	provider: 'bkash' | 'mock',
 	paymentId: string,
-	amountBdt: number
+	amountBdt: number,
+	redirectUrl: string | null = null
 ) {
 	await db
 		.prepare(
-			`INSERT INTO payments (payment_id, order_id, provider, amount_bdt) VALUES (?, ?, ?, ?)`
+			`INSERT INTO payments (payment_id, order_id, provider, amount_bdt, redirect_url)
+		 VALUES (?, ?, ?, ?, ?)`
 		)
-		.bind(paymentId, orderId, provider, amountBdt)
+		.bind(paymentId, orderId, provider, amountBdt, redirectUrl)
 		.run();
 }
 
