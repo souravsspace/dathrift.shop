@@ -5,18 +5,16 @@
 	let {
 		size = 'card',
 		swing = true,
-		tilt = 0,
 		children
 	}: {
 		size?: 'card' | 'hero' | 'detail';
 		swing?: boolean;
-		tilt?: number;
 		children: Snippet;
 	} = $props();
 </script>
 
 <!-- A die-cut ivory tag hanging from a thread through a gold eyelet. -->
-<div class="hang hang-{size}" style:--tilt="{tilt}deg">
+<div class="hang hang-{size}">
 	<div class="swinger" {@attach swing ? swingOnHover : undefined}>
 		<span class="thread" aria-hidden="true"></span>
 		<div class="tag">
@@ -32,7 +30,6 @@
 		--hole: 7px;
 		--hole-top: 22px;
 		position: relative;
-		rotate: var(--tilt);
 		filter: drop-shadow(0 10px 14px rgb(2 20 14 / 0.35)) drop-shadow(0 2px 3px rgb(2 20 14 / 0.3));
 	}
 
