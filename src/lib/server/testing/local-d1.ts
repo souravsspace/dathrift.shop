@@ -1,6 +1,8 @@
 // Test-only D1-shaped wrapper over in-memory SQLite with the shop migrations and local seed.
 import { readFileSync, readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
+import type { D1Database } from '@cloudflare/workers-types';
+import { database } from '../db/client';
 
 type Value = string | number | null;
 
@@ -8,6 +10,7 @@ export type LocalStatement = {
 	first(): Promise<Record<string, unknown> | null>;
 	all(): Promise<{ results: Record<string, unknown>[] }>;
 	run(): Promise<{ meta: { changes: number } }>;
+	raw(): Promise<unknown[][]>;
 	execute(): { results: Record<string, unknown>[]; meta: { changes: number } };
 };
 
@@ -33,6 +36,11 @@ export function localD1({ seed = true } = {}) {
 			first: async () => execute().results[0] ?? null,
 			all: async () => ({ results: execute().results }),
 			run: async () => ({ meta: execute().meta }),
+			raw: async () => {
+				const prepared = sqlite.prepare(sql);
+				prepared.setReturnArrays(true);
+				return prepared.all(...args) as unknown as unknown[][];
+			},
 			execute
 		};
 	};
@@ -55,4 +63,10 @@ export function localD1({ seed = true } = {}) {
 		}
 	};
 	return { db, sqlite };
+}
+
+// Drizzle over the same SQLite stand-in, so tests exercise real migrations and triggers.
+export function localDatabase(options?: { seed?: boolean }) {
+	const local = localD1(options);
+	return { ...local, d1: local.db, db: database(local.db as unknown as D1Database) };
 }
