@@ -70,7 +70,7 @@
 </script>
 
 <svelte:head>
-	<title>Product desk — dathrift</title>
+	<title>Product desk — daThriftShop</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
