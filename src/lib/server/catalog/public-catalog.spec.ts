@@ -24,6 +24,7 @@ it('hides drafts but keeps sold published products readable without private fiel
 		slug: 'sold',
 		name: 'Published sold piece',
 		category: 'dresses',
+		category_name: 'Dresses',
 		price_bdt: 1400,
 		stock_state: 'sold'
 	});
@@ -67,7 +68,7 @@ it('parses only known browse filters from the query string', () => {
 		active: true
 	});
 	expect(
-		browseFiltersFrom(new URLSearchParams('category=shoes&size=<b>&max_price=-5&available=yes'))
+		browseFiltersFrom(new URLSearchParams('category=Sh%20oes&size=<b>&max_price=-5&available=yes'))
 	).toEqual({ filters: {}, active: true });
 });
 
@@ -91,7 +92,11 @@ it('filters published stock by category, size, price and availability, newest fi
 	expect(await slugs({ size: 'M' })).toEqual(['test-sold-denim-jacket', 'test-cream-midi-dress']);
 	expect(await slugs({ maxPrice: 1000 })).toEqual(['test-olive-cotton-shirt']);
 	expect(await publicFacets(db)).toEqual({
-		categories: ['dresses', 'outerwear', 'tops'],
+		categories: [
+			{ slug: 'dresses', name: 'Dresses' },
+			{ slug: 'outerwear', name: 'Outerwear' },
+			{ slug: 'tops', name: 'Tops' }
+		],
 		sizes: ['L', 'M']
 	});
 });
