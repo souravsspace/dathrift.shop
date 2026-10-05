@@ -28,6 +28,7 @@ CREATE TABLE payments (
 	status TEXT NOT NULL DEFAULT 'created'
 		CHECK (status IN ('created', 'completed', 'failed', 'cancelled')),
 	trx_id TEXT UNIQUE,
+	redirect_url TEXT,
 	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
