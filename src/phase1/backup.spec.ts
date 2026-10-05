@@ -72,3 +72,38 @@ it('does not call the D1 API without a configured export token', async () => {
 	expect(fetcher).not.toHaveBeenCalled();
 	expect(put).not.toHaveBeenCalled();
 });
+
+it('does not store a backup when D1 reports an export failure', async () => {
+	const fetcher = vi.fn(async () =>
+		Response.json({
+			success: true,
+			result: {
+				success: false,
+				at_bookmark: 'bookmark-1',
+				status: 'complete',
+				result: { signed_url: 'https://download.example/invalid.sql' }
+			}
+		})
+	);
+	const put = vi.fn();
+	const step = {
+		do: async <T>(_name: string, callback: () => Promise<T>) => callback(),
+		sleep: vi.fn()
+	};
+
+	await expect(
+		runScheduledBackup(
+			{
+				ACCOUNT_ID: 'account-1',
+				DATABASE_ID: 'database-1',
+				D1_REST_API_TOKEN: 'test-token',
+				BACKUP_BUCKET: { put }
+			},
+			step,
+			new Date('2026-10-05T01:00:00.000Z'),
+			fetcher
+		)
+	).rejects.toThrow('D1 export failed');
+	expect(fetcher).toHaveBeenCalledOnce();
+	expect(put).not.toHaveBeenCalled();
+});
