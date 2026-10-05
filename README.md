@@ -4,7 +4,7 @@ A one-of-a-kind thrift shop for Bangladesh: SvelteKit on Cloudflare Workers, D1 
 
 Every product has exactly one sellable unit. Stock rules are enforced in D1 triggers, and an order is marked paid only from a provider-verified bKash result.
 
-The code runs end to end locally with clearly marked TEST ONLY fixtures and a development-only test wallet. **Nothing is deployed and no live account is connected.** See [the implementation plan](docs/IMPLEMENTATION_PLAN.md) for which release gates remain open, and [the operations runbook](docs/OPERATIONS.md).
+The code runs end to end locally with clearly marked TEST ONLY fixtures and a development-only test wallet. **Nothing is deployed and no live account is connected.**
 
 ## Local development
 
