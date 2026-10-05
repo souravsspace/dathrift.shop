@@ -1,6 +1,12 @@
 import { localDatabase } from '../testing/local-d1';
 import { expect, it } from 'vitest';
-import { getPublicProduct, isPublishedPhoto, listPublicProducts } from './public-catalog';
+import {
+	browseFiltersFrom,
+	getPublicProduct,
+	isPublishedPhoto,
+	listPublicProducts,
+	publicFacets
+} from './public-catalog';
 
 it('hides drafts but keeps sold published products readable without private fields', async () => {
 	const { db: d1, sqlite: db } = localDatabase({ seed: false });
@@ -48,4 +54,44 @@ it('serves photo keys only for published garments', async () => {
 	expect(await isPublishedPhoto(db, 'test-only/olive-shirt.webp')).toBe(true);
 	expect(await isPublishedPhoto(db, 'test-only/unpublished-skirt.svg')).toBe(false);
 	expect(await isPublishedPhoto(db, 'test-only/missing.webp')).toBe(false);
+});
+
+it('parses only known browse filters from the query string', () => {
+	expect(browseFiltersFrom(new URLSearchParams(''))).toEqual({ filters: {}, active: false });
+	expect(
+		browseFiltersFrom(
+			new URLSearchParams('category=tops&size=L&max_price=1000&available=1&utm_source=x')
+		)
+	).toEqual({
+		filters: { category: 'tops', size: 'L', maxPrice: 1000, availableOnly: true },
+		active: true
+	});
+	expect(
+		browseFiltersFrom(new URLSearchParams('category=shoes&size=<b>&max_price=-5&available=yes'))
+	).toEqual({ filters: {}, active: true });
+});
+
+it('filters published stock by category, size, price and availability, newest first', async () => {
+	const { db, sqlite } = localDatabase();
+	sqlite.exec("UPDATE products SET created_at = '2026-01-01' WHERE id = 'test-shirt'");
+	sqlite.exec("UPDATE products SET created_at = '2026-02-01' WHERE id = 'test-dress'");
+	sqlite.exec("UPDATE products SET created_at = '2026-03-01' WHERE id = 'test-sold'");
+	const slugs = async (filters: Parameters<typeof listPublicProducts>[1]) =>
+		(await listPublicProducts(db, filters)).map((item) => item.slug);
+	expect(await slugs({})).toEqual([
+		'test-sold-denim-jacket',
+		'test-cream-midi-dress',
+		'test-olive-cotton-shirt'
+	]);
+	expect(await slugs({ availableOnly: true })).toEqual([
+		'test-cream-midi-dress',
+		'test-olive-cotton-shirt'
+	]);
+	expect(await slugs({ category: 'tops' })).toEqual(['test-olive-cotton-shirt']);
+	expect(await slugs({ size: 'M' })).toEqual(['test-sold-denim-jacket', 'test-cream-midi-dress']);
+	expect(await slugs({ maxPrice: 1000 })).toEqual(['test-olive-cotton-shirt']);
+	expect(await publicFacets(db)).toEqual({
+		categories: ['dresses', 'outerwear', 'tops'],
+		sizes: ['L', 'M']
+	});
 });
