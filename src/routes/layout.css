@@ -1676,3 +1676,31 @@ a {
 	font-weight: 600;
 	cursor: pointer;
 }
+
+.detail-thumbs {
+	display: flex;
+	gap: 8px;
+	margin-top: 10px;
+	overflow-x: auto;
+}
+
+.detail-thumbs button {
+	flex: 0 0 auto;
+	width: 64px;
+	padding: 0;
+	border: 1px solid transparent;
+	background: none;
+	cursor: pointer;
+}
+
+.detail-thumbs button[aria-pressed='true'] {
+	border-color: #123e30;
+}
+
+.detail-thumbs img {
+	display: block;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 4 / 5;
+	object-fit: cover;
+}
