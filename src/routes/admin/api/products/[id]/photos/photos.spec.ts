@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, expect, it, vi } from 'vitest';
+import { localD1 } from '../../../../../../lib/server/testing/local-d1';
 import { POST } from './+server';
 
 afterEach(() => {
@@ -12,7 +13,7 @@ function event(url: string, origin?: string) {
 	const body = new FormData();
 	body.set('photo', new File([bytes], 'test.webp', { type: 'image/webp' }));
 	body.set('alt_text', 'TEST ONLY olive shirt');
-	body.set('position', '1');
+	body.set('position', '2');
 	return {
 		params: { id: 'test-draft' },
 		request: new Request(url, {
@@ -43,14 +44,12 @@ it('denies public and cross-origin photo upload', async () => {
 it('saves a local photo using private R2 and D1 metadata', async () => {
 	const put = vi.fn(async () => ({}));
 	(env as { PRODUCT_IMAGES?: unknown }).PRODUCT_IMAGES = { put, delete: async () => undefined };
-	(env as { DB?: unknown }).DB = {
-		prepare: () => ({ bind: () => ({ run: async () => ({ meta: { changes: 1 } }) }) })
-	};
+	(env as { DB?: unknown }).DB = localD1().db;
 	const response = await POST(
 		event('http://127.0.0.1:5173/admin/api/products/test-draft/photos', 'http://127.0.0.1:5173')
 	);
 	expect(response.status).toBe(201);
 	expect(response.headers.get('Cache-Control')).toBe('no-store');
-	expect(await response.json()).toMatchObject({ position: 1, alt_text: 'TEST ONLY olive shirt' });
+	expect(await response.json()).toMatchObject({ position: 2, alt_text: 'TEST ONLY olive shirt' });
 	expect(put).toHaveBeenCalledOnce();
 });
