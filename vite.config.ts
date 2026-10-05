@@ -17,7 +17,7 @@ export default defineConfig({
 			adapter:
 				process.env.VITEST === 'true'
 					? undefined
-					: adapter({ platformProxy: { persist: false, remoteBindings: false } })
+					: adapter({ platformProxy: { persist: true, remoteBindings: false } })
 		})
 	],
 	test: {
