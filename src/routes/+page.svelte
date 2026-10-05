@@ -71,8 +71,8 @@
 				<div class="hero-tag" {@attach hang}>
 					<SwingTag size="hero">
 						<p class="tag-meta">
-							{hero.featured ? 'Featured' : 'Just in'} · {categoryLabels[hero.category] ??
-								hero.category} · {hero.size_label ?? 'Size not listed'}
+							{categoryLabels[hero.category] ?? hero.category} · {hero.size_label ??
+								'Size not listed'}
 						</p>
 						<p class="tag-price">{formatBdt(hero.price_bdt)}</p>
 						<p class="tag-name">{hero.name}</p>
