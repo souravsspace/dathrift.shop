@@ -1,6 +1,7 @@
 import { localDatabase } from '../testing/local-d1';
 import { expect, it } from 'vitest';
 import {
+	correctPublishedSlug,
 	createDraft,
 	getStaffProduct,
 	listStaffProducts,
@@ -113,4 +114,25 @@ it('lists every staff piece and reads one with ordered private photo metadata', 
 		]
 	});
 	expect(await getStaffProduct(db, 'missing')).toBeNull();
+});
+
+it('corrects a published slug once while keeping the old URL as a redirect', async () => {
+	const { db, sqlite } = localDatabase();
+	await expect(correctPublishedSlug(db, 'test-shirt', 'Bad Slug')).rejects.toThrow('Invalid slug');
+	await expect(correctPublishedSlug(db, 'test-draft', 'new-skirt')).rejects.toThrow(
+		'Product not published'
+	);
+	expect(await correctPublishedSlug(db, 'test-shirt', 'test-olive-shirt')).toEqual({
+		id: 'test-shirt',
+		slug: 'test-olive-shirt'
+	});
+	expect(sqlite.prepare('SELECT old_slug, product_id FROM slug_redirects').all()).toEqual([
+		{ old_slug: 'test-olive-cotton-shirt', product_id: 'test-shirt' }
+	]);
+	await expect(correctPublishedSlug(db, 'test-dress', 'test-olive-cotton-shirt')).rejects.toThrow(
+		'Slug unavailable'
+	);
+	await expect(correctPublishedSlug(db, 'test-dress', 'test-olive-shirt')).rejects.toThrow(
+		'Slug unavailable'
+	);
 });
