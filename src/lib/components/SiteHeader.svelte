@@ -35,7 +35,7 @@
 			<svg viewBox="0 0 24 24" aria-hidden="true"
 				><path d="M6 8h12l-1 12H7L6 8Z" /><path d="M9 8a3 3 0 0 1 6 0" /></svg
 			>
-			<span>Bag</span>
+			<span class="bag-label">Bag</span>
 			{#if count}<span class="bag-count" aria-hidden="true">{count}</span>{/if}
 		</a>
 	</nav>
@@ -158,6 +158,41 @@
 
 		nav a {
 			padding: 0 10px;
+		}
+	}
+
+	/* The smallest phones keep the full name; the bag shows its icon and count, and its
+	   accessible name still says "Bag". */
+	@media (max-width: 380px) {
+		.site-header {
+			gap: 8px;
+		}
+
+		.brand {
+			gap: 8px;
+			font-stretch: 100%;
+		}
+
+		.brand img {
+			width: 30px;
+			height: 30px;
+		}
+
+		nav {
+			gap: 2px;
+		}
+
+		nav a {
+			padding: 0 10px;
+		}
+
+		.bag-label {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
 		}
 	}
 </style>
