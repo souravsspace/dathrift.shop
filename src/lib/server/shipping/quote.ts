@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import { deliveryAreas } from '../db/schema';
 
@@ -48,4 +48,22 @@ export async function quoteShipping(db: Database, input: unknown) {
 	if (!area || !Number.isSafeInteger(area.fee_bdt) || area.fee_bdt <= 0)
 		throw new Error('Unsupported area');
 	return { phone: address.phone, fee_bdt: area.fee_bdt, preview_only: area.preview_only };
+}
+
+export async function listDeliveryAreas(db: Database, allowPreview: boolean) {
+	return db
+		.select({
+			district: deliveryAreas.districtKey,
+			area: deliveryAreas.areaKey,
+			name: deliveryAreas.displayName,
+			fee_bdt: deliveryAreas.feeBdt
+		})
+		.from(deliveryAreas)
+		.where(
+			and(
+				eq(deliveryAreas.active, true),
+				allowPreview ? undefined : eq(deliveryAreas.previewOnly, false)
+			)
+		)
+		.orderBy(asc(deliveryAreas.displayName));
 }
