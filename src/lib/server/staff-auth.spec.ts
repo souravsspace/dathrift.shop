@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { staffActorForRequest, staffEmailForRequest } from './staff-auth';
+import { isOwnerActor, staffActorForRequest, staffEmailForRequest } from './staff-auth';
 
 const env = {
 	STAFF_HOST: 'admin.dathrift.shop',
@@ -44,4 +44,14 @@ it('accepts only a verified allowlisted staff email', async () => {
 		'audience-1'
 	);
 	expect(await staffEmailForRequest(request, env, async () => 'stranger@example.com')).toBeNull();
+});
+
+it('reserves payment resolution for the configured owner', () => {
+	const ownerEnv = { ...env, OWNER_EMAIL: 'Owner@Example.com' };
+	expect(isOwnerActor('owner@example.com', ownerEnv, false)).toBe(true);
+	expect(isOwnerActor('moderator@example.com', ownerEnv, false)).toBe(false);
+	expect(isOwnerActor('owner@example.com', env, false)).toBe(false);
+	expect(isOwnerActor('local-preview', ownerEnv, true)).toBe(true);
+	expect(isOwnerActor('local-preview', ownerEnv, false)).toBe(false);
+	expect(isOwnerActor(null, ownerEnv, true)).toBe(false);
 });
