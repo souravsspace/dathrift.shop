@@ -109,7 +109,7 @@
 	.no-photo {
 		color: rgb(251 235 214 / 0.7);
 		font-family: var(--font-mono);
-		font-size: 0.72rem;
+		font-size: var(--text-label);
 	}
 
 	.piece-tag {
@@ -122,14 +122,14 @@
 		margin: 0 0 8px;
 		color: var(--color-ink-soft);
 		font-family: var(--font-mono);
-		font-size: 0.66rem;
+		font-size: var(--text-label);
 		letter-spacing: 0.02em;
 		text-transform: uppercase;
 	}
 
 	.tag-price {
 		margin: 0;
-		font-size: clamp(2.3rem, 3.6vw, 3rem);
+		font-size: var(--text-price-sm);
 		font-stretch: 62%;
 		font-weight: 850;
 		font-variant-numeric: tabular-nums;
@@ -139,7 +139,7 @@
 
 	.tag-name {
 		margin: 10px 0 0;
-		font-size: 0.95rem;
+		font-size: var(--text-body);
 		font-weight: 550;
 		line-height: 1.3;
 		text-wrap: balance;
@@ -154,7 +154,7 @@
 	.rack-empty {
 		padding: 56px 0;
 		color: rgb(251 235 214 / 0.78);
-		font-size: 1.05rem;
+		font-size: var(--text-body);
 	}
 
 	@media (max-width: 600px) {
@@ -169,15 +169,15 @@
 		}
 
 		.tag-price {
-			font-size: 1.9rem;
+			font-size: var(--text-price-sm);
 		}
 
 		.tag-name {
-			font-size: 0.8rem;
+			font-size: var(--text-stamp);
 		}
 
 		.tag-meta {
-			font-size: 0.58rem;
+			font-size: var(--text-label);
 		}
 
 		.tag-stamp {
