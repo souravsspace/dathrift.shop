@@ -1,16 +1,12 @@
+import { and, eq, sql } from 'drizzle-orm';
+import type { Database } from '../db/client';
+import { inventory, productPhotos, products } from '../db/schema';
+
 type PhotoInput = {
 	bytes: Uint8Array;
 	contentType: string;
 	position: number;
 	altText: string;
-};
-
-type PhotoDb = {
-	prepare(sql: string): {
-		bind(...values: (string | number)[]): {
-			run(): Promise<{ meta?: { changes: number }; changes?: number | bigint }>;
-		};
-	};
 };
 
 type PhotoBucket = {
@@ -48,7 +44,7 @@ function extension(bytes: Uint8Array, contentType: string): string | null {
 }
 
 export async function addProductPhoto(
-	db: PhotoDb,
+	db: Database,
 	bucket: PhotoBucket,
 	id: string,
 	input: PhotoInput
@@ -69,17 +65,25 @@ export async function addProductPhoto(
 	const key = `products/${id}/${crypto.randomUUID()}.${ext}`;
 	await bucket.put(key, input.bytes, { httpMetadata: { contentType: input.contentType } });
 	try {
-		const result = await db
-			.prepare(
-				`INSERT INTO product_photos (product_id, position, r2_key, alt_text)
-			 SELECT id, ?, ?, ? FROM products
-			 WHERE id = ? AND publication_state = 'draft'
-			 AND EXISTS (SELECT 1 FROM inventory WHERE product_id = ? AND state = 'available')`
-			)
-			.bind(input.position, key, input.altText.trim(), id, id)
-			.run();
-		if (Number(result.meta?.changes ?? result.changes ?? 0) !== 1)
-			throw new Error('Draft not available');
+		const result = await db.insert(productPhotos).select(
+			db
+				.select({
+					productId: products.id,
+					position: sql<number>`${input.position}`.as('position'),
+					r2Key: sql<string>`${key}`.as('r2_key'),
+					altText: sql<string>`${input.altText.trim()}`.as('alt_text')
+				})
+				.from(products)
+				.innerJoin(inventory, eq(inventory.productId, products.id))
+				.where(
+					and(
+						eq(products.id, id),
+						eq(products.publicationState, 'draft'),
+						eq(inventory.state, 'available')
+					)
+				)
+		);
+		if (result.meta.changes !== 1) throw new Error('Draft not available');
 	} catch (error) {
 		await bucket.delete(key);
 		throw error;
