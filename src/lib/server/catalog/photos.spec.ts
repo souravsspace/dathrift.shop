@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { localDatabase } from '../testing/local-d1';
-import { addProductPhoto } from './photos';
+import { addProductPhoto, makeCoverPhoto } from './photos';
 
 const webp = new Uint8Array([82, 73, 70, 70, 12, 0, 0, 0, 87, 69, 66, 80, 86, 80, 56, 32]);
 
@@ -96,4 +96,55 @@ it('accepts a large WebP up to the 10 MB limit', async () => {
 		})
 	).resolves.toMatchObject({ position: 2 });
 	expect(put).toHaveBeenCalledOnce();
+});
+
+it('holds up to ten photos per piece', async () => {
+	const bucket = { put: vi.fn(async () => ({})), delete: vi.fn(async () => undefined) };
+	const { db } = localDatabase();
+	const photo = (position: number) => ({
+		bytes: webp,
+		contentType: 'image/webp',
+		position,
+		altText: `TEST ONLY photo ${position}`
+	});
+	await expect(addProductPhoto(db, bucket, 'test-draft', photo(10))).resolves.toMatchObject({
+		position: 10
+	});
+	await expect(addProductPhoto(db, bucket, 'test-draft', photo(11))).rejects.toThrow(
+		'Invalid photo'
+	);
+});
+
+it('moves the chosen photo to the front as the cover, keeping the rest in order', async () => {
+	const { db, sqlite } = localDatabase();
+	sqlite.exec(`INSERT INTO product_photos (product_id, position, r2_key, alt_text) VALUES
+		('test-dress', 2, 'test-only/dress-back.webp', 'TEST ONLY back'),
+		('test-dress', 3, 'test-only/dress-hem.webp', 'TEST ONLY hem')`);
+	const order = () =>
+		sqlite
+			.prepare(
+				"SELECT position, r2_key FROM product_photos WHERE product_id = 'test-dress' ORDER BY position"
+			)
+			.all()
+			.map((row) => row.r2_key);
+	expect(await makeCoverPhoto(db, 'test-dress', 'test-only/dress-hem.webp')).toEqual([
+		{ position: 1, r2_key: 'test-only/dress-hem.webp', alt_text: 'TEST ONLY hem' },
+		{
+			position: 2,
+			r2_key: 'test-only/cream-dress.webp',
+			alt_text: 'Generated test-only cream midi dress visual'
+		},
+		{ position: 3, r2_key: 'test-only/dress-back.webp', alt_text: 'TEST ONLY back' }
+	]);
+	expect(order()).toEqual([
+		'test-only/dress-hem.webp',
+		'test-only/cream-dress.webp',
+		'test-only/dress-back.webp'
+	]);
+	await expect(makeCoverPhoto(db, 'test-dress', 'test-only/missing.webp')).rejects.toThrow(
+		'Photo not found'
+	);
+	await expect(makeCoverPhoto(db, 'test-shirt', 'test-only/dress-hem.webp')).rejects.toThrow(
+		'Photo not found'
+	);
 });
