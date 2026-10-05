@@ -87,7 +87,7 @@
 </script>
 
 <svelte:head>
-	<title>Checkout | dathrift</title>
+	<title>Checkout | daThriftShop</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
