@@ -1,3 +1,7 @@
+import { and, asc, eq } from 'drizzle-orm';
+import type { Database } from '../db/client';
+import { inventory, productPhotos, products } from '../db/schema';
+
 export type PublicProductDetail = {
 	id: string;
 	slug: string;
@@ -14,39 +18,35 @@ export type PublicProductDetail = {
 	photos: { key: string; alt: string }[];
 };
 
-type DetailDb = {
-	prepare(sql: string): {
-		bind(slug: string): { first(): Promise<Record<string, unknown> | null> };
-	};
-};
-
 export async function getPublicProductDetail(
-	db: DetailDb,
+	db: Database,
 	slug: string
 ): Promise<PublicProductDetail | null> {
 	const row = await db
-		.prepare(
-			`SELECT p.id, p.slug, p.name, p.category, p.brand, p.price_bdt,
-			        p.description, p.condition_notes, p.size_label, p.fit_note,
-			        p.measurements_json, i.state AS stock_state,
-			        COALESCE((
-			          SELECT json_group_array(json_object('key', r2_key, 'alt', alt_text))
-			          FROM (
-			            SELECT r2_key, alt_text FROM product_photos
-			            WHERE product_id = p.id ORDER BY position
-			          )
-			        ), '[]') AS photos_json
-			 FROM products AS p
-			 JOIN inventory AS i ON i.product_id = p.id
-			 WHERE p.slug = ? AND p.publication_state = 'published'`
-		)
-		.bind(slug)
-		.first();
+		.select({
+			id: products.id,
+			slug: products.slug,
+			name: products.name,
+			category: products.category,
+			brand: products.brand,
+			price_bdt: products.priceBdt,
+			description: products.description,
+			condition_notes: products.conditionNotes,
+			size_label: products.sizeLabel,
+			fit_note: products.fitNote,
+			measurements_json: products.measurementsJson,
+			stock_state: inventory.state
+		})
+		.from(products)
+		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.where(and(eq(products.slug, slug), eq(products.publicationState, 'published')))
+		.get();
 	if (!row) return null;
-	const { measurements_json, photos_json, ...details } = row;
-	return {
-		...details,
-		measurements: JSON.parse((measurements_json as string | null) ?? '{}'),
-		photos: JSON.parse(photos_json as string)
-	} as PublicProductDetail;
+	const photos = await db
+		.select({ key: productPhotos.r2Key, alt: productPhotos.altText })
+		.from(productPhotos)
+		.where(eq(productPhotos.productId, row.id))
+		.orderBy(asc(productPhotos.position));
+	const { measurements_json, ...details } = row;
+	return { ...details, measurements: JSON.parse(measurements_json ?? '{}'), photos };
 }
