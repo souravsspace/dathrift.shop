@@ -10,6 +10,8 @@ it('provides one explicitly local-only database setup command', () => {
 		expect(command).toContain(
 			`r2 object put dathrift-local-products/test-only/${file}.webp --local`
 		);
+		expect(command).toContain(`--file db/seed/assets/${file}.webp`);
 	}
+	expect(command).not.toContain('static/test-only');
 	expect(command).not.toMatch(/--remote|wrangler deploy/);
 });
