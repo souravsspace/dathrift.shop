@@ -56,3 +56,13 @@ export async function getPublicProduct(db: Database, slug: string): Promise<Publ
 		.get();
 	return row ?? null;
 }
+
+export async function isPublishedPhoto(db: Database, key: string): Promise<boolean> {
+	const row = await db
+		.select({ productId: productPhotos.productId })
+		.from(productPhotos)
+		.innerJoin(products, eq(products.id, productPhotos.productId))
+		.where(and(eq(productPhotos.r2Key, key), eq(products.publicationState, 'published')))
+		.get();
+	return Boolean(row);
+}
