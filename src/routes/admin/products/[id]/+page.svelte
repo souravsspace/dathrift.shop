@@ -417,22 +417,22 @@
 						{#if product.publication_state === 'draft' && product.photos.length < 8}<form
 								onsubmit={uploadPhoto}
 							>
-								<label class="admin-drop" for="photo-file">
-									{#if photoPreview}<img src={photoPreview} alt="" />{/if}
-									<span>
-										<strong>Add photo</strong>
-										{converting
-											? 'Converting to WebP…'
-											: photoNote || 'Any image up to 10 MB. It is resized and converted to WebP.'}
-									</span>
-								</label><input
+								<input
 									id="photo-file"
 									class="admin-drop-input"
 									type="file"
 									accept="image/*"
 									onchange={(event) => choosePhoto(event.currentTarget.files?.[0])}
 									required
-								/><label for="photo-alt">Photo description</label><input
+								/><label class="admin-drop" for="photo-file">
+									{#if photoPreview}<img src={photoPreview} alt="" />{/if}
+									<span aria-live="polite">
+										<strong>Add photo</strong>
+										{converting
+											? 'Converting to WebP…'
+											: photoNote || 'Any image up to 10 MB. It is resized and converted to WebP.'}
+									</span>
+								</label><label for="photo-alt">Photo description</label><input
 									id="photo-alt"
 									bind:value={photoAlt}
 									required
