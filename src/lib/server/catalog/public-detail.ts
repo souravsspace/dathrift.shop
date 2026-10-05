@@ -1,6 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../db/client';
-import { inventory, productPhotos, products } from '../db/schema';
+import { inventory, productPhotos, products, slugRedirects } from '../db/schema';
 
 export type PublicProductDetail = {
 	id: string;
@@ -49,4 +49,14 @@ export async function getPublicProductDetail(
 		.orderBy(asc(productPhotos.position));
 	const { measurements_json, ...details } = row;
 	return { ...details, measurements: JSON.parse(measurements_json ?? '{}'), photos };
+}
+
+export async function currentSlugFor(db: Database, oldSlug: string): Promise<string | null> {
+	const row = await db
+		.select({ slug: products.slug })
+		.from(slugRedirects)
+		.innerJoin(products, eq(products.id, slugRedirects.productId))
+		.where(and(eq(slugRedirects.oldSlug, oldSlug), eq(products.publicationState, 'published')))
+		.get();
+	return row?.slug ?? null;
 }
