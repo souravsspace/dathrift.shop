@@ -1,15 +1,36 @@
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
-import { homeFeature, inventory, productPhotos, products, slugRedirects } from '../db/schema';
+import {
+	categories,
+	homeFeature,
+	inventory,
+	productPhotos,
+	products,
+	slugRedirects
+} from '../db/schema';
 import { databaseErrorText } from '../db/errors';
-import { publicationErrors } from './publication';
+import { MAX_PHOTOS, publicationErrors } from './publication';
 
 type DraftInput = {
 	slug: string;
 	name: string;
-	category: 'tops' | 'bottoms' | 'outerwear' | 'dresses';
+	category: string;
 	price_bdt: number;
 };
+
+const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const isCategorySlug = (value: unknown) =>
+	typeof value === 'string' && value.length <= 60 && slugPattern.test(value);
+
+// The category must exist; D1 enforces it with the products.category foreign key.
+function catalogWriteError(error: unknown): Error {
+	const text = databaseErrorText(error);
+	if (/FOREIGN KEY constraint failed/.test(text))
+		return new Error('Unknown category', { cause: error });
+	if (/Slug unavailable|UNIQUE constraint failed: products\.slug/.test(text))
+		return new Error('Slug unavailable', { cause: error });
+	return error instanceof Error ? error : new Error('Catalog write failed');
+}
 
 function isDraftInput(value: unknown): value is DraftInput {
 	if (!value || typeof value !== 'object') return false;
@@ -17,12 +38,11 @@ function isDraftInput(value: unknown): value is DraftInput {
 	return (
 		typeof input.slug === 'string' &&
 		input.slug.length <= 160 &&
-		/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.slug) &&
+		slugPattern.test(input.slug) &&
 		typeof input.name === 'string' &&
 		input.name.trim().length > 0 &&
 		input.name.length <= 160 &&
-		typeof input.category === 'string' &&
-		['tops', 'bottoms', 'outerwear', 'dresses'].includes(input.category) &&
+		isCategorySlug(input.category) &&
 		Number.isSafeInteger(input.price_bdt) &&
 		(input.price_bdt as number) > 0
 	);
@@ -31,16 +51,20 @@ function isDraftInput(value: unknown): value is DraftInput {
 export async function createDraft(db: Database, input: unknown) {
 	if (!isDraftInput(input)) throw new Error('Invalid draft');
 	const id = crypto.randomUUID();
-	await db.batch([
-		db.insert(products).values({
-			id,
-			slug: input.slug,
-			name: input.name.trim(),
-			category: input.category,
-			priceBdt: input.price_bdt
-		}),
-		db.insert(inventory).values({ productId: id, state: 'available' })
-	]);
+	try {
+		await db.batch([
+			db.insert(products).values({
+				id,
+				slug: input.slug,
+				name: input.name.trim(),
+				category: input.category,
+				priceBdt: input.price_bdt
+			}),
+			db.insert(inventory).values({ productId: id, state: 'available' })
+		]);
+	} catch (error) {
+		throw catalogWriteError(error);
+	}
 	return { id, slug: input.slug, publication_state: 'draft' as const };
 }
 
@@ -80,11 +104,19 @@ function isDraftDetails(value: unknown): value is DraftDetails {
 		typeof input.name === 'string' &&
 		input.name.trim().length > 0 &&
 		input.name.length <= 160 &&
-		['tops', 'bottoms', 'outerwear', 'dresses'].includes(String(input.category)) &&
+		isCategorySlug(input.category) &&
 		Number.isSafeInteger(input.price_bdt) &&
 		(input.price_bdt as number) > 0
 	);
 }
+
+// A positive measurement in whole or half inches, checked again inside the publish write.
+const halfInch = (key: string) => {
+	const path = `$.${key}`;
+	const value = sql`json_extract(${products.measurementsJson}, ${path})`;
+	return sql`(json_type(${products.measurementsJson}, ${path}) IN ('integer', 'real')
+		AND ${value} > 0 AND ${value} * 2 = CAST(${value} * 2 AS INTEGER))`;
+};
 
 const availableUnit = (id: string) =>
 	sql`EXISTS (SELECT 1 FROM ${inventory} WHERE ${inventory.productId} = ${id} AND ${inventory.state} = 'available')`;
@@ -104,7 +136,10 @@ export async function updateDraftDetails(db: Database, id: string, input: unknow
 			measurementsJson: input.measurements_json,
 			fitNote: input.fit_note?.trim() || null
 		})
-		.where(and(eq(products.id, id), eq(products.publicationState, 'draft')));
+		.where(and(eq(products.id, id), eq(products.publicationState, 'draft')))
+		.catch((error: unknown) => {
+			throw catalogWriteError(error);
+		});
 	// D1 counts trigger writes in meta.changes, so only zero means the row was not written.
 	if (result.meta.changes === 0) throw new Error('Draft not found');
 	return { id, publication_state: 'draft' as const };
@@ -114,7 +149,7 @@ export async function publishProduct(db: Database, id: string) {
 	const product = await db
 		.select({
 			name: products.name,
-			category: products.category,
+			measurement_set: categories.measurementSet,
 			price_bdt: products.priceBdt,
 			description: products.description,
 			condition_notes: products.conditionNotes,
@@ -124,6 +159,7 @@ export async function publishProduct(db: Database, id: string) {
 		})
 		.from(products)
 		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.leftJoin(categories, eq(categories.slug, products.category))
 		.where(
 			and(
 				eq(products.id, id),
@@ -153,20 +189,15 @@ export async function publishProduct(db: Database, id: string) {
 				 AND trim(coalesce(${products.conditionNotes}, '')) != ''
 				 AND trim(coalesce(${products.sizeLabel}, '')) != ''
 				 AND trim(coalesce(${products.fitNote}, '')) != ''
-				 AND (SELECT count(*) FROM ${productPhotos} WHERE ${productPhotos.productId} = ${id}) BETWEEN 1 AND 8
+				 AND (SELECT count(*) FROM ${productPhotos} WHERE ${productPhotos.productId} = ${id}) BETWEEN 1 AND ${MAX_PHOTOS}
 				 AND NOT EXISTS (SELECT 1 FROM ${productPhotos} WHERE ${productPhotos.productId} = ${id}
 				   AND (trim(${productPhotos.r2Key}) = '' OR trim(${productPhotos.altText}) = ''))
-				 AND ${products.measurementsJson} IS NOT NULL
-				 AND CASE WHEN ${products.category} = 'bottoms' THEN
-				   json_type(${products.measurementsJson}, '$.waist_cm') IN ('integer', 'real')
-				   AND json_extract(${products.measurementsJson}, '$.waist_cm') > 0
-				   AND json_type(${products.measurementsJson}, '$.inseam_cm') IN ('integer', 'real')
-				   AND json_extract(${products.measurementsJson}, '$.inseam_cm') > 0
-				 ELSE
-				   json_type(${products.measurementsJson}, '$.chest_cm') IN ('integer', 'real')
-				   AND json_extract(${products.measurementsJson}, '$.chest_cm') > 0
-				   AND json_type(${products.measurementsJson}, '$.length_cm') IN ('integer', 'real')
-				   AND json_extract(${products.measurementsJson}, '$.length_cm') > 0 END`
+				 AND CASE (SELECT ${categories.measurementSet} FROM ${categories}
+				   WHERE ${categories.slug} = ${products.category})
+				 WHEN 'none' THEN 1
+				 WHEN 'bottom' THEN ${halfInch('waist_in')} AND ${halfInch('inseam_in')}
+				 WHEN 'top' THEN ${halfInch('chest_in')} AND ${halfInch('length_in')}
+				 ELSE 0 END`
 			)
 		);
 	if (result.meta.changes === 0) throw new Error('Draft changed; retry publication');
@@ -187,6 +218,8 @@ const staffColumns = {
 	slug: products.slug,
 	name: products.name,
 	category: products.category,
+	category_name: categories.name,
+	measurement_set: categories.measurementSet,
 	price_bdt: products.priceBdt,
 	publication_state: products.publicationState,
 	created_at: products.createdAt,
@@ -199,6 +232,7 @@ export async function listStaffProducts(db: Database) {
 		.select(staffColumns)
 		.from(products)
 		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.leftJoin(categories, eq(categories.slug, products.category))
 		.leftJoin(homeFeature, eq(homeFeature.productId, products.id))
 		.orderBy(desc(products.createdAt), desc(products.id))
 		.limit(100);
@@ -217,6 +251,7 @@ export async function getStaffProduct(db: Database, id: string) {
 		})
 		.from(products)
 		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.leftJoin(categories, eq(categories.slug, products.category))
 		.leftJoin(homeFeature, eq(homeFeature.productId, products.id))
 		.where(eq(products.id, id))
 		.get();
@@ -233,18 +268,27 @@ export async function getStaffProduct(db: Database, id: string) {
 	return { ...product, photos };
 }
 
-const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-// Typo correction for a live URL: the old slug becomes a permanent redirect, never reused.
-export async function correctPublishedSlug(db: Database, id: string, slug: string) {
+// A draft slug changes freely. A live URL keeps its old slug as a permanent redirect, never reused.
+export async function changeSlug(db: Database, id: string, slug: string) {
 	if (slug.length > 160 || !slugPattern.test(slug)) throw new Error('Invalid slug');
 	const current = await db
-		.select({ slug: products.slug })
+		.select({ slug: products.slug, publication_state: products.publicationState })
 		.from(products)
-		.where(and(eq(products.id, id), eq(products.publicationState, 'published')))
+		.where(eq(products.id, id))
 		.get();
-	if (!current) throw new Error('Product not published');
+	if (!current) throw new Error('Product not found');
 	if (current.slug === slug) return { id, slug };
+	if (current.publication_state === 'draft') {
+		const result = await db
+			.update(products)
+			.set({ slug })
+			.where(and(eq(products.id, id), eq(products.publicationState, 'draft')))
+			.catch((error: unknown) => {
+				throw catalogWriteError(error);
+			});
+		if (result.meta.changes === 0) throw new Error('Product not found');
+		return { id, slug };
+	}
 	try {
 		await db.batch([
 			db.insert(slugRedirects).values({ oldSlug: current.slug, productId: id }),
