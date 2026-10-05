@@ -95,9 +95,12 @@ it('keeps filtered variants out of the index', async () => {
 	// Filtering stays in place on the rack instead of jumping back to the top of the page.
 	const form = document.querySelector('form.filters');
 	expect(form?.getAttribute('data-sveltekit-reset')).toBe('false');
-	await expect
-		.element(page.getByRole('link', { name: 'Clear' }))
-		.toHaveAttribute('data-sveltekit-reset', 'false');
+	// A full page load (no JavaScript yet) still lands back on the filters.
+	expect(form?.getAttribute('action')).toBe('/#filters');
+	expect(document.getElementById('filters')).not.toBeNull();
+	const clear = page.getByRole('link', { name: 'Clear' });
+	await expect.element(clear).toHaveAttribute('data-sveltekit-reset', 'false');
+	await expect.element(clear).toHaveAttribute('href', '/#filters');
 	expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe(
 		'noindex, follow'
 	);
