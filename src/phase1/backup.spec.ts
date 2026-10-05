@@ -47,3 +47,28 @@ it('stores hourly and midnight daily SQL exports from a scheduled D1 snapshot', 
 	expect(sleep).toHaveBeenCalledOnce();
 	expect(fetcher).toHaveBeenCalledTimes(5);
 });
+
+it('does not call the D1 API without a configured export token', async () => {
+	const fetcher = vi.fn(async () => Response.json({ success: true }));
+	const put = vi.fn();
+	const step = {
+		do: async <T>(_name: string, callback: () => Promise<T>) => callback(),
+		sleep: vi.fn()
+	};
+
+	await expect(
+		runScheduledBackup(
+			{
+				ACCOUNT_ID: 'account-1',
+				DATABASE_ID: 'database-1',
+				D1_REST_API_TOKEN: undefined,
+				BACKUP_BUCKET: { put }
+			},
+			step,
+			new Date('2026-10-05T01:00:00.000Z'),
+			fetcher
+		)
+	).rejects.toThrow('Missing D1 export token');
+	expect(fetcher).not.toHaveBeenCalled();
+	expect(put).not.toHaveBeenCalled();
+});
