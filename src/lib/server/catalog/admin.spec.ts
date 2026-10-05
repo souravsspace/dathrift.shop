@@ -1,30 +1,9 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
+import { localDatabase } from '../testing/local-d1';
 import { expect, it } from 'vitest';
 import { createDraft, publishProduct, unpublishProduct, updateDraftDetails } from './admin';
 
 it('creates one private draft and available unit atomically, rejecting invalid input', async () => {
-	const db = new DatabaseSync(':memory:');
-	db.exec('PRAGMA foreign_keys = ON');
-	for (const file of readdirSync('db/migrations').sort()) {
-		db.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
-	}
-	const d1 = {
-		prepare: (sql: string) => ({
-			bind: (...args: (string | number)[]) => ({ run: () => db.prepare(sql).run(...args) })
-		}),
-		batch: async (statements: { run(): unknown }[]) => {
-			db.exec('BEGIN');
-			try {
-				const result = statements.map((statement) => statement.run());
-				db.exec('COMMIT');
-				return result;
-			} catch (error) {
-				db.exec('ROLLBACK');
-				throw error;
-			}
-		}
-	};
+	const { db: d1, sqlite: db } = localDatabase({ seed: false });
 	const input = {
 		slug: 'test-new-jacket',
 		name: 'TEST ONLY — New jacket',
@@ -47,19 +26,7 @@ it('creates one private draft and available unit atomically, rejecting invalid i
 });
 
 it('publishes only a complete photographed draft and can unpublish an available piece', async () => {
-	const db = new DatabaseSync(':memory:');
-	for (const file of readdirSync('db/migrations').sort()) {
-		db.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
-	}
-	const d1 = {
-		prepare: (sql: string) => ({
-			bind: (...args: (string | number)[]) => ({
-				first: async () => db.prepare(sql).get(...args) ?? null,
-				all: async () => ({ results: db.prepare(sql).all(...args) }),
-				run: async () => db.prepare(sql).run(...args)
-			})
-		})
-	};
+	const { db: d1, sqlite: db } = localDatabase({ seed: false });
 	db.exec(
 		"INSERT INTO products (id, slug, name, category, price_bdt) VALUES ('a', 'test-top', 'TEST ONLY — Top', 'tops', 500)"
 	);
@@ -84,18 +51,7 @@ it('publishes only a complete photographed draft and can unpublish an available 
 });
 
 it('updates a draft garment without changing its stable slug or publication state', async () => {
-	const db = new DatabaseSync(':memory:');
-	for (const file of readdirSync('db/migrations').sort()) {
-		db.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
-	}
-	db.exec(readFileSync('db/seed/local.sql', 'utf8'));
-	const d1 = {
-		prepare: (sql: string) => ({
-			bind: (...args: (string | number | null)[]) => ({
-				run: async () => db.prepare(sql).run(...args)
-			})
-		})
-	};
+	const { db: d1, sqlite: db } = localDatabase({ seed: true });
 	const details = {
 		name: 'TEST ONLY — Reworked skirt',
 		category: 'bottoms',
