@@ -28,7 +28,7 @@ SvelteKit on Cloudflare Workers, D1 for product/order state, R2 for product phot
 
 ## Brand Commitments
 
-Use the supplied `static/brand/dathrift-logo.png`. The owner approved an editorial thrift archive for local storefront work: bottle green, warm ivory, muted gold, generous garment imagery, quiet serif headlines, concise garment details, and a mobile-first two-column shop.
+Use the supplied `static/brand/dathrift-logo.png`; its bottle green, ivory and muted gold are the brand colors and it is the favicon source. On 2026-10-06 the owner replaced the earlier editorial serif look with the "swing tag" world: each piece wears an ivory die-cut tag (price, size, measurements, flaws) on a deep green ground, condensed Archivo figures with Martian Mono tag data, spring-based tag motion, and a mobile-first two-column rack. The owner chooses the featured home piece.
 
 ## Evidence on Hand
 
