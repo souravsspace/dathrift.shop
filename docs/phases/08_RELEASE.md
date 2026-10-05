@@ -1,6 +1,6 @@
 # Phase 8 — production release and operations
 
-**Status:** not started. A local preview, sandbox payment or Phase 1 nonproduction proof is not production approval.
+**Status:** not started. A local preview, sandbox payment or Phase 1 nonproduction proof is not production approval. A draft [operations runbook](../OPERATIONS.md) covers incident response, rollback and payment reconciliation.
 
 ## Preconditions
 
