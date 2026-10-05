@@ -58,8 +58,11 @@ it('confirms a fresh total, then starts one bKash payment with a stable checkout
 	await vi.waitFor(() =>
 		expect(leaveFor).toHaveBeenCalledWith('/checkout/test-wallet?paymentId=TEST1')
 	);
-	const [, init] = fetch.mock.calls.find(([url]) => url === '/api/checkout')!;
-	expect(JSON.parse(String((init as RequestInit).body))).toMatchObject({
+	const [, init] = fetch.mock.calls.find(([url]) => url === '/api/checkout') as unknown as [
+		string,
+		RequestInit
+	];
+	expect(JSON.parse(String(init.body))).toMatchObject({
 		ids: ['test-shirt'],
 		address: { district: 'test-dhaka', area: 'test-central' },
 		checkout_key: expect.stringMatching(/^[0-9a-f-]{36}$/)
