@@ -620,7 +620,156 @@ a {
 	font-size: 0.74rem;
 }
 
+.bag-page main {
+	max-width: 1320px;
+	min-height: 65vh;
+	margin: auto;
+	padding: 65px clamp(20px, 4vw, 72px) 130px;
+}
+
+.bag-back {
+	color: #557163;
+	font-size: 0.77rem;
+	text-underline-offset: 5px;
+}
+
+.bag-page h1 {
+	margin: 32px 0 9px;
+	font-family: 'Newsreader', Georgia, serif;
+	font-size: clamp(4rem, 7vw, 7rem);
+	font-weight: 400;
+	letter-spacing: -0.04em;
+	line-height: 1;
+}
+
+.bag-intro {
+	margin: 0 0 56px;
+	color: #536b5b;
+	font-size: 0.95rem;
+	line-height: 1.55;
+}
+
+.bag-state {
+	padding: 50px 0;
+	border-top: 1px solid #cbd5c9;
+	color: #355b46;
+}
+
+.bag-state a,
+.bag-state button {
+	display: inline-block;
+	margin-top: 12px;
+	border: 0;
+	background: none;
+	color: #153d32;
+	cursor: pointer;
+	font: inherit;
+	font-weight: 600;
+	text-underline-offset: 4px;
+}
+
+.bag-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+	gap: clamp(35px, 7vw, 110px);
+}
+
+.bag-lines {
+	border-top: 1px solid #cbd5c9;
+}
+
+.bag-line {
+	display: flex;
+	justify-content: space-between;
+	gap: 20px;
+	padding: 24px 0;
+	border-bottom: 1px solid #cbd5c9;
+}
+
+.bag-line a,
+.bag-line strong {
+	font-family: 'Newsreader', Georgia, serif;
+	font-size: 1.5rem;
+	font-weight: 400;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 4px;
+}
+
+.bag-line p {
+	margin: 10px 0 0;
+	color: #718473;
+	font-size: 0.76rem;
+}
+
+.bag-line > div:last-child {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 9px;
+}
+
+.bag-line button {
+	min-height: 32px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: #486c56;
+	cursor: pointer;
+	font: inherit;
+	font-size: 0.75rem;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.unavailable-line {
+	color: #8b472d;
+}
+
+.bag-summary {
+	align-self: start;
+	padding: 30px;
+	background: #e6ecdf;
+}
+
+.bag-summary h2 {
+	margin: 0 0 28px;
+	font-family: 'Newsreader', Georgia, serif;
+	font-size: 2rem;
+	font-weight: 400;
+}
+
+.bag-summary > div {
+	display: flex;
+	justify-content: space-between;
+	gap: 15px;
+	font-size: 0.86rem;
+}
+
+.bag-summary > div strong {
+	font-weight: 600;
+}
+
+.bag-summary > p {
+	margin: 18px 0 0;
+	color: #597060;
+	font-size: 0.76rem;
+	line-height: 1.5;
+}
+
+.bag-summary .checkout-notice {
+	margin-top: 28px;
+	padding: 15px;
+	border: 1px solid #7b927e;
+	color: #254932;
+	font-weight: 600;
+	text-align: center;
+}
+
 @media (max-width: 860px) {
+	.bag-layout {
+		grid-template-columns: 1fr;
+	}
+
 	.product-layout {
 		grid-template-columns: 1fr;
 		gap: 42px;
@@ -650,6 +799,18 @@ a {
 }
 
 @media (max-width: 600px) {
+	.bag-page main {
+		padding: 42px 18px 90px;
+	}
+
+	.bag-intro {
+		margin-bottom: 35px;
+	}
+
+	.bag-summary {
+		padding: 25px;
+	}
+
 	.product-page main {
 		padding: 22px 18px 80px;
 	}
