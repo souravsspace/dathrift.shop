@@ -20,6 +20,23 @@
 	font-display: swap;
 }
 
+/* Neither brand face has the taka sign; a 2 KB Noto Sans Bengali subset draws ৳ in both. */
+@font-face {
+	font-family: 'Archivo';
+	src: url('/fonts/taka.woff2') format('woff2');
+	font-weight: 100 900;
+	font-display: swap;
+	unicode-range: U+09F3;
+}
+
+@font-face {
+	font-family: 'Martian Mono';
+	src: url('/fonts/taka.woff2') format('woff2');
+	font-weight: 100 800;
+	font-display: swap;
+	unicode-range: U+09F3;
+}
+
 /* The Swing Tag world: logo green ground, ivory die-cut tags, gold eyelets. */
 @theme {
 	--color-ink: #04241a;
