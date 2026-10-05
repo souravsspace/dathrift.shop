@@ -1,5 +1,6 @@
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
+import { databaseErrorText } from '../db/errors';
 import { orderEvents, orders, payments } from '../db/schema';
 
 export type OrderStatus = (typeof orders.status.enumValues)[number];
@@ -64,7 +65,7 @@ export async function settleVerifiedPayment(
 		try {
 			await db.batch([completePayment(), moveOrder('paid', ['pending_payment', 'payment_review'])]);
 		} catch (error) {
-			if (!(error instanceof Error) || !errorText(error).includes('Units not held')) throw error;
+			if (!databaseErrorText(error).includes('Units not held')) throw error;
 			await toReview();
 		}
 	} else if (current !== 'paid') {
@@ -72,10 +73,6 @@ export async function settleVerifiedPayment(
 	}
 	return orderStatus(db, orderId);
 }
-
-// Drizzle wraps driver errors; the trigger message may sit on the cause.
-const errorText = (error: Error): string =>
-	`${error.message} ${error.cause instanceof Error ? errorText(error.cause) : ''}`;
 
 // Releases held units. Without an actor only an unpaid pending order closes; the owner may
 // also close a payment review after checking provider records.
