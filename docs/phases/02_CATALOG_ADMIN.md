@@ -1,6 +1,8 @@
 # Phase 2 — dynamic clothing catalog and protected product admin
 
-**Status:** not started on D1. Historical PocketBase product migrations/public-access tests do not close this phase.
+**Status:** local test-first slices underway; exit gate open. Historical PocketBase product migrations/public-access tests do not close this phase.
+
+Local evidence (2026-10-05): numbered SQL migrations `db/migrations/0001_catalog.sql` through `0003_product_photos.sql` define draft/published products, separate one-unit inventory state, and ordered photo metadata. SQLite-backed tests enforce positive integer BDT prices, one inventory state per product, photo slots 1–8 with alt text, and draft-safe/sold-readable public product queries. The latest server run passed **17 tests in 7 files**, and type-check/lint passed. No catalog migration has been applied to remote D1; no image bucket, staff workflow or public catalog route exists. This is not a Phase 2 pass.
 
 ## Product model and staff workflow
 
