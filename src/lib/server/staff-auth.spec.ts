@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { staffEmailForRequest } from './staff-auth';
+import { staffActorForRequest, staffEmailForRequest } from './staff-auth';
 
 const env = {
 	STAFF_HOST: 'admin.dathrift.shop',
@@ -20,6 +20,15 @@ it('denies alternate hosts and unsigned requests before consulting identity', as
 		await staffEmailForRequest(request('https://admin.dathrift.shop/admin'), env, verify)
 	).toBeNull();
 	expect(verify).not.toHaveBeenCalled();
+});
+
+it('permits a loopback-only local staff preview but never treats it as production identity', async () => {
+	const request = (url: string) => new Request(url);
+	expect(await staffActorForRequest(request('http://127.0.0.1:5173/admin'), {}, true)).toBe(
+		'local-preview'
+	);
+	expect(await staffActorForRequest(request('http://127.0.0.1:5173/admin'), {}, false)).toBeNull();
+	expect(await staffActorForRequest(request('http://dev.example.com/admin'), {}, true)).toBeNull();
 });
 
 it('accepts only a verified allowlisted staff email', async () => {
