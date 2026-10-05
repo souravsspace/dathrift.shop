@@ -67,7 +67,8 @@ export async function addProductPhoto(
 					)
 				)
 		);
-		if (result.meta.changes !== 1) throw new Error('Draft not available');
+		// D1 counts trigger writes in meta.changes, so only zero means the row was not written.
+		if (result.meta.changes === 0) throw new Error('Draft not available');
 	} catch (error) {
 		await bucket.delete(key);
 		throw error;
