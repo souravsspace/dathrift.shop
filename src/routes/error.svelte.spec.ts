@@ -11,7 +11,7 @@ vi.mock('$app/state', () => state);
 it('explains a missing piece without exposing internals and keeps it out of the index', async () => {
 	render(ErrorPage);
 	await expect.element(page.getByRole('heading', { level: 1 })).toHaveTextContent('Not found');
-	await expect.element(page.getByRole('link', { name: 'Back to the edit' })).toBeInTheDocument();
+	await expect.element(page.getByRole('link', { name: 'Back to the rack' })).toBeInTheDocument();
 	expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe(
 		'noindex'
 	);
