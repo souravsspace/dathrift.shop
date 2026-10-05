@@ -1,7 +1,7 @@
 export type BackupEnv = {
 	ACCOUNT_ID: string;
 	DATABASE_ID: string;
-	D1_REST_API_TOKEN: string;
+	D1_REST_API_TOKEN?: string;
 	BACKUP_BUCKET: {
 		put(
 			key: string,
@@ -29,6 +29,7 @@ export async function runScheduledBackup(
 	scheduledAt: Date,
 	fetcher: typeof fetch = fetch
 ): Promise<string[]> {
+	if (!env.D1_REST_API_TOKEN) throw new Error('Missing D1 export token');
 	const url = `https://api.cloudflare.com/client/v4/accounts/${env.ACCOUNT_ID}/d1/database/${env.DATABASE_ID}/export`;
 	const requestExport = async (bookmark?: string): Promise<ExportResult> => {
 		const response = await fetcher(url, {
