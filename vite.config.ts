@@ -28,7 +28,14 @@ export default defineConfig({
 			adapter:
 				process.env.VITEST === 'true'
 					? undefined
-					: adapter({ platformProxy: { persist: true, remoteBindings: false } })
+					: adapter({
+							platformProxy: {
+								persist: process.env.DATHRIFT_STATE_DIR
+									? { path: `${process.env.DATHRIFT_STATE_DIR}/v3` }
+									: true,
+								remoteBindings: false
+							}
+						})
 		})
 	],
 	test: {
