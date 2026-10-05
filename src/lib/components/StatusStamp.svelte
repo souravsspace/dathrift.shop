@@ -24,7 +24,7 @@
 		border: 2px solid currentColor;
 		outline: 1px solid currentColor;
 		outline-offset: 2px;
-		font-size: 0.78rem;
+		font-size: var(--text-stamp);
 		font-stretch: 75%;
 		font-weight: 800;
 		letter-spacing: 0.08em;
