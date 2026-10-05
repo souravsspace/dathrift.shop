@@ -4,9 +4,9 @@ Read and follow [CLAUDE.md](CLAUDE.md), [the implementation plan](docs/IMPLEMENT
 
 - This is a one-of-a-kind thrift shop: one sellable unit per product. Never treat a client-side sold-out label as inventory enforcement.
 - Work test-first: agree on the public behavior/seam, write one failing test, implement the smallest passing slice, then repeat. Report which tests actually ran.
-- Use Impeccable and ui-ux-pro-max for storefront design. The supplied logo is the brand source; do not invent a conflicting visual identity.
+- Use Impeccable and ui-ux-pro-max for every design or UI task, storefront and admin. The supplied logo is the brand source; do not invent a conflicting visual identity.
 - Keep bKash credentials and Cloudflare privileged bindings/tokens server-only. PocketBase code was removed; its Git history is historical spike evidence, not the production backend. Never mark an order paid from a browser redirect alone.
-- Commit each changed file separately with conventional, human-readable messages. Do not add AI or assistant attribution to files or commits.
+- Commit each changed file separately with conventional, human-readable messages. Never add an AI or assistant name, `Co-Authored-By` line, or other assistant attribution to files or commits.
 - Do not push, deploy, or alter live accounts without explicit authorization for the specific action.
 
 The `graphify` skill is triggered when the user types `/graphify`; follow its installed instructions first in that case.
