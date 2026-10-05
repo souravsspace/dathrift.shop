@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { readCartIds } from '../../lib/cart/browser-cart';
+	import { leaveFor } from '../../lib/checkout/navigate';
+	import type { PageData } from './$types';
 
 	type Quote = {
 		items: { id: string; slug: string; name: string; price_bdt: number }[];
@@ -10,17 +12,27 @@
 		preview_only: boolean;
 	};
 
-	const localPreview = import.meta.env.DEV;
+	let { data }: { data: PageData } = $props();
 	const price = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 	let ids = $state<string[]>([]);
 	let name = $state('');
 	let phone = $state('');
 	let line1 = $state('');
-	let district = $state('test-dhaka');
-	let area = $derived(district === 'test-dhaka' ? 'test-central' : 'test-town');
+	let areaKey = $state('');
 	let quote = $state<Quote | null>(null);
 	let loading = $state(false);
+	let paying = $state(false);
 	let error = $state('');
+	// One key per checkout attempt lets a retried submission reuse the same held order.
+	let checkoutKey = crypto.randomUUID();
+	let selected = $derived(data.areas.find((area) => `${area.district}/${area.area}` === areaKey));
+	let address = $derived({
+		name,
+		phone,
+		line1,
+		district: selected?.district ?? '',
+		area: selected?.area ?? ''
+	});
 
 	onMount(() => {
 		ids = readCartIds(window.localStorage);
@@ -35,20 +47,45 @@
 			const response = await fetch('/api/checkout/quote', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ ids, address: { name, phone, line1, district, area } })
+				body: JSON.stringify({ ids, address })
 			});
-			if (!response.ok) throw new Error('Quote unavailable');
+			if (response.status === 409) throw new Error('One of these pieces is no longer available.');
+			if (response.status === 422) throw new Error('We cannot deliver to that area yet.');
+			if (!response.ok) throw new Error('Check your name, phone and address, then try again.');
 			quote = await response.json();
-		} catch {
-			error = 'Unable to verify this bag and address. No stock has been held or payment started.';
+			checkoutKey = crypto.randomUUID();
+		} catch (failure) {
+			error = `${(failure as Error).message} No stock has been held or payment started.`;
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function pay() {
+		if (!quote || paying) return;
+		paying = true;
+		error = '';
+		try {
+			const response = await fetch('/api/checkout', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ ids, address, checkout_key: checkoutKey })
+			});
+			if (response.status === 409)
+				throw new Error('One of these pieces is no longer available. Please review your bag.');
+			if (!response.ok) throw new Error('Payment could not start. No money has been taken.');
+			const started = (await response.json()) as { redirect_url: string };
+			window.localStorage.setItem('dathrift-cart', '[]');
+			leaveFor(started.redirect_url);
+		} catch (failure) {
+			error = (failure as Error).message;
+			paying = false;
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Delivery preview | dathrift</title>
+	<title>Checkout | dathrift</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
@@ -63,19 +100,21 @@
 	</header>
 	<main id="main-content">
 		<a class="bag-back" href="/cart">← Back to your bag</a>
-		<p class="checkout-eyebrow">Local preview / No payment</p>
-		<h1>Delivery preview</h1>
+		<p class="checkout-eyebrow">Guest checkout / bKash</p>
+		<h1>Checkout</h1>
 		<p class="bag-intro">
-			See a fresh price and one delivery charge. This step never holds a piece or starts payment.
+			Check a fresh price and one delivery charge first. Pieces are held only when you choose to
+			pay.
 		</p>
 		{#if !ids.length}
 			<div class="bag-state">
 				<p>Your bag is empty.</p>
 				<a href="/#shop">Explore the edit</a>
 			</div>
-		{:else if !localPreview}
+		{:else if !data.areas.length}
 			<div class="bag-state">
 				<p>Delivery areas are not approved yet. Checkout is unavailable.</p>
+				<p class="checkout-notice">Payment is not enabled</p>
 				<a href="/cart">Return to bag</a>
 			</div>
 		{:else}
@@ -85,9 +124,11 @@
 						<span>01 / Delivery</span>
 						<h2>Where would it go?</h2>
 					</div>
-					<p class="checkout-test-note">
-						TEST ONLY delivery preview. These are dummy area records, not actual courier coverage.
-					</p>
+					{#if data.areas.some((area) => area.name.startsWith('TEST ONLY'))}
+						<p class="checkout-test-note">
+							TEST ONLY delivery areas. These are dummy records, not actual courier coverage.
+						</p>
+					{/if}
 					<label for="buyer-name">Name</label><input
 						id="buyer-name"
 						bind:value={name}
@@ -110,23 +151,23 @@
 						maxlength="300"
 						autocomplete="street-address"
 					/>
-					<label for="buyer-district">Test district</label><select
-						id="buyer-district"
-						bind:value={district}
-						><option value="test-dhaka">TEST ONLY — Dhaka example</option><option value="test-other"
-							>TEST ONLY — Other example</option
-						></select
+					<label for="buyer-area">Delivery area</label><select
+						id="buyer-area"
+						bind:value={areaKey}
+						required
 					>
-					<p class="checkout-area">
-						Area: {district === 'test-dhaka'
-							? 'TEST ONLY — Central area'
-							: 'TEST ONLY — Other town'}
-					</p>
-					<button type="submit" disabled={loading}
+						<option value="" disabled>Choose an area</option>
+						{#each data.areas as area (`${area.district}/${area.area}`)}
+							<option value="{area.district}/{area.area}"
+								>{area.name} — {price(area.fee_bdt)} delivery</option
+							>
+						{/each}
+					</select>
+					<button type="submit" disabled={loading || paying}
 						>{loading ? 'Checking…' : 'Check total'} <span aria-hidden="true">↗</span></button
 					>
 				</form>
-				<aside class="bag-summary checkout-summary" aria-label="Delivery total">
+				<aside class="bag-summary checkout-summary" aria-label="Order total">
 					<h2>Current total</h2>
 					{#if quote}
 						{#each quote.items as item (item.id)}<div>
@@ -138,10 +179,18 @@
 							<span>Total</span><strong>{price(quote.total_bdt)}</strong>
 						</div>
 						{#if quote.preview_only}<p class="checkout-test-note">
-								TEST ONLY delivery preview — not an offer to ship.
+								TEST ONLY delivery — not an offer to ship.
 							</p>{/if}
-					{:else}<p>Enter a test address to see current prices and a delivery example.</p>{/if}
-					<p class="checkout-notice">Payment is not enabled</p>
+						{#if data.checkout_enabled}
+							<button class="checkout-pay" type="button" onclick={pay} disabled={paying}
+								>{paying ? 'Opening bKash…' : `Pay ${price(quote.total_bdt)} with bKash`}</button
+							>
+							<p class="checkout-pay-note">
+								Your pieces are held for 15 minutes while bKash confirms payment.
+							</p>
+						{/if}
+					{:else}<p>Enter your address to see current prices and the delivery charge.</p>{/if}
+					{#if !data.checkout_enabled}<p class="checkout-notice">Payment is not enabled</p>{/if}
 					{#if error}<p role="alert" class="checkout-error">{error}</p>{/if}
 				</aside>
 			</div>
