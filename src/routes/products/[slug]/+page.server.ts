@@ -1,10 +1,11 @@
 import { env } from 'cloudflare:workers';
+import { databaseFrom } from '../../../lib/server/db/client';
 import { error } from '@sveltejs/kit';
 import { getPublicProductDetail } from '../../../lib/server/catalog/public-detail';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, setHeaders }) => {
-	const db = (env as { DB?: Parameters<typeof getPublicProductDetail>[0] }).DB;
+	const db = databaseFrom(env);
 	if (!db) error(503, 'Catalog unavailable');
 	let product;
 	try {
