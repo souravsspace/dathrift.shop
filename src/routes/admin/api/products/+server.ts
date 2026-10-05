@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
-import { createDraft } from '../../../../lib/server/catalog/admin';
+import { databaseFrom } from '../../../../lib/server/db/client';
+import { createDraft, listStaffProducts } from '../../../../lib/server/catalog/admin';
 import { staffActorForRequest } from '../../../../lib/server/staff-auth';
 import type { RequestHandler } from './$types';
 
@@ -8,22 +9,10 @@ const headers = { 'Cache-Control': 'no-store' };
 export const GET: RequestHandler = async ({ request }) => {
 	const actor = await staffActorForRequest(request, env, import.meta.env.DEV);
 	if (!actor) return new Response('Forbidden', { status: 403, headers });
-	const db = (
-		env as {
-			DB?: { prepare(sql: string): { all(): Promise<{ results: Record<string, unknown>[] }> } };
-		}
-	).DB;
+	const db = databaseFrom(env);
 	if (!db) return new Response('Catalog unavailable', { status: 503, headers });
 	try {
-		const { results } = await db
-			.prepare(
-				`SELECT p.id, p.slug, p.name, p.category, p.price_bdt,
-				        p.publication_state, p.created_at, i.state AS stock_state
-				 FROM products AS p JOIN inventory AS i ON i.product_id = p.id
-				 ORDER BY p.created_at DESC, p.id DESC LIMIT 100`
-			)
-			.all();
-		return Response.json(results, { headers });
+		return Response.json(await listStaffProducts(db), { headers });
 	} catch {
 		return new Response('Catalog unavailable', { status: 503, headers });
 	}
@@ -42,7 +31,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	} catch {
 		return new Response('Invalid draft', { status: 400, headers });
 	}
-	const db = (env as { DB?: Parameters<typeof createDraft>[0] }).DB;
+	const db = databaseFrom(env);
 	if (!db) return new Response('Catalog unavailable', { status: 503, headers });
 	try {
 		return Response.json(await createDraft(db, input), { status: 201, headers });
