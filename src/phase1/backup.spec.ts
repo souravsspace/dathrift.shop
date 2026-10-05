@@ -48,6 +48,42 @@ it('stores hourly and midnight daily SQL exports from a scheduled D1 snapshot', 
 	expect(fetcher).toHaveBeenCalledTimes(5);
 });
 
+it('stores only an hourly copy for the half-past-midnight scheduled run', async () => {
+	const fetcher = vi.fn(async (input: string | URL | Request) =>
+		String(input) === 'https://download.example/backup.sql'
+			? new Response('CREATE TABLE phase1_markers (id TEXT);')
+			: Response.json({
+					success: true,
+					result: {
+						success: true,
+						at_bookmark: 'bookmark-1',
+						status: 'complete',
+						result: { signed_url: 'https://download.example/backup.sql' }
+					}
+				})
+	);
+	const put = vi.fn();
+	const step = {
+		do: async <T>(_name: string, callback: () => Promise<T>) => callback(),
+		sleep: vi.fn()
+	};
+
+	const keys = await runScheduledBackup(
+		{
+			ACCOUNT_ID: 'account-1',
+			DATABASE_ID: 'database-1',
+			D1_REST_API_TOKEN: 'test-token',
+			BACKUP_BUCKET: { put }
+		},
+		step,
+		new Date('2026-10-05T00:30:00.000Z'),
+		fetcher
+	);
+
+	expect(keys).toEqual(['hourly/2026-10-05T00-30-00Z.sql']);
+	expect(put).toHaveBeenCalledOnce();
+});
+
 it('does not call the D1 API without a configured export token', async () => {
 	const fetcher = vi.fn(async () => Response.json({ success: true }));
 	const put = vi.fn();
