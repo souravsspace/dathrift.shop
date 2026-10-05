@@ -1388,6 +1388,7 @@ h3 {
 
 .admin-photo-grid {
 	display: grid;
+	margin-top: 14px;
 	grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
 	gap: 10px;
 }
@@ -1510,7 +1511,8 @@ h3 {
 		background-color 200ms var(--ease-out);
 }
 
-.admin-drop:hover {
+.admin-drop:hover,
+.admin-drop-input:focus-visible + .admin-drop {
 	border-color: var(--color-moss);
 	background: rgb(29 92 68 / 0.04);
 }
@@ -1536,9 +1538,17 @@ h3 {
 }
 
 .admin-drop-input {
-	width: 100% !important;
+	position: absolute;
+	width: 1px !important;
+	height: 1px;
 	min-height: 0 !important;
-	margin-top: 8px;
-	padding: 6px !important;
-	font-size: 0.82rem !important;
+	padding: 0 !important;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.admin-drop-input:focus-visible + .admin-drop {
+	outline: 2px solid var(--color-moss);
+	outline-offset: 2px;
 }
