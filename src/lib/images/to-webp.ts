@@ -16,13 +16,29 @@ export async function encodeWithWasm(data: ImageData, quality: number): Promise<
 	return new Blob([buffer], { type: 'image/webp' });
 }
 
+const isHeic = (file: File) => /^image\/hei[cf]/.test(file.type) || /\.hei[cf]$/i.test(file.name);
+
+// Safari decodes HEIC natively. Chrome and Android do not, so iPhone photos there go through
+// a libheif wasm decoder that is only downloaded when a HEIC file is actually picked.
+async function decode(file: File): Promise<ImageBitmap> {
+	const unreadable = () =>
+		new Error('This browser cannot read that image. Try a JPEG, PNG, WebP or HEIC.');
+	try {
+		return await createImageBitmap(file, { imageOrientation: 'from-image' });
+	} catch {
+		if (!isHeic(file)) throw unreadable();
+		const { heicTo } = await import('heic-to');
+		return heicTo({ blob: file, type: 'bitmap' }).catch(() => {
+			throw unreadable();
+		});
+	}
+}
+
 export async function toWebp(file: File) {
 	// Some HEIC files arrive with no MIME type; the decoder decides whether they are readable.
 	if (file.type && !file.type.startsWith('image/')) throw new Error('Choose an image file');
 	if (file.size > MAX_UPLOAD_BYTES) throw new Error('Image is larger than 10 MB');
-	const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => {
-		throw new Error('This browser cannot read that image. Try a JPEG, PNG or WebP.');
-	});
+	const bitmap = await decode(file);
 	const { width, height } = fitWithin(bitmap.width, bitmap.height);
 	const canvas = document.createElement('canvas');
 	canvas.width = width;
