@@ -1,6 +1,13 @@
 import { localDatabase } from '../testing/local-d1';
 import { expect, it } from 'vitest';
-import { createDraft, publishProduct, unpublishProduct, updateDraftDetails } from './admin';
+import {
+	createDraft,
+	getStaffProduct,
+	listStaffProducts,
+	publishProduct,
+	unpublishProduct,
+	updateDraftDetails
+} from './admin';
 
 it('creates one private draft and available unit atomically, rejecting invalid input', async () => {
 	const { db: d1, sqlite: db } = localDatabase({ seed: false });
@@ -79,4 +86,31 @@ it('updates a draft garment without changing its stable slug or publication stat
 	});
 	await expect(updateDraftDetails(d1, 'test-shirt', details)).rejects.toThrow('Draft not found');
 	db.close();
+});
+
+it('lists every staff piece and reads one with ordered private photo metadata', async () => {
+	const { db } = localDatabase();
+	const rows = await listStaffProducts(db);
+	expect(rows).toHaveLength(4);
+	expect(rows).toContainEqual(
+		expect.objectContaining({
+			id: 'test-draft',
+			publication_state: 'draft',
+			stock_state: 'available'
+		})
+	);
+	expect(await getStaffProduct(db, 'test-draft')).toMatchObject({
+		id: 'test-draft',
+		slug: 'test-unpublished-skirt',
+		measurements_json: '{"waist_cm":76,"inseam_cm":67}',
+		stock_state: 'available',
+		photos: [
+			{
+				position: 1,
+				r2_key: 'test-only/unpublished-skirt.svg',
+				alt_text: 'TEST ONLY: skirt illustration'
+			}
+		]
+	});
+	expect(await getStaffProduct(db, 'missing')).toBeNull();
 });
