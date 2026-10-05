@@ -12,6 +12,27 @@
 - Local test-first seams: `src/phase1/preview.spec.ts` (4 passing tests) and `src/phase1/backup.spec.ts` (1 passing test). `bun run check`, `bun run lint`, and a Wrangler **dry-run only** passed. The dedicated Worker/Workflow is not deployed, no scheduled export has run, and no failure alert has been observed.
 - Waiting on private `.env.local` inputs and permissions: owner/moderator Google addresses, Google OAuth setup approval, an account-scoped D1 Read export token, and a verified owner-email alert path. Do not claim authenticated access, remote persistence, RPO, RTO, or Phase 1 completion until the remaining gates below are recorded.
 
+### Manual R2 restore drill (2026-10-05 UTC; scheduled-backup gate still open)
+
+1. Queried both approved test databases before the drill: marker `drill-20261005-0718` was absent from the primary; the restore target had no `phase1_markers` table. Inserted `('drill-20261005-0718', 'known-value-0718')` **only** into the primary via `wrangler d1 execute dathrift-phase1-primary-test --remote --command ...`. D1 recorded `created_at = 2026-10-05 07:19:20` UTC.
+2. Ran `wrangler d1 export dathrift-phase1-primary-test --remote --skip-confirmation --output /tmp/dathrift-phase1-drill-20261005-0718.sql`; uploaded it to private R2 at `drills/manual-20261005-0718.sql` using `wrangler r2 object put ... --remote`, then retrieved it with `wrangler r2 object get ... --remote`. Both local files had SHA-256 `f71ec8ea1f1d869ea16c75faea004b4c95a36fc74b1c8a2c09d7cf8e140e04a1` and byte comparison passed. The SQL contained the known marker.
+3. Incident declaration was recorded at **07:20:31 UTC**; import began immediately afterward with `wrangler d1 execute dathrift-phase1-restore-test --remote --file /tmp/dathrift-phase1-drill-from-r2-20261005-0718.sql`. A remote query confirmed the marker, its value and timestamp in the **restore target** by **07:21:30 UTC**. Both databases had one row and identical `phase1_markers` schema. The primary was not overwritten.
+4. Conservative drill **RPO upper bound = 07:20:31 − 07:19:20 = 71 seconds** using the latest verified recoverable row timestamp. **RTO upper bound = 07:21:30 − 07:20:31 = 59 seconds** from declaration to usable restored data. These measurements meet the numerical targets for this **manual** drill only; they do **not** prove the required scheduled-backup recovery point.
+5. Cleanup: deleted only `drills/manual-20261005-0718.sql` and both temporary local SQL files; bucket info showed zero objects. The restored nonproduction D1 remains available for comparison. No production resources changed.
+
+Core drill commands (run with repository-local Wrangler; the signed D1 download URL was intentionally not retained):
+
+```sh
+./node_modules/.bin/wrangler d1 execute dathrift-phase1-primary-test --remote --command "INSERT INTO phase1_markers (id, value) VALUES ('drill-20261005-0718', 'known-value-0718')"
+./node_modules/.bin/wrangler d1 export dathrift-phase1-primary-test --remote --skip-confirmation --output /tmp/dathrift-phase1-drill-20261005-0718.sql
+./node_modules/.bin/wrangler r2 object put dathrift-phase1-d1-backups-test/drills/manual-20261005-0718.sql --file /tmp/dathrift-phase1-drill-20261005-0718.sql --remote --force
+./node_modules/.bin/wrangler r2 object get dathrift-phase1-d1-backups-test/drills/manual-20261005-0718.sql --file /tmp/dathrift-phase1-drill-from-r2-20261005-0718.sql --remote
+shasum -a 256 /tmp/dathrift-phase1-drill-from-r2-20261005-0718.sql
+./node_modules/.bin/wrangler d1 execute dathrift-phase1-restore-test --remote --file /tmp/dathrift-phase1-drill-from-r2-20261005-0718.sql
+./node_modules/.bin/wrangler d1 execute dathrift-phase1-restore-test --remote --command "SELECT id, value, created_at FROM phase1_markers WHERE id = 'drill-20261005-0718'"
+./node_modules/.bin/wrangler r2 object delete dathrift-phase1-d1-backups-test/drills/manual-20261005-0718.sql --remote
+```
+
 ## Why PocketBase/Containers is retired
 
 The owner chose Cloudflare-only hosting, but [Container writable disks are ephemeral](https://developers.cloudflare.com/containers/faq/) across sleep/replacement, [snapshots](https://developers.cloudflare.com/containers/guides/snapshots/) are point-in-time and time-limited, and [R2 FUSE lacks full POSIX semantics](https://developers.cloudflare.com/containers/examples/r2-fuse-mount/). A live PocketBase SQLite database cannot safely use those as its payment/inventory primary. D1 is the single primary; R2 holds separate backups. D1 Time Travel is additional recovery, not an independent R2 export or a non-destructive clone. R2 remains in the same Cloudflare account, so this is not cross-provider disaster recovery. [D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/)
