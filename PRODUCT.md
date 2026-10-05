@@ -33,7 +33,7 @@ Use the supplied `static/brand/dathrift-logo.png`. The owner approved an editori
 ## Evidence on Hand
 
 - `static/brand/dathrift-logo.png` is the identity source.
-- `db/seed/local.sql` and `static/test-only/` are synthetic local fixtures, not real merchandise or product photography.
+- `db/seed/local.sql` and `db/seed/assets/` are synthetic local fixtures, not real merchandise or product photography.
 - Real product imagery, final customer policy and approved courier coverage are not yet supplied.
 
 ## Product Principles
