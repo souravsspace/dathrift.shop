@@ -16,7 +16,7 @@ it('stores hourly and midnight daily SQL exports from a scheduled D1 snapshot', 
 	];
 	const fetcher = vi.fn(async (input: string | URL | Request) => {
 		if (String(input) === 'https://download.example/backup.sql') {
-			return new Response('CREATE TABLE phase1_markers (id TEXT);', { status: 200 });
+			return new Response('CREATE TABLE foundation_markers (id TEXT);', { status: 200 });
 		}
 		return Response.json(apiResponses.shift());
 	});
@@ -41,8 +41,8 @@ it('stores hourly and midnight daily SQL exports from a scheduled D1 snapshot', 
 
 	expect(keys).toEqual(['hourly/2026-10-05T00-00-00Z.sql', 'daily/2026-10-05T00-00-00Z.sql']);
 	expect([...objects.values()]).toEqual([
-		'CREATE TABLE phase1_markers (id TEXT);',
-		'CREATE TABLE phase1_markers (id TEXT);'
+		'CREATE TABLE foundation_markers (id TEXT);',
+		'CREATE TABLE foundation_markers (id TEXT);'
 	]);
 	expect(sleep).toHaveBeenCalledOnce();
 	expect(fetcher).toHaveBeenCalledTimes(5);
@@ -51,7 +51,7 @@ it('stores hourly and midnight daily SQL exports from a scheduled D1 snapshot', 
 it('stores only an hourly copy for the half-past-midnight scheduled run', async () => {
 	const fetcher = vi.fn(async (input: string | URL | Request) =>
 		String(input) === 'https://download.example/backup.sql'
-			? new Response('CREATE TABLE phase1_markers (id TEXT);')
+			? new Response('CREATE TABLE foundation_markers (id TEXT);')
 			: Response.json({
 					success: true,
 					result: {
