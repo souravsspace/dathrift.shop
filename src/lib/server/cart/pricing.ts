@@ -1,39 +1,34 @@
+import { eq } from 'drizzle-orm';
+import type { Database } from '../db/client';
+import { inventory, products } from '../db/schema';
 import { normalizeCartIds } from './cart';
 
-type CartDb = {
-	prepare(sql: string): {
-		bind(id: string): { first(): Promise<Record<string, unknown> | null> };
-	};
-};
-
-export async function repriceCart(input: unknown, db: CartDb) {
+export async function repriceCart(input: unknown, db: Database) {
 	const items: { id: string; slug: string; name: string; price_bdt: number }[] = [];
 	const unavailable: string[] = [];
 	let subtotal = 0;
 	for (const id of normalizeCartIds(input)) {
 		const row = await db
-			.prepare(
-				`SELECT p.slug, p.name, p.price_bdt, p.publication_state, i.state AS stock_state
-				 FROM products AS p
-				 JOIN inventory AS i ON i.product_id = p.id
-				 WHERE p.id = ?`
-			)
-			.bind(id)
-			.first();
+			.select({
+				slug: products.slug,
+				name: products.name,
+				price_bdt: products.priceBdt,
+				publication_state: products.publicationState,
+				stock_state: inventory.state
+			})
+			.from(products)
+			.innerJoin(inventory, eq(inventory.productId, products.id))
+			.where(eq(products.id, id))
+			.get();
 		if (!row || row.publication_state !== 'published' || row.stock_state !== 'available') {
 			unavailable.push(id);
 			continue;
 		}
-		if (!Number.isSafeInteger(row.price_bdt) || (row.price_bdt as number) <= 0)
+		if (!Number.isSafeInteger(row.price_bdt) || row.price_bdt <= 0)
 			throw new Error('Invalid server price');
-		subtotal += row.price_bdt as number;
+		subtotal += row.price_bdt;
 		if (!Number.isSafeInteger(subtotal)) throw new Error('Cart total overflow');
-		items.push({
-			id,
-			slug: row.slug as string,
-			name: row.name as string,
-			price_bdt: row.price_bdt as number
-		});
+		items.push({ id, slug: row.slug, name: row.name, price_bdt: row.price_bdt });
 	}
 	return { items, unavailable, subtotal_bdt: unavailable.length ? null : subtotal };
 }
