@@ -55,3 +55,19 @@ export async function staffEmailForRequest(
 		return null;
 	}
 }
+
+export function staffActorForRequest(
+	request: Request,
+	env: StaffAuthEnv,
+	isLocalDev: boolean
+): Promise<string | null> {
+	const url = new URL(request.url);
+	if (
+		isLocalDev &&
+		url.protocol === 'http:' &&
+		(url.hostname === 'localhost' || url.hostname === '127.0.0.1')
+	) {
+		return Promise.resolve('local-preview');
+	}
+	return staffEmailForRequest(request, env);
+}
