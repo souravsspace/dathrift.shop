@@ -32,7 +32,10 @@ function provider(result: Partial<ProviderPayment> | Error, created = 'pay-1') {
 	};
 	return {
 		name: 'mock',
-		create: vi.fn(async () => ({ paymentId: created, redirectUrl: `https://wallet.test/${created}` })),
+		create: vi.fn(async () => ({
+			paymentId: created,
+			redirectUrl: `https://wallet.test/${created}`
+		})),
 		execute: vi.fn(respond),
 		query: vi.fn(respond)
 	} satisfies PaymentProvider;
@@ -62,12 +65,12 @@ it('creates one payment for the server total and releases holds when creation fa
 	const failedOrder = await failed.order();
 	const broken = provider({});
 	broken.create.mockRejectedValueOnce(new Error('timeout'));
-	await expect(startPayment(failed.db, broken, failedOrder, 'https://shop.test/cb')).rejects.toThrow(
-		'Payment unavailable'
-	);
-	expect(state(failed.sqlite, "SELECT state FROM inventory WHERE product_id = 'test-shirt'")).toEqual(
-		{ state: 'available' }
-	);
+	await expect(
+		startPayment(failed.db, broken, failedOrder, 'https://shop.test/cb')
+	).rejects.toThrow('Payment unavailable');
+	expect(
+		state(failed.sqlite, "SELECT state FROM inventory WHERE product_id = 'test-shirt'")
+	).toEqual({ state: 'available' });
 	expect(state(failed.sqlite, 'SELECT status FROM orders')).toEqual({ status: 'cancelled' });
 });
 
