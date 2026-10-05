@@ -1,6 +1,8 @@
 # Phase 7 — SEO, accessibility and truthful customer policy
 
-**Status:** not started. Design/SEO checks may begin as soon as their pages exist, but final launch verification needs real approved content and policy.
+**Status:** technical SEO built; customer policy remains an unapproved draft and is not published.
+
+Local evidence (2026-10-06): canonical URLs on home, category and product pages; `noindex` on filtered variants, test fixtures, bag, checkout, order status, test wallet, error and admin pages; Product/Offer JSON-LD with BDT, `UsedCondition` and truthful `InStock`/`OutOfStock`/`SoldOut` (no ratings, GTINs or policy markup); `sitemap.xml` from published non-test pieces with `lastmod` from a trigger-maintained `products.updated_at`; `robots.txt` links the sitemap. Rich Results Test, Search Console and Lighthouse checks need a deployed site.
 
 ## Indexing and content contract
 
