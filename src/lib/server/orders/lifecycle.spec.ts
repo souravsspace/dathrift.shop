@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { localD1 } from '../testing/local-d1';
+import { localDatabase } from '../testing/local-d1';
 import { reserveCheckout } from '../reservation/reserve';
 import { attachPayment, closeUnpaidOrder, holdForReview, settleVerifiedPayment } from './lifecycle';
 
@@ -11,13 +11,13 @@ const address = {
 	area: 'test-central'
 };
 
-const stock = (sqlite: ReturnType<typeof localD1>['sqlite'], id: string) =>
+const stock = (sqlite: ReturnType<typeof localDatabase>['sqlite'], id: string) =>
 	sqlite.prepare('SELECT state, reserved_order_id FROM inventory WHERE product_id = ?').get(id);
-const status = (sqlite: ReturnType<typeof localD1>['sqlite'], id: string) =>
+const status = (sqlite: ReturnType<typeof localDatabase>['sqlite'], id: string) =>
 	(sqlite.prepare('SELECT status FROM orders WHERE id = ?').get(id) as { status: string }).status;
 
 it('sells every held unit once after verified payment and ignores repeated confirmation', async () => {
-	const { db, sqlite } = localD1();
+	const { db, sqlite } = localDatabase();
 	const order = await reserveCheckout(db, ['test-shirt', 'test-dress'], address, true);
 	expect(stock(sqlite, 'test-shirt')).toEqual({ state: 'reserved', reserved_order_id: order.id });
 	await expect(attachPayment(db, order.id, 'mock', 'pay-wrong', 1)).rejects.toThrow();
@@ -37,7 +37,7 @@ it('sells every held unit once after verified payment and ignores repeated confi
 });
 
 it('releases only its own holds, and sends a late success to review without selling twice', async () => {
-	const { db, sqlite } = localD1();
+	const { db, sqlite } = localDatabase();
 	const first = await reserveCheckout(db, ['test-shirt'], address, true);
 	await attachPayment(db, first.id, 'mock', 'pay-late', first.total_bdt);
 	expect(await closeUnpaidOrder(db, first.id, 'expired')).toBe(true);
@@ -52,7 +52,7 @@ it('releases only its own holds, and sends a late success to review without sell
 });
 
 it('keeps ambiguous payments held until a verified result, and rejects invalid transitions', async () => {
-	const { db, sqlite } = localD1();
+	const { db, sqlite } = localDatabase();
 	const order = await reserveCheckout(db, ['test-dress'], address, true);
 	await attachPayment(db, order.id, 'mock', 'pay-unknown', order.total_bdt);
 	expect(await holdForReview(db, order.id)).toBe(true);
