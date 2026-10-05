@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, expect, it } from 'vitest';
+import { localD1 } from '../../../../lib/server/testing/local-d1';
 import { POST } from './+server';
 
 afterEach(() => {
@@ -26,9 +27,7 @@ function event(origin = 'http://127.0.0.1:5173') {
 
 it('returns a server-owned local preview charge and denies cross-origin requests', async () => {
 	expect((await POST(event('https://evil.example'))).status).toBe(403);
-	(env as { DB?: unknown }).DB = {
-		prepare: () => ({ bind: () => ({ first: async () => ({ fee_bdt: 80, preview_only: 1 }) }) })
-	};
+	(env as { DB?: unknown }).DB = localD1().db;
 	const response = await POST(event());
 	expect(response.status).toBe(200);
 	expect(response.headers.get('Cache-Control')).toBe('no-store');
