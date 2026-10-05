@@ -1,8 +1,8 @@
 # Phase 2 — dynamic clothing catalog and protected product admin
 
-**Status:** local test-first slices underway; exit gate open. Historical PocketBase product migrations/public-access tests do not close this phase.
+**Status:** local code complete; exit gate open. Historical PocketBase product migrations/public-access tests do not close this phase.
 
-Local evidence (2026-10-05): numbered SQL migrations `db/migrations/0001_catalog.sql` through `0004_product_details.sql` define draft/published products, separate one-unit inventory state, ordered photo metadata, and garment details. SQLite-backed tests enforce positive integer BDT prices, one inventory state per product, photo slots 1–8 with alt text, and draft-safe/sold-readable public product queries. Local publication validation requires description, condition, fit, photos and owner-approved category-specific centimeter measurements. `GET /api/products/[slug]` returns only safe published fields, 404 for hidden/missing items, and 503 when D1 is unavailable. The latest server run passed **25 tests in 12 files**, and type-check/lint passed. No catalog migration has been applied to remote D1; no image bucket or staff workflow exists. This is not a Phase 2 pass.
+Local evidence (2026-10-06): staff can create drafts, edit details and centimeter measurements, upload 1–8 photos to private R2 with alt text, publish only complete garments, unpublish available pieces, record audited external sales, and correct a published slug (the old URL 308-redirects through `slug_redirects`). All queries use Drizzle; SQL triggers enforce stock rules. Remote D1/R2 and a real Cloudflare Access staff login are unproven.
 
 ## Product model and staff workflow
 
