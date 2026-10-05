@@ -14,8 +14,8 @@
 </script>
 
 <!-- A die-cut ivory tag hanging from a thread through a gold eyelet. -->
-<div class="hang hang-{size}">
-	<div class="swinger" {@attach swing ? swingOnHover : undefined}>
+<div class="hang hang-{size}" {@attach swing ? swingOnHover : undefined}>
+	<div class="swinger">
 		<span class="thread" aria-hidden="true"></span>
 		<div class="tag">
 			{@render children()}
@@ -29,13 +29,15 @@
 		--cut: 18px;
 		--hole: 7px;
 		--hole-top: 22px;
+		--thread: 44px;
 		position: relative;
 		filter: drop-shadow(0 10px 14px rgb(2 20 14 / 0.35)) drop-shadow(0 2px 3px rgb(2 20 14 / 0.3));
 	}
 
+	/* The tag pivots where its thread is hooked, so the thread's top stays put while it swings. */
 	.swinger {
 		position: relative;
-		transform-origin: 50% var(--hole-top);
+		transform-origin: 50% calc(var(--hole-top) - var(--thread));
 	}
 
 	.thread {
@@ -43,7 +45,7 @@
 		bottom: calc(100% - var(--hole-top));
 		left: 50%;
 		width: 1.5px;
-		height: 44px;
+		height: var(--thread);
 		background: linear-gradient(var(--color-gold-deep), var(--color-gold));
 		translate: -50% 0;
 	}
@@ -107,14 +109,11 @@
 			--cut: 12px;
 			--hole: 5px;
 			--hole-top: 15px;
+			--thread: 30px;
 		}
 
 		.hang-card .tag {
 			padding: calc(var(--hole-top) + var(--hole) + 10px) 12px 14px;
-		}
-
-		.hang-card .thread {
-			height: 30px;
 		}
 	}
 </style>
