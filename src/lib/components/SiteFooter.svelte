@@ -4,9 +4,9 @@
 		{#each [1, 2, 3, 4, 5, 6, 7] as hook (hook)}<span class="hook"></span>{/each}
 	</div>
 	<div class="footer-row">
-		<a class="footer-brand" href="/" aria-label="dathrift home">
+		<a class="footer-brand" href="/" aria-label="daThriftShop home">
 			<img src="/brand/dathrift-logo.webp" alt="" width="36" height="36" loading="lazy" />
-			<span>dathrift</span>
+			<span>daThriftShop</span>
 		</a>
 		<p>One piece. One next chapter.</p>
 		<nav aria-label="Footer">
