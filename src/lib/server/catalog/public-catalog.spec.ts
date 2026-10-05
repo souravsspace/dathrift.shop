@@ -1,13 +1,9 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
+import { localDatabase } from '../testing/local-d1';
 import { expect, it } from 'vitest';
 import { getPublicProduct, listPublicProducts } from './public-catalog';
 
 it('hides drafts but keeps sold published products readable without private fields', async () => {
-	const db = new DatabaseSync(':memory:');
-	for (const file of readdirSync('db/migrations').sort()) {
-		db.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
-	}
+	const { db: d1, sqlite: db } = localDatabase({ seed: false });
 	db.exec(`
 		INSERT INTO products (id, slug, name, category, price_bdt, publication_state)
 		VALUES ('draft-1', 'draft', 'Private draft', 'tops', 900, 'draft'),
@@ -16,11 +12,6 @@ it('hides drafts but keeps sold published products readable without private fiel
 		VALUES ('draft-1', 'available'), ('sold-1', 'sold');
 	`);
 
-	const d1 = {
-		prepare: (sql: string) => ({
-			bind: (slug: string) => ({ first: async () => db.prepare(sql).get(slug) ?? null })
-		})
-	};
 	expect(await getPublicProduct(d1, 'draft')).toBeNull();
 	expect(await getPublicProduct(d1, 'sold')).toEqual({
 		id: 'sold-1',
@@ -35,14 +26,7 @@ it('hides drafts but keeps sold published products readable without private fiel
 });
 
 it('lists only published stock with first-photo metadata and durable sold state', async () => {
-	const db = new DatabaseSync(':memory:');
-	for (const file of readdirSync('db/migrations').sort()) {
-		db.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
-	}
-	db.exec(readFileSync('db/seed/local.sql', 'utf8'));
-	const d1 = {
-		prepare: (sql: string) => ({ all: async () => ({ results: db.prepare(sql).all() }) })
-	};
+	const { db: d1, sqlite: db } = localDatabase({ seed: true });
 	const items = await listPublicProducts(d1);
 	expect(items).toHaveLength(3);
 	expect(items.map((item) => item.slug).sort()).toEqual([
