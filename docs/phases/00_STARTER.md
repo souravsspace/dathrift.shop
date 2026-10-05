@@ -4,7 +4,7 @@
 
 ## Observable behavior and evidence
 
-- SvelteKit source, tests and supported tool configuration use TypeScript; `tsconfig.json` replaces `jsconfig.json`. Historical `pb_migrations/*.js` remain JavaScript because PocketBase executes JavaScript migrations directly; generated Worker JavaScript is output, not source.
+- SvelteKit source, tests and supported tool configuration use TypeScript; `tsconfig.json` replaces `jsconfig.json`. The old PocketBase migrations were removed when D1 became the sole primary; generated Worker JavaScript is output, not source.
 - The Svelte type-check, lint, Vitest server/browser, Playwright starter e2e, and local Cloudflare Worker preview passed after the starter fixes. Browser and Docker localhost tests needed sandbox escalation for loopback binding; the source was not changed to hide that environment restriction.
 - The local PocketBase restart/restore experiment and PocketBase product public-access tests passed, but PocketBase is retired from the production architecture. Do not count these tests toward Phase 1 or D1 catalog gates.
 
