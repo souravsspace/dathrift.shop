@@ -1,5 +1,5 @@
 ---
-name: dathrift
+name: daThriftShop
 description: One-of-one pre-loved clothing, each piece wearing its own die-cut swing tag on a logo-green ground.
 colors:
   ink: '#04241a'
@@ -153,13 +153,13 @@ components:
     backgroundColor: '{colors.moss}'
 ---
 
-# Design System: dathrift
+# Design System: daThriftShop
 
 ## Overview
 
 **Creative North Star: "The Tag Is the Interface"**
 
-Every garment on dathrift is a single unit, and the system treats each one the way a good thrift rack does: the actual piece, photographed honestly, with a die-cut ivory card tag hanging off it on a gold thread. Price, size, condition, measurements, fit and the Add to bag action all live on that tag. The page is the deep logo-green ground the rack stands on; the tag is the only bright paper in the room, so the eye always lands on the facts.
+Every garment on daThriftShop is a single unit, and the system treats each one the way a good thrift rack does: the actual piece, photographed honestly, with a die-cut ivory card tag hanging off it on a gold thread. Price, size, condition, measurements, fit and the Add to bag action all live on that tag. The page is the deep logo-green ground the rack stands on; the tag is the only bright paper in the room, so the eye always lands on the facts.
 
 The world is dense with physical rack metaphor but restrained in decoration. Headings are uppercase condensed Archivo, set tight; tag data is Martian Mono in small caps-height lines; status is a one-press ink stamp, never a badge. Pages end on a gold rack rail with empty hooks. Motion is spring physics borrowed from a hanging tag: it drops in, swings when touched, and settles. The confirmed rejection is the cream-page, serif-headline editorial shop this redesign replaced.
 
@@ -238,11 +238,11 @@ A full-bleed page with a fluid side gutter (clamp(18px, 4vw, 64px)) and no fixed
 
 - **Hero:** two equal columns, copy left and the featured photo right with its oversized tag hanging over the photo's lower edge; collapses to one column at 900px.
 - **Rack:** auto-fill grid of min(100%, 300px) columns with a 72px row gap so each tag (pulled up 64px over its photo, 82% wide, offset right) has room to hang.
-- **Product:** photo gallery 1.1fr, tag column 0.9fr (min 340px); the tag holds every fact and the buy action.
+- **Product:** photo gallery 1.1fr, tag column 0.9fr (min 340px); the tag holds every fact and the buy action. The gallery is one scroll-snap track of up to ten 4:5 photos, cover first: phones swipe it, thumbnails jump to a photo, and a mono "2 / 7" count sits in the photo's lower corner.
 - **Task pages (bag, checkout, order):** main column plus a 300–400px sticky receipt; one column under 900px. Bag lines are photo (96–150px) plus tag, the tag overlapping the photo by 18px.
 - **Admin:** two columns (0.8fr form / 1.4fr list), single under 900px; form pairs stack under 560px.
 
-Breakpoints observed: 900px (layout collapse), 600px (compact tags), 560px (admin stacking), 480px (header compaction). Touch targets are at least 44px throughout.
+Breakpoints observed: 900px (layout collapse), 600px (compact tags; filters become a two-column grid of 48px, 16px-text controls so iOS never zooms; category chips wrap rather than scroll), 560px (admin stacking), 480px (header compaction), 380px (the bag link keeps its icon and count while its label becomes screen-reader-only, so the full daThriftShop wordmark fits a 320px phone). Most shoppers are on phones: design and check at 390px first, then 320px. Touch targets are at least 44px throughout.
 
 ## Elevation & Depth
 
@@ -293,7 +293,10 @@ Confident, round, and few.
 
 - **Storefront:** ivory field on bottle, 50px tall, 6px corners, transparent border; focus borders gold with a gold halo.
 - **Admin:** white field, 22% ink border, 44px, 6px corners; focus borders moss with a moss halo; disabled is a 5% ink wash.
-- **Photo drop:** 1.5px dashed ink border at 35%, 8px corners, 96px minimum, a 4:5 preview thumb; hover and keyboard focus shift to moss.
+- **Photo drop:** 1.5px dashed ink border at 35%, 8px corners, 96px minimum, a 4:5 preview thumb; hover and keyboard focus shift to moss. Accepts any image up to 10 MB, iPhone HEIC included.
+- **Prefixed field (admin):** the ৳ sign or the /products/ path printed in faded-ink mono inside the field's own border; focus rings the whole field in moss.
+- **Cover photo (admin):** position 1 wears the gold "Cover" chip; every other photo carries a 44px ink-outline "Make cover" button.
+- **Taka sign:** neither brand face has ৳, so a 2 KB Noto Sans Bengali subset is registered under both family names with `unicode-range: U+09F3`; prices are always ৳ then the en-BD grouped number.
 
 ### Navigation
 
