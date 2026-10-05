@@ -179,6 +179,7 @@
 								<div class="admin-row-meta">
 									<span>৳{new Intl.NumberFormat('en-BD').format(product.price_bdt)}</span>
 									<small>{product.publication_state} · {product.stock_state}</small>
+									<a href="/admin/products/{product.id}" aria-label="Edit {product.name}">Edit ↗</a>
 								</div>
 							</li>
 						{/each}
