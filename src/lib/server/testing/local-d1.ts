@@ -17,8 +17,12 @@ export type LocalStatement = {
 export function localD1({ seed = true, migrations = 'db/migrations' } = {}) {
 	const sqlite = new DatabaseSync(':memory:');
 	sqlite.exec('PRAGMA foreign_keys = ON');
-	for (const file of readdirSync(migrations).sort())
+	// D1 applies each migration file in its own transaction, which deferred foreign keys rely on.
+	for (const file of readdirSync(migrations).sort()) {
+		sqlite.exec('BEGIN');
 		sqlite.exec(readFileSync(`${migrations}/${file}`, 'utf8'));
+		sqlite.exec('COMMIT');
+	}
 	if (seed) sqlite.exec(readFileSync('db/seed/local.sql', 'utf8'));
 
 	const statement = (sql: string, args: Value[]): LocalStatement => {
