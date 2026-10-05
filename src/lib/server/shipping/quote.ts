@@ -14,7 +14,7 @@ type ShippingDb = {
 	};
 };
 
-function addressFields(value: unknown): Address {
+export function normalizeShippingAddress(value: unknown): Address {
 	if (!value || typeof value !== 'object') throw new Error('Invalid address');
 	const input = value as Record<string, unknown>;
 	if (
@@ -37,7 +37,7 @@ function addressFields(value: unknown): Address {
 }
 
 export async function quoteShipping(db: ShippingDb, input: unknown) {
-	const address = addressFields(input);
+	const address = normalizeShippingAddress(input);
 	const area = await db
 		.prepare(
 			`SELECT fee_bdt, preview_only FROM delivery_areas
