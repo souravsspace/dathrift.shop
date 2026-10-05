@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
-import { inventory, productPhotos, products } from '../db/schema';
+import { inventory, productPhotos, products, slugRedirects } from '../db/schema';
+import { databaseErrorText } from '../db/errors';
 import { publicationErrors } from './publication';
 
 type DraftInput = {
@@ -226,4 +227,32 @@ export async function getStaffProduct(db: Database, id: string) {
 		.where(eq(productPhotos.productId, id))
 		.orderBy(asc(productPhotos.position));
 	return { ...product, photos };
+}
+
+const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+// Typo correction for a live URL: the old slug becomes a permanent redirect, never reused.
+export async function correctPublishedSlug(db: Database, id: string, slug: string) {
+	if (slug.length > 160 || !slugPattern.test(slug)) throw new Error('Invalid slug');
+	const current = await db
+		.select({ slug: products.slug })
+		.from(products)
+		.where(and(eq(products.id, id), eq(products.publicationState, 'published')))
+		.get();
+	if (!current) throw new Error('Product not published');
+	if (current.slug === slug) return { id, slug };
+	try {
+		await db.batch([
+			db.insert(slugRedirects).values({ oldSlug: current.slug, productId: id }),
+			db
+				.update(products)
+				.set({ slug })
+				.where(and(eq(products.id, id), eq(products.slug, current.slug)))
+		]);
+	} catch (error) {
+		if (/Slug unavailable|UNIQUE constraint failed/.test(databaseErrorText(error)))
+			throw new Error('Slug unavailable', { cause: error });
+		throw error;
+	}
+	return { id, slug };
 }
