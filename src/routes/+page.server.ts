@@ -1,14 +1,23 @@
 import { env } from 'cloudflare:workers';
-import { databaseFrom } from '../lib/server/db/client';
 import { error } from '@sveltejs/kit';
-import { listPublicProducts } from '../lib/server/catalog/public-catalog';
+import {
+	browseFiltersFrom,
+	listPublicProducts,
+	publicFacets
+} from '../lib/server/catalog/public-catalog';
+import { databaseFrom } from '../lib/server/db/client';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ url }) => {
 	const db = databaseFrom(env);
 	if (!db) error(503, 'Catalog unavailable');
+	const { filters, active } = browseFiltersFrom(url.searchParams);
 	try {
-		return { products: await listPublicProducts(db) };
+		const [products, facets] = await Promise.all([
+			listPublicProducts(db, filters),
+			publicFacets(db)
+		]);
+		return { products, facets, filters, filtered: active };
 	} catch {
 		error(503, 'Catalog unavailable');
 	}
