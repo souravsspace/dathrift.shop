@@ -87,3 +87,35 @@ it('emails the owner when the previous private backup is older than one hour', a
 		text: 'The latest previous nonproduction D1 backup was over one hour old at 2026-10-05T01:30:00.000Z. Inspect the Phase 1 Workflow and private R2 bucket.'
 	});
 });
+
+it('does not start a backup without both alert addresses', async () => {
+	const send = vi.fn();
+	const put = vi.fn();
+	const list = vi.fn();
+	const fetcher = vi.fn();
+	const step = {
+		do: async <T>(_name: string, callback: () => Promise<T>) => callback(),
+		sleep: vi.fn()
+	};
+
+	await expect(
+		runMonitoredBackup(
+			{
+				ACCOUNT_ID: 'account-1',
+				DATABASE_ID: 'database-1',
+				D1_REST_API_TOKEN: 'test-token',
+				BACKUP_BUCKET: { put, list },
+				EMAIL: { send },
+				ALERT_EMAIL: '',
+				ALERT_FROM_EMAIL: 'alerts@example.com'
+			},
+			step,
+			new Date('2026-10-05T02:00:00.000Z'),
+			fetcher
+		)
+	).rejects.toThrow('Missing backup alert configuration');
+	expect(list).not.toHaveBeenCalled();
+	expect(fetcher).not.toHaveBeenCalled();
+	expect(put).not.toHaveBeenCalled();
+	expect(send).not.toHaveBeenCalled();
+});
