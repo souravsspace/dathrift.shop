@@ -145,6 +145,7 @@
 
 	button {
 		min-height: 40px;
+		touch-action: manipulation;
 		padding: 0 18px;
 		border: 0;
 		border-radius: 999px;
@@ -165,22 +166,48 @@
 		text-underline-offset: 4px;
 	}
 
+	/* Phones: categories wrap so every one stays visible; filters become a thumb-sized grid
+	   with 16px controls, which iOS does not zoom into on focus. */
 	@media (max-width: 600px) {
 		.browse {
 			margin: 22px 0 44px;
-		}
-
-		.categories {
-			flex-wrap: nowrap;
-			overflow-x: auto;
-			width: calc(100% + 2 * var(--gutter));
-			margin: 0 calc(-1 * var(--gutter));
-			padding: 0 var(--gutter) 4px;
-			scrollbar-width: none;
+			gap: 16px;
 		}
 
 		.categories a {
-			flex: 0 0 auto;
+			padding: 0 14px;
+		}
+
+		.filters {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			align-items: end;
+			gap: 12px 10px;
+			width: 100%;
+		}
+
+		.field {
+			display: grid;
+			gap: 6px;
+			min-height: 0;
+		}
+
+		select {
+			width: 100%;
+			min-height: 48px;
+			font-size: 16px;
+		}
+
+		button {
+			min-height: 48px;
+		}
+
+		.clear {
+			grid-column: 1 / -1;
+			justify-self: center;
+			display: inline-flex;
+			align-items: center;
+			min-height: 44px;
 		}
 	}
 </style>
