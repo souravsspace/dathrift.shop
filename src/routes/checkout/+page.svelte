@@ -2,6 +2,9 @@
 	import { onMount } from 'svelte';
 	import { readCartIds } from '../../lib/cart/browser-cart';
 	import { leaveFor } from '../../lib/checkout/navigate';
+	import SiteFooter from '../../lib/components/SiteFooter.svelte';
+	import SiteHeader from '../../lib/components/SiteHeader.svelte';
+	import { formatBdt as price } from '../../lib/site';
 	import type { PageData } from './$types';
 
 	type Quote = {
@@ -13,7 +16,6 @@
 	};
 
 	let { data }: { data: PageData } = $props();
-	const price = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 	let ids = $state<string[]>([]);
 	let name = $state('');
 	let phone = $state('');
@@ -89,114 +91,102 @@
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
-<div class="storefront bag-page checkout-page">
-	<header class="site-header">
-		<a class="brand" href="/" aria-label="dathrift home"
-			><img src="/brand/dathrift-logo.png" alt="" width="52" height="52" /><span
-				>dathrift<span class="brand-period">.</span></span
-			></a
-		>
-		<nav aria-label="Main navigation"><a href="/cart">Back to bag</a></nav>
-	</header>
-	<main id="main-content">
-		<a class="bag-back" href="/cart">← Back to your bag</a>
-		<p class="checkout-eyebrow">Guest checkout / bKash</p>
-		<h1>Checkout</h1>
-		<p class="bag-intro">
-			Check a fresh price and one delivery charge first. Pieces are held only when you choose to
-			pay.
-		</p>
-		{#if !ids.length}
-			<div class="bag-state">
-				<p>Your bag is empty.</p>
-				<a href="/#shop">Explore the edit</a>
-			</div>
-		{:else if !data.areas.length}
-			<div class="bag-state">
-				<p>Delivery areas are not approved yet. Checkout is unavailable.</p>
-				<p class="checkout-notice">Payment is not enabled</p>
-				<a href="/cart">Return to bag</a>
-			</div>
-		{:else}
-			<div class="checkout-layout">
-				<form class="checkout-form" onsubmit={checkTotal}>
-					<div class="checkout-form-title">
-						<span>01 / Delivery</span>
-						<h2>Where would it go?</h2>
+<SiteHeader current="bag" />
+
+<main id="main-content" class="flow-main">
+	<a class="flow-back" href="/cart">Back to your bag</a>
+	<h1>Checkout</h1>
+	<p class="flow-intro">
+		Check a fresh price and one delivery charge first. Pieces are held only when you choose to pay
+		with bKash.
+	</p>
+	{#if !ids.length}
+		<div class="flow-state">
+			<p>Your bag is empty.</p>
+			<a class="button button-gold" href="/#shop">Shop the rack</a>
+		</div>
+	{:else if !data.areas.length}
+		<div class="flow-state">
+			<p>Delivery areas are not approved yet. Checkout is unavailable.</p>
+			<p class="test-banner">Payment is not enabled</p>
+			<a class="button button-line" href="/cart">Return to bag</a>
+		</div>
+	{:else}
+		<div class="flow-layout">
+			<form class="form-card" onsubmit={checkTotal}>
+				<h2>Where should it go?</h2>
+				{#if data.areas.some((area) => area.name.startsWith('TEST ONLY'))}
+					<p class="test-banner">
+						TEST ONLY delivery areas. These are dummy records, not actual courier coverage.
+					</p>
+				{/if}
+				<label for="buyer-name">Name</label><input
+					id="buyer-name"
+					bind:value={name}
+					required
+					maxlength="120"
+					autocomplete="name"
+				/>
+				<label for="buyer-phone">Bangladesh phone</label><input
+					id="buyer-phone"
+					bind:value={phone}
+					required
+					type="tel"
+					inputmode="tel"
+					autocomplete="tel"
+					placeholder="01712345678"
+				/>
+				<label for="buyer-address">Address line</label><input
+					id="buyer-address"
+					bind:value={line1}
+					required
+					maxlength="300"
+					autocomplete="street-address"
+				/>
+				<label for="buyer-area">Delivery area</label><select
+					id="buyer-area"
+					bind:value={areaKey}
+					required
+				>
+					<option value="" disabled>Choose an area</option>
+					{#each data.areas as area (`${area.district}/${area.area}`)}
+						<option value="{area.district}/{area.area}"
+							>{area.name} — {price(area.fee_bdt)} delivery</option
+						>
+					{/each}
+				</select>
+				<button class="button button-gold" type="submit" disabled={loading || paying}
+					>{loading ? 'Checking…' : 'Check total'}</button
+				>
+			</form>
+			<aside class="receipt" aria-label="Order total">
+				<h2>Current total</h2>
+				{#if quote}
+					{#each quote.items as item (item.id)}<div class="receipt-row">
+							<span>{item.name}</span><strong>{price(item.price_bdt)}</strong>
+						</div>{/each}
+					<div class="receipt-row"><span>Items</span><strong>{price(quote.subtotal_bdt)}</strong></div>
+					<div class="receipt-row">
+						<span>Delivery, once</span><strong>{price(quote.shipping_bdt)}</strong>
 					</div>
-					{#if data.areas.some((area) => area.name.startsWith('TEST ONLY'))}
-						<p class="checkout-test-note">
-							TEST ONLY delivery areas. These are dummy records, not actual courier coverage.
-						</p>
+					<div class="receipt-row total">
+						<span>Total</span><strong>{price(quote.total_bdt)}</strong>
+					</div>
+					{#if quote.preview_only}<p class="test-banner">
+							TEST ONLY delivery — not an offer to ship.
+						</p>{/if}
+					{#if data.checkout_enabled}
+						<button class="button button-ink" type="button" onclick={pay} disabled={paying}
+							>{paying ? 'Opening bKash…' : `Pay ${price(quote.total_bdt)} with bKash`}</button
+						>
+						<p>Your pieces are held for 15 minutes while bKash confirms payment.</p>
 					{/if}
-					<label for="buyer-name">Name</label><input
-						id="buyer-name"
-						bind:value={name}
-						required
-						maxlength="120"
-						autocomplete="name"
-					/>
-					<label for="buyer-phone">Bangladesh phone</label><input
-						id="buyer-phone"
-						bind:value={phone}
-						required
-						inputmode="tel"
-						autocomplete="tel"
-						placeholder="01712345678"
-					/>
-					<label for="buyer-address">Address line</label><input
-						id="buyer-address"
-						bind:value={line1}
-						required
-						maxlength="300"
-						autocomplete="street-address"
-					/>
-					<label for="buyer-area">Delivery area</label><select
-						id="buyer-area"
-						bind:value={areaKey}
-						required
-					>
-						<option value="" disabled>Choose an area</option>
-						{#each data.areas as area (`${area.district}/${area.area}`)}
-							<option value="{area.district}/{area.area}"
-								>{area.name} — {price(area.fee_bdt)} delivery</option
-							>
-						{/each}
-					</select>
-					<button type="submit" disabled={loading || paying}
-						>{loading ? 'Checking…' : 'Check total'} <span aria-hidden="true">↗</span></button
-					>
-				</form>
-				<aside class="bag-summary checkout-summary" aria-label="Order total">
-					<h2>Current total</h2>
-					{#if quote}
-						{#each quote.items as item (item.id)}<div>
-								<span>{item.name}</span><strong>{price(item.price_bdt)}</strong>
-							</div>{/each}
-						<div><span>Items</span><strong>{price(quote.subtotal_bdt)}</strong></div>
-						<div><span>Delivery, once</span><strong>{price(quote.shipping_bdt)}</strong></div>
-						<div class="checkout-total">
-							<span>Total</span><strong>{price(quote.total_bdt)}</strong>
-						</div>
-						{#if quote.preview_only}<p class="checkout-test-note">
-								TEST ONLY delivery — not an offer to ship.
-							</p>{/if}
-						{#if data.checkout_enabled}
-							<button class="checkout-pay" type="button" onclick={pay} disabled={paying}
-								>{paying ? 'Opening bKash…' : `Pay ${price(quote.total_bdt)} with bKash`}</button
-							>
-							<p class="checkout-pay-note">
-								Your pieces are held for 15 minutes while bKash confirms payment.
-							</p>
-						{/if}
-					{:else}<p>Enter your address to see current prices and the delivery charge.</p>{/if}
-					{#if !data.checkout_enabled}<p class="checkout-notice">Payment is not enabled</p>{/if}
-					{#if error}<p role="alert" class="checkout-error">{error}</p>{/if}
-				</aside>
-			</div>
-		{/if}
-	</main>
-	<footer class="site-footer">
-		<span>dathrift.</span><span>One piece. One next chapter.</span><a href="/cart">Back to bag ↑</a>
-	</footer>
-</div>
+				{:else}<p>Enter your address to see current prices and the delivery charge.</p>{/if}
+				{#if !data.checkout_enabled}<p class="receipt-notice">Payment is not enabled</p>{/if}
+				{#if error}<p role="alert" class="form-error">{error}</p>{/if}
+			</aside>
+		</div>
+	{/if}
+</main>
+
+<SiteFooter />
