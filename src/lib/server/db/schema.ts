@@ -176,3 +176,13 @@ export const slugRedirects = sqliteTable('slug_redirects', {
 		.notNull()
 		.default(sql`CURRENT_TIMESTAMP`)
 });
+
+export const homeFeature = sqliteTable('home_feature', {
+	slot: text('slot', { enum: ['hero'] }).primaryKey(),
+	productId: text('product_id')
+		.notNull()
+		.references(() => products.id),
+	featuredAt: text('featured_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`)
+});
