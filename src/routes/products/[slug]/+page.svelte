@@ -13,6 +13,18 @@
 	let added = $state(false);
 	let inBag = $state(false);
 	let activePhoto = $state(0);
+	let track = $state<HTMLElement>();
+
+	function showPhoto(index: number) {
+		activePhoto = index;
+		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		track?.scrollTo({ left: index * track.clientWidth, behavior: reduce ? 'auto' : 'smooth' });
+	}
+
+	function syncPhoto() {
+		if (!track?.clientWidth) return;
+		activePhoto = Math.round(track.scrollLeft / track.clientWidth);
+	}
 	// Split closing tag so the Svelte parser does not end this script block.
 	let jsonLdTag = $derived(
 		`<script type="application/ld+json">${productJsonLd({ ...data.product, category: data.product.category_name })}</` +
@@ -67,14 +79,32 @@
 	<div class="product-layout">
 		<div class="gallery">
 			<div class="gallery-main" style:view-transition-name="photo-{product.slug}">
-				{#if product.photos[activePhoto]}
-					<img
-						src="/media/{product.photos[activePhoto].key}"
-						alt={product.photos[activePhoto].alt}
-						width="1024"
-						height="1280"
-						fetchpriority="high"
-					/>
+				{#if product.photos.length}
+					<!-- Every photo sits in one scroll-snap track: phones swipe, thumbnails jump. -->
+					<div
+						class="gallery-track"
+						role="region"
+						aria-label="Photos of {product.name}"
+						tabindex="-1"
+						bind:this={track}
+						onscroll={syncPhoto}
+					>
+						{#each product.photos as photo, index (photo.key)}
+							<img
+								src="/media/{photo.key}"
+								alt={photo.alt}
+								width="1024"
+								height="1280"
+								loading={index === 0 ? 'eager' : 'lazy'}
+								fetchpriority={index === 0 ? 'high' : 'auto'}
+							/>
+						{/each}
+					</div>
+					{#if product.photos.length > 1}
+						<span class="photo-count" aria-hidden="true"
+							>{activePhoto + 1} / {product.photos.length}</span
+						>
+					{/if}
 				{:else}
 					<div class="gallery-empty">Photo coming</div>
 				{/if}
@@ -87,7 +117,7 @@
 							type="button"
 							aria-label="Show photo {index + 1}: {photo.alt}"
 							aria-pressed={index === activePhoto}
-							onclick={() => (activePhoto = index)}
+							onclick={() => showPhoto(index)}
 							><img
 								src="/media/{photo.key}"
 								alt=""
