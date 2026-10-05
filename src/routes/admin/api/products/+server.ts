@@ -36,8 +36,10 @@ export const POST: RequestHandler = async ({ request }) => {
 	try {
 		return Response.json(await createDraft(db, input), { status: 201, headers });
 	} catch (error) {
-		if (error instanceof Error && error.message === 'Invalid draft')
-			return new Response('Invalid draft', { status: 400, headers });
+		const message = error instanceof Error ? error.message : '';
+		if (message === 'Invalid draft' || message === 'Unknown category')
+			return new Response(message, { status: 400, headers });
+		if (message === 'Slug unavailable') return new Response(message, { status: 409, headers });
 		return new Response('Catalog unavailable', { status: 503, headers });
 	}
 };
