@@ -165,7 +165,9 @@
 					{#each quote.items as item (item.id)}<div class="receipt-row">
 							<span>{item.name}</span><strong>{price(item.price_bdt)}</strong>
 						</div>{/each}
-					<div class="receipt-row"><span>Items</span><strong>{price(quote.subtotal_bdt)}</strong></div>
+					<div class="receipt-row">
+						<span>Items</span><strong>{price(quote.subtotal_bdt)}</strong>
+					</div>
 					<div class="receipt-row">
 						<span>Delivery, once</span><strong>{price(quote.shipping_bdt)}</strong>
 					</div>
