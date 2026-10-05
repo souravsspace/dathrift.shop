@@ -41,6 +41,7 @@
 	let photoFile = $state<File | null>(null);
 	let photoAlt = $state('');
 	let saleReason = $state('');
+	let newSlug = $state('');
 
 	function assignProduct(value: Product) {
 		product = value;
@@ -159,6 +160,31 @@
 				reason instanceof Error && reason.message === 'Incomplete product'
 					? 'Complete details, measurements and at least one photo before publishing.'
 					: 'Could not change publication. Refresh and try again.';
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function correctSlug(event: SubmitEvent) {
+		event.preventDefault();
+		if (!product) return;
+		busy = true;
+		message = error = '';
+		try {
+			const response = await fetch(`/admin/api/products/${data.id}/slug`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ slug: newSlug })
+			});
+			if (!response.ok) throw new Error(await response.text());
+			product = { ...product, slug: ((await response.json()) as { slug: string }).slug };
+			newSlug = '';
+			message = 'Slug corrected. The old URL now redirects here.';
+		} catch (reason) {
+			error =
+				reason instanceof Error && reason.message === 'Slug unavailable'
+					? 'That slug is already used or reserved by a redirect.'
+					: 'Could not correct the slug. Use lowercase letters, numbers and hyphens.';
 		} finally {
 			busy = false;
 		}
@@ -386,7 +412,22 @@
 								type="button"
 								disabled={busy || product.stock_state !== 'available'}
 								onclick={() => setPublication('draft')}>Unpublish piece</button
-							>{/if}
+							>
+							<form class="admin-slug-form" onsubmit={correctSlug}>
+								<label for="corrected-slug">Corrected slug</label>
+								<input
+									id="corrected-slug"
+									bind:value={newSlug}
+									required
+									maxlength="160"
+									pattern="[a-z0-9]+(-[a-z0-9]+)*"
+									placeholder={product.slug}
+								/>
+								<p class="admin-hint">
+									For typo fixes only. The current URL keeps redirecting to the new one.
+								</p>
+								<button type="submit" disabled={busy}>Correct slug</button>
+							</form>{/if}
 					</section>
 					<section class="admin-panel" aria-labelledby="external-sale-title">
 						<div class="admin-panel-heading">
