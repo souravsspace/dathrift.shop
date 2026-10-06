@@ -31,7 +31,8 @@ export const products = sqliteTable('products', {
 	sizeLabel: text('size_label'),
 	measurementsJson: text('measurements_json'),
 	fitNote: text('fit_note'),
-	updatedAt: text('updated_at')
+	updatedAt: text('updated_at'),
+	archivedAt: text('archived_at')
 });
 
 export const inventory = sqliteTable('inventory', {
