@@ -1,9 +1,15 @@
 import { page } from 'vitest/browser';
 import { afterEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { goto } from '$app/navigation';
 import ProductEditor from './+page.svelte';
 
-afterEach(() => vi.unstubAllGlobals());
+vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+	vi.mocked(goto).mockClear();
+});
 
 const categories = [
 	{ slug: 'bags', name: 'Bags', measurement_set: 'none' },
@@ -28,6 +34,7 @@ const piece = (overrides: Record<string, unknown> = {}) => ({
 	size_label: 'M',
 	measurements_json: '{"waist_in":30,"inseam_in":26.5}',
 	fit_note: 'Relaxed',
+	has_history: false,
 	photos: [],
 	...overrides
 });
@@ -237,4 +244,96 @@ it('features a published piece on the home page and removes it again', async () 
 		.element(page.getByRole('button', { name: 'Feature on home page' }))
 		.toBeInTheDocument();
 	expect(calls).toEqual(['{"featured":true}', '{"featured":false}']);
+});
+
+it('edits a live piece in place and explains what a live page needs', async () => {
+	let status = 200;
+	const fetch = editor(piece({ publication_state: 'published', photos: [photo(1)] }), {
+		'PATCH /admin/api/products/test-draft': () =>
+			status === 200
+				? Response.json({ id: 'test-draft', publication_state: 'published' })
+				: new Response('Incomplete product', { status })
+	});
+	const price = page.getByRole('spinbutton', { name: 'Price (৳)' });
+	await expect.element(price).toBeEnabled();
+	await price.fill('850');
+	await page.getByRole('button', { name: 'Save live page' }).click();
+	await expect.element(page.getByText('Live page updated')).toBeInTheDocument();
+	expect(sentBody(fetch, 'PATCH /admin/api/products/test-draft')).toMatchObject({ price_bdt: 850 });
+	status = 422;
+	await page.getByRole('textbox', { name: 'Fit note' }).fill('');
+	await page.getByRole('button', { name: 'Save live page' }).click();
+	await expect
+		.element(page.getByRole('alert'))
+		.toHaveTextContent('A live piece needs every detail');
+});
+
+it('locks a piece held in checkout and says why', async () => {
+	editor(piece({ publication_state: 'published', stock_state: 'reserved', photos: [photo(1)] }));
+	await expect
+		.element(page.getByText('A buyer is paying for this piece right now.', { exact: false }))
+		.toBeInTheDocument();
+	await expect.element(page.getByRole('textbox', { name: 'Name' })).toBeDisabled();
+	await expect.element(page.getByRole('button', { name: 'Unpublish piece' })).toBeDisabled();
+	await expect
+		.element(page.getByRole('button', { name: 'Remove photo 1' }))
+		.not.toBeInTheDocument();
+});
+
+it('removes a photo only after staff confirm it', async () => {
+	const photos = [1, 2].map(photo);
+	const fetch = editor(piece({ photos }), {
+		'DELETE /admin/api/products/test-draft/photos': () =>
+			Response.json([{ ...photos[1], position: 1 }])
+	});
+	await page.getByRole('button', { name: 'Remove photo 1' }).click();
+	expect(sentBody(fetch, 'DELETE /admin/api/products/test-draft/photos')).toBeUndefined();
+	await page.getByRole('button', { name: 'Keep photo 1' }).click();
+	await page.getByRole('button', { name: 'Remove photo 1' }).click();
+	await page.getByRole('button', { name: 'Confirm removing photo 1' }).click();
+	await expect.element(page.getByText('Photo removed')).toBeInTheDocument();
+	expect(sentBody(fetch, 'DELETE /admin/api/products/test-draft/photos')).toEqual({
+		r2_key: 'products/test-draft/1.webp'
+	});
+	const alts = [...document.querySelectorAll('.admin-photo-grid img')].map((img) =>
+		img.getAttribute('alt')
+	);
+	expect(alts).toEqual(['TEST ONLY view 2']);
+});
+
+it('keeps the last photo on a live piece', async () => {
+	editor(piece({ publication_state: 'published', photos: [photo(1)] }));
+	await expect.element(page.getByRole('button', { name: 'Remove photo 1' })).toBeDisabled();
+	await expect
+		.element(page.getByText('A live piece keeps at least one photo.'))
+		.toBeInTheDocument();
+});
+
+it('lets staff unpublish a sold piece', async () => {
+	editor(piece({ publication_state: 'published', stock_state: 'sold', photos: [photo(1)] }), {
+		'POST /admin/api/products/test-draft/publication': () =>
+			Response.json({ id: 'test-draft', publication_state: 'draft' })
+	});
+	await page.getByRole('button', { name: 'Unpublish piece' }).click();
+	await expect.element(page.getByText('Piece unpublished')).toBeInTheDocument();
+});
+
+it('deletes a never-sold piece after confirmation and returns to the desk', async () => {
+	const fetch = editor(piece(), {
+		'DELETE /admin/api/products/test-draft': () => Response.json({ outcome: 'deleted' })
+	});
+	await page.getByRole('button', { name: 'Delete piece' }).click();
+	expect(fetch.mock.calls.some(([, options]) => options?.method === 'DELETE')).toBe(false);
+	await page.getByRole('button', { name: 'Delete for good' }).click();
+	await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/admin'));
+});
+
+it('archives a piece with sales history instead of deleting it', async () => {
+	editor(piece({ has_history: true, stock_state: 'sold' }), {
+		'DELETE /admin/api/products/test-draft': () => Response.json({ outcome: 'archived' })
+	});
+	await expect.element(page.getByRole('button', { name: 'Delete piece' })).not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Archive piece' }).click();
+	await page.getByRole('button', { name: 'Archive it' }).click();
+	await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/admin'));
 });
