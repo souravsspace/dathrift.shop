@@ -1,15 +1,21 @@
 <script lang="ts">
 	import SiteFooter from '../../../lib/components/SiteFooter.svelte';
 	import Icon, { type IconName } from '../../../lib/components/Icon.svelte';
+	import ManualPay from '../../../lib/components/ManualPay.svelte';
 	import SiteHeader from '../../../lib/components/SiteHeader.svelte';
 	import { saveOrder } from '../../../lib/orders/device-orders';
 	import { onMount } from 'svelte';
 	import { formatBdt as price } from '../../../lib/site';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
 	type Status = PageData['order']['status'];
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let order = $derived(data.order);
+	let manual = $derived(order.manual);
+	let sent = $derived(manual?.submitted_at ? manual : null);
+	let dueOnDelivery = $derived(
+		sent?.plan === 'delivery' ? order.total_bdt - order.shipping_bdt : 0
+	);
 
 	// Each visit refreshes this device's copy, so the "Your orders" list shows the latest status.
 	onMount(() => {
@@ -62,6 +68,22 @@
 			note: 'Payment was not confirmed in time, so the pieces were released.'
 		}
 	};
+	// Manual bKash Send Money: the shop checks the payment by hand.
+	const manualCopy: Partial<Record<Status, { title: string; note: string }>> = {
+		pending_payment: {
+			title: 'Send your bKash payment',
+			note: 'Send money to the number below, then give us the transaction ID. Your pieces are held for 30 minutes.'
+		},
+		payment_review: {
+			title: 'Payment sent, we are checking it',
+			note: 'We check your bKash payment by hand and update this page. Your pieces stay held for you meanwhile.'
+		},
+		paid: {
+			title: 'Payment confirmed',
+			note: 'We found your bKash payment. We will contact you about dispatch.'
+		}
+	};
+	let copy = $derived((manual && manualCopy[order.status]) || statusCopy[order.status]);
 	const fulfillmentCopy: Record<string, string> = {
 		preparing: 'Preparing your parcel',
 		dispatched: 'Dispatched',
@@ -80,12 +102,19 @@
 	<header class="flow-head">
 		<a class="back-link" href="/orders"><Icon name="arrow-left" size={18} />Your orders</a>
 		<h1 class="page-title">Order {order.reference}</h1>
+		{#if manual && order.status === 'pending_payment'}
+			<ol class="steps" aria-label="Checkout steps">
+				<li class="done"><Icon name="check" size={16} />Bag</li>
+				<li class="done"><Icon name="check" size={16} />Delivery</li>
+				<li aria-current="step"><span class="step-dot">3</span>Pay with bKash</li>
+			</ol>
+		{/if}
 	</header>
 	<div class="status card" data-status={order.status} role="status">
 		<span class="status-icon"><Icon name={statusIcon[order.status]} size={26} /></span>
 		<div>
-			<strong>{statusCopy[order.status].title}</strong>
-			<p>{statusCopy[order.status].note}</p>
+			<strong>{copy.title}</strong>
+			<p>{copy.note}</p>
 		</div>
 	</div>
 	{#if order.preview_only}
@@ -93,6 +122,42 @@
 	{/if}
 	<div class="flow-layout spaced">
 		<div class="details">
+			{#if manual && order.status === 'pending_payment'}
+				<ManualPay
+					reference={order.reference}
+					total={order.total_bdt}
+					shipping={order.shipping_bdt}
+					expiresAt={order.expires_at}
+					payTo={manual.pay_to}
+					{form}
+				/>
+			{/if}
+			{#if sent}
+				<section class="card block" aria-labelledby="order-payment">
+					<h2 id="order-payment">Your bKash payment</h2>
+					<dl class="proof">
+						<div>
+							<dt>Sent</dt>
+							<dd>
+								<span class="price">{price(sent.amount_bdt ?? 0)}</span>
+								{sent.plan === 'delivery' ? 'delivery charge' : 'full total'}
+							</dd>
+						</div>
+						{#if sent.trx_id}<div>
+								<dt>Transaction ID</dt>
+								<dd class="mono">{sent.trx_id}</dd>
+							</div>{/if}
+						{#if sent.sender_hint}<div>
+								<dt>Paid from</dt>
+								<dd class="mono">{sent.sender_hint}</dd>
+							</div>{/if}
+					</dl>
+					{#if dueOnDelivery}<p class="due">
+							<Icon name="hand-coins" size={18} />Pay <strong>{price(dueOnDelivery)}</strong> in cash
+							when the parcel arrives.
+						</p>{/if}
+				</section>
+			{/if}
 			{#if order.status === 'paid'}
 				<section class="card block" aria-labelledby="order-progress">
 					<h2 id="order-progress">Delivery progress</h2>
@@ -154,6 +219,14 @@
 			<div class="summary-row total">
 				<span>Total</span><strong>{price(order.total_bdt)}</strong>
 			</div>
+			{#if sent}
+				<div class="summary-row">
+					<span>Sent by bKash</span><strong>{price(sent.amount_bdt ?? 0)}</strong>
+				</div>
+				{#if dueOnDelivery}<div class="summary-row">
+						<span>Cash on delivery</span><strong>{price(dueOnDelivery)}</strong>
+					</div>{/if}
+			{/if}
 			<p class="summary-note">
 				<Icon name="lock" size={16} />Keep this page link private. It is the only way to view this
 				order. This device remembers it under Your orders.
@@ -302,6 +375,77 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
+	}
+
+	.steps {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px 20px;
+		margin: 14px 0 0;
+		padding: 0;
+		color: var(--color-ink-soft);
+		font-size: var(--text-small);
+		font-weight: 600;
+		list-style: none;
+	}
+
+	.steps li {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.steps .done {
+		color: var(--color-moss);
+	}
+
+	.steps li[aria-current='step'] {
+		color: var(--color-ink);
+	}
+
+	.step-dot {
+		display: grid;
+		width: 22px;
+		height: 22px;
+		place-items: center;
+		border-radius: 50%;
+		background: var(--color-ink);
+		color: var(--color-paper);
+		font-family: var(--font-mono);
+		font-size: var(--text-label);
+	}
+
+	.proof {
+		display: grid;
+		gap: 10px;
+		margin: 0;
+	}
+
+	.proof div {
+		display: flex;
+		justify-content: space-between;
+		gap: 16px;
+		font-size: var(--text-small);
+	}
+
+	.proof dt {
+		color: var(--color-ink-soft);
+	}
+
+	.proof dd {
+		margin: 0;
+		text-align: right;
+	}
+
+	.due {
+		display: flex !important;
+		align-items: center;
+		gap: 8px;
+		margin-top: 14px !important;
+		padding: 12px 14px;
+		border-radius: var(--radius-sm);
+		background: var(--color-ivory);
+		font-size: var(--text-small);
 	}
 
 	code {
