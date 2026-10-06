@@ -45,7 +45,12 @@
 				<h2>Pieces</h2>
 				<ul class="order-items">
 					{#each order.items as item (item.slug)}
-						<li><span>{item.name}</span><span>{price(item.price_bdt)}</span></li>
+						<li>
+							<span
+								>{item.name}{#if item.code}<small class="order-item-code">{item.code}</small
+									>{/if}</span
+							><span>{price(item.price_bdt)}</span>
+						</li>
 					{/each}
 					<li><span>Delivery</span><span>{price(order.shipping_bdt)}</span></li>
 					<li><strong>Total</strong><strong>{price(order.total_bdt)}</strong></li>
