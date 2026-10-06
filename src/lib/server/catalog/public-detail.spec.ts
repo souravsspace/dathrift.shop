@@ -10,6 +10,7 @@ it('keeps drafts private and returns sold garment details with ordered photo des
 		stock_state: 'sold',
 		condition_notes: 'Wear at elbows; photographed.',
 		category_name: 'Outerwear',
+		code: expect.stringMatching(/^[A-Z]{2}\d{7}$/),
 		measurements: { chest_in: 42.5, length_in: 26 },
 		photos: [{ key: 'test-only/denim-jacket.webp', alt: 'Generated test-only denim jacket visual' }]
 	});
