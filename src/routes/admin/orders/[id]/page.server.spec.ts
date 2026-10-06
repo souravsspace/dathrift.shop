@@ -96,3 +96,51 @@ it('lets the owner close an unpaid review after checking, releasing its holds', 
 		local.sqlite.prepare("SELECT state FROM inventory WHERE product_id = 'test-shirt'").get()
 	).toEqual({ state: 'available' });
 });
+
+async function manualOrder() {
+	const local = localD1();
+	(env as { DB?: unknown }).DB = local.db;
+	const db = database(local.db as never);
+	const order = await reserveCheckout(db, ['test-shirt'], address, true);
+	const manual = await import('../../../../lib/server/payments/manual');
+	await manual.startManualPayment(db, order.id, '01849584594');
+	await manual.submitManualPayment(db, order.status_token, {
+		plan: 'full',
+		trx_id: '8N7A6D5C4B',
+		sender_number: null
+	});
+	return { local, order };
+}
+
+it('lets staff confirm a manual bKash payment only after ticking that they found it', async () => {
+	const { local, order } = await manualOrder();
+	const url = `http://127.0.0.1:5173/admin/orders/${order.id}?/confirmManual`;
+	expect(await actions.confirmManual(event(order.id, url, form({})))).toMatchObject({
+		status: 400
+	});
+	expect(
+		await actions.confirmManual(event(order.id, url, form({ confirm: 'found-in-bkash' })))
+	).toEqual({ message: 'Payment confirmed. The order is paid and its pieces are sold.' });
+	expect(local.sqlite.prepare('SELECT status FROM orders WHERE id = ?').get(order.id)).toEqual({
+		status: 'paid'
+	});
+	expect(
+		local.sqlite.prepare("SELECT state FROM inventory WHERE product_id = 'test-shirt'").get()
+	).toEqual({ state: 'sold' });
+	const loaded = (await load(event(order.id))) as { order: { manual: { trx_id: string } } };
+	expect(loaded.order.manual.trx_id).toBe('8N7A6D5C4B');
+});
+
+it('lets staff reject a manual bKash payment they could not find, releasing the piece', async () => {
+	const { local, order } = await manualOrder();
+	const url = `http://127.0.0.1:5173/admin/orders/${order.id}?/rejectManual`;
+	expect(
+		await actions.rejectManual(event(order.id, url, form({ confirm: 'not-in-bkash' })))
+	).toEqual({ message: 'Order closed and pieces released.' });
+	expect(
+		local.sqlite.prepare("SELECT state FROM inventory WHERE product_id = 'test-shirt'").get()
+	).toEqual({ state: 'available' });
+	expect(
+		await actions.rejectManual(event(order.id, url, form({ confirm: 'not-in-bkash' })))
+	).toMatchObject({ status: 409 });
+});
