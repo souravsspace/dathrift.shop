@@ -102,7 +102,9 @@
 						</a>
 						<div class="bag-line-tag">
 							<SwingTag>
-								<p class="tag-meta">Size {item.size_label ?? 'not listed'} · 1 of 1</p>
+								<p class="tag-meta">
+									{#if item.size_label}Size {item.size_label} ·{/if} 1 of 1
+								</p>
 								<p class="tag-price">{price(item.price_bdt)}</p>
 								<p class="tag-name"><a href="/products/{item.slug}">{item.name}</a></p>
 								<div class="bag-line-actions">
