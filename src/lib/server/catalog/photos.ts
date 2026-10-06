@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import { inventory, productPhotos, products } from '../db/schema';
 import { MAX_PHOTOS } from './publication';
@@ -61,15 +61,11 @@ export async function addProductPhoto(
 				.from(products)
 				.innerJoin(inventory, eq(inventory.productId, products.id))
 				.where(
-					and(
-						eq(products.id, id),
-						eq(products.publicationState, 'draft'),
-						eq(inventory.state, 'available')
-					)
+					and(eq(products.id, id), isNull(products.archivedAt), ne(inventory.state, 'reserved'))
 				)
 		);
 		// D1 counts trigger writes in meta.changes, so only zero means the row was not written.
-		if (result.meta.changes === 0) throw new Error('Draft not available');
+		if (result.meta.changes === 0) throw new Error('Product not available');
 	} catch (error) {
 		await bucket.delete(key);
 		throw error;
@@ -77,10 +73,8 @@ export async function addProductPhoto(
 	return { position: input.position, r2_key: key, alt_text: input.altText.trim() };
 }
 
-// Position 1 is the cover the shop shows first. Moving a photo there keeps the others in order;
-// the rows are rewritten in one batch so the (product, position) key never collides midway.
-export async function makeCoverPhoto(db: Database, id: string, r2Key: string) {
-	const photos = await db
+async function orderedPhotos(db: Database, id: string) {
+	return db
 		.select({
 			position: productPhotos.position,
 			r2_key: productPhotos.r2Key,
@@ -89,6 +83,12 @@ export async function makeCoverPhoto(db: Database, id: string, r2Key: string) {
 		.from(productPhotos)
 		.where(eq(productPhotos.productId, id))
 		.orderBy(asc(productPhotos.position));
+}
+
+// Position 1 is the cover the shop shows first. Moving a photo there keeps the others in order;
+// the rows are rewritten in one batch so the (product, position) key never collides midway.
+export async function makeCoverPhoto(db: Database, id: string, r2Key: string) {
+	const photos = await orderedPhotos(db, id);
 	const cover = photos.find((photo) => photo.r2_key === r2Key);
 	if (!cover) throw new Error('Photo not found');
 	const ordered = [cover, ...photos.filter((photo) => photo !== cover)].map((photo, index) => ({
@@ -115,4 +115,54 @@ export async function makeCoverPhoto(db: Database, id: string, r2Key: string) {
 		)
 	]);
 	return ordered;
+}
+
+// Removing a photo closes the gap so positions stay 1..n and the next photo becomes the cover.
+// A live piece keeps at least one photo; a piece held in checkout is left untouched.
+export async function deleteProductPhoto(
+	db: Database,
+	bucket: Pick<PhotoBucket, 'delete'>,
+	id: string,
+	r2Key: string
+) {
+	const product = await db
+		.select({ publication_state: products.publicationState, stock_state: inventory.state })
+		.from(products)
+		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.where(and(eq(products.id, id), isNull(products.archivedAt)))
+		.get();
+	if (!product) throw new Error('Product not found');
+	if (product.stock_state === 'reserved') throw new Error('Product held');
+	const photos = await orderedPhotos(db, id);
+	if (!photos.some((photo) => photo.r2_key === r2Key)) throw new Error('Photo not found');
+	if (product.publication_state === 'published' && photos.length === 1)
+		throw new Error('Last photo');
+	const remaining = photos
+		.filter((photo) => photo.r2_key !== r2Key)
+		.map((photo, index) => ({ ...photo, position: index + 1 }));
+	const clear = db.delete(productPhotos).where(
+		and(
+			eq(productPhotos.productId, id),
+			inArray(
+				productPhotos.r2Key,
+				photos.map((photo) => photo.r2_key)
+			)
+		)
+	);
+	if (remaining.length)
+		await db.batch([
+			clear,
+			db.insert(productPhotos).values(
+				remaining.map((photo) => ({
+					productId: id,
+					position: photo.position,
+					r2Key: photo.r2_key,
+					altText: photo.alt_text
+				}))
+			)
+		]);
+	else await clear;
+	// The row is gone, so the file is already unreachable; a failed cleanup only leaves an orphan.
+	await bucket.delete(r2Key).catch(() => undefined);
+	return remaining;
 }
