@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import AdminHeader from '../../../../lib/components/AdminHeader.svelte';
+	import AdminToast from '../../../../lib/components/AdminToast.svelte';
 	import StatusStamp from '../../../../lib/components/StatusStamp.svelte';
 	import { toWebp } from '../../../../lib/images/to-webp';
 	import type { PageData } from './$types';
@@ -417,15 +418,18 @@
 <div class="admin-shell">
 	<AdminHeader current="products" />
 	<main class="admin-main admin-editor">
-		<a class="admin-back" href="/admin">Back to products</a>
+		<a class="admin-back" href="/admin"
+			><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5L5.5 8l4.5 4.5" /></svg>Back to
+			products</a
+		>
 		{#if loading}
 			<p>Loading piece…</p>
 		{:else if product}
-			<header class="editor-head">
+			<header class="admin-head">
 				<h1>{product.name}</h1>
-				<p class="editor-meta">
+				<p class="admin-head-meta">
 					{#if product.code}<span class="editor-code">{product.code}</span>{/if}
-					<span class="editor-path">/products/{product.slug}</span>
+					<span class="admin-head-path">/products/{product.slug}</span>
 					{#if data.actor !== 'local-preview'}<span class="admin-actor">{data.actor}</span>{/if}
 				</p>
 				<div class="admin-stamps">
@@ -440,10 +444,10 @@
 					Local preview · test data only. Do not use as live merchandise.
 				</div>{/if}
 			{#if held}<p class="admin-held-note" role="status">{heldMessage}</p>{/if}
-			<div class="editor-layout">
-				<div class="editor-main">
+			<div class="admin-layout">
+				<div class="admin-layout-main">
 					<section class="admin-panel" aria-labelledby="photos-title">
-						<div class="editor-panel-head">
+						<div class="admin-panel-head">
 							<h2 id="photos-title">Photos</h2>
 							<p>{product.photos.length} of {MAX_PHOTOS} photos</p>
 						</div>
@@ -528,7 +532,7 @@
 							</form>{/if}
 					</section>
 					<section class="admin-panel" aria-labelledby="details-title">
-						<div class="editor-panel-head">
+						<div class="admin-panel-head">
 							<h2 id="details-title">Details & fit</h2>
 						</div>
 						<form class="editor-form" onsubmit={saveDetails}>
@@ -659,9 +663,9 @@
 						</form>
 					</section>
 				</div>
-				<aside class="editor-side">
+				<aside class="admin-layout-side">
 					<section class="admin-panel" aria-labelledby="publish-title">
-						<div class="editor-panel-head">
+						<div class="admin-panel-head">
 							<h2 id="publish-title">Publication</h2>
 						</div>
 						{#if product.publication_state === 'draft'}
@@ -675,7 +679,7 @@
 								onclick={() => setPublication('published')}>Publish piece</button
 							>
 						{:else}
-							<div class="editor-actions">
+							<div class="admin-actions">
 								<a
 									class="admin-action admin-action-outline"
 									href="/products/{product.slug}"
@@ -708,7 +712,7 @@
 						{/if}
 					</section>
 					<section class="admin-panel editor-more" aria-labelledby="more-title">
-						<div class="editor-panel-head">
+						<div class="admin-panel-head">
 							<h2 id="more-title">Other actions</h2>
 						</div>
 						<details>
@@ -815,8 +819,8 @@
 					</section>
 				</aside>
 			</div>
-			{#if message}<p class="admin-success admin-feedback" role="status">{message}</p>{/if}
-			{#if error}<p class="admin-error admin-feedback" role="alert">{error}</p>{/if}
+			{#if error}<AdminToast kind="error" text={error} onclose={() => (error = '')} />
+			{:else if message}<AdminToast text={message} onclose={() => (message = '')} />{/if}
 		{:else}
 			<h1>Piece unavailable</h1>
 			<p>{error}</p>
