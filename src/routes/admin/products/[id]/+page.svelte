@@ -11,6 +11,7 @@
 	type Category = { slug: string; name: string; measurement_set: MeasurementSet };
 	type Product = {
 		id: string;
+		code: string | null;
 		slug: string;
 		name: string;
 		category: string;
@@ -405,7 +406,10 @@
 			<div class="admin-intro">
 				<div>
 					<h1>{product.name}</h1>
-					<p>/products/{product.slug}</p>
+					<p>
+						{#if product.code}<span class="editor-code">{product.code}</span> ·
+						{/if}/products/{product.slug}
+					</p>
 					<div class="admin-stamps">
 						<StatusStamp kind={product.publication_state} />
 						{#if product.stock_state !== 'available'}<StatusStamp
