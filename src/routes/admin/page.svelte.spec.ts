@@ -118,3 +118,40 @@ it('shows a list error instead of an empty desk when pieces cannot load', async 
 		.toBeInTheDocument();
 	await expect.element(page.getByText('No pieces yet')).not.toBeInTheDocument();
 });
+
+it('sorts the desk by state, finds a piece by name and shows its cover', async () => {
+	const piece = (id: string, name: string, extra: Record<string, unknown>) => ({
+		...rows[0],
+		id,
+		slug: `test-${id}`,
+		name,
+		cover_key: null,
+		...extra
+	});
+	desk({
+		'GET /admin/api/products': () =>
+			Response.json([
+				piece('a', 'TEST ONLY — Linen shirt', { cover_key: 'products/a/1.webp' }),
+				piece('b', 'TEST ONLY — Wool coat', { publication_state: 'published' }),
+				piece('c', 'TEST ONLY — Denim skirt', {
+					publication_state: 'published',
+					stock_state: 'sold'
+				})
+			])
+	});
+	await expect.element(page.getByText('3 pieces · 1 live · 1 draft · 1 sold')).toBeInTheDocument();
+	await expect
+		.element(page.getByRole('img', { name: 'TEST ONLY — Linen shirt' }))
+		.toHaveAttribute('src', '/media/products/a/1.webp');
+	const listed = () =>
+		[...document.querySelectorAll('.desk-row strong')].map((node) => node.textContent);
+	await page.getByRole('button', { name: 'Live 1' }).click();
+	expect(listed()).toEqual(['TEST ONLY — Wool coat']);
+	await page.getByRole('button', { name: 'Sold 1' }).click();
+	expect(listed()).toEqual(['TEST ONLY — Denim skirt']);
+	await page.getByRole('button', { name: 'All 3' }).click();
+	await page.getByRole('searchbox', { name: 'Find a piece' }).fill('linen');
+	expect(listed()).toEqual(['TEST ONLY — Linen shirt']);
+	await page.getByRole('searchbox', { name: 'Find a piece' }).fill('velvet');
+	await expect.element(page.getByText('No pieces match.')).toBeInTheDocument();
+});
