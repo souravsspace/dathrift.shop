@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, expect, it, vi } from 'vitest';
 import { localD1 } from '../../../../../../lib/server/testing/local-d1';
-import { POST } from './+server';
+import { DELETE, POST } from './+server';
 
 afterEach(() => {
 	delete (env as { DB?: unknown }).DB;
@@ -52,4 +52,58 @@ it('saves a local photo using private R2 and D1 metadata', async () => {
 	expect(response.headers.get('Cache-Control')).toBe('no-store');
 	expect(await response.json()).toMatchObject({ position: 2, alt_text: 'TEST ONLY olive shirt' });
 	expect(put).toHaveBeenCalledOnce();
+});
+
+const removal = (url: string, origin: string, r2Key: string) =>
+	({
+		params: { id: new URL(url).pathname.split('/')[4] },
+		request: new Request(url, {
+			method: 'DELETE',
+			headers: { Origin: origin, 'Content-Type': 'application/json' },
+			body: JSON.stringify({ r2_key: r2Key })
+		})
+	}) as Parameters<typeof DELETE>[0];
+
+it('removes a photo for staff and keeps the last one on a live piece', async () => {
+	const remove = vi.fn(async () => undefined);
+	(env as { PRODUCT_IMAGES?: unknown }).PRODUCT_IMAGES = { put: async () => ({}), delete: remove };
+	const local = 'http://127.0.0.1:5173';
+	expect(
+		(
+			await DELETE(
+				removal(
+					'https://dathrift.shop/admin/api/products/test-draft/photos',
+					'https://dathrift.shop',
+					'test-only/unpublished-skirt.svg'
+				)
+			)
+		).status
+	).toBe(403);
+	(env as { DB?: unknown }).DB = localD1().db;
+	const response = await DELETE(
+		removal(
+			`${local}/admin/api/products/test-draft/photos`,
+			local,
+			'test-only/unpublished-skirt.svg'
+		)
+	);
+	expect(response.status).toBe(200);
+	expect(response.headers.get('Cache-Control')).toBe('no-store');
+	expect(await response.json()).toEqual([]);
+	expect(remove).toHaveBeenCalledWith('test-only/unpublished-skirt.svg');
+	expect(
+		(
+			await DELETE(
+				removal(
+					`${local}/admin/api/products/test-shirt/photos`,
+					local,
+					'test-only/olive-shirt.webp'
+				)
+			)
+		).status
+	).toBe(409);
+	expect(
+		(await DELETE(removal(`${local}/admin/api/products/test-shirt/photos`, local, 'nope.webp')))
+			.status
+	).toBe(404);
 });
