@@ -20,6 +20,16 @@ it('uses the maintained area record, not a buyer-claimed cheap zone', async () =
 		'Unsupported area'
 	);
 	await expect(quoteShipping(d1, { ...address, phone: '123' })).rejects.toThrow('Invalid address');
+	// The same phone rule as the checkout form: a mobile number, written any common way.
+	expect(await quoteShipping(d1, { ...address, phone: '+880 1712-345678' })).toMatchObject({
+		phone: '01712345678'
+	});
+	await expect(quoteShipping(d1, { ...address, phone: '0255667788' })).rejects.toThrow(
+		'Invalid address'
+	);
+	expect(await quoteShipping(d1, { ...address, phone: '০১৭১২৩৪৫৬৭৮' })).toMatchObject({
+		phone: '01712345678'
+	});
 	db.close();
 });
 
