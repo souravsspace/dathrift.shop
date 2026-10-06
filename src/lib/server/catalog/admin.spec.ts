@@ -304,6 +304,11 @@ it('pages the desk twenty pieces at a time, newest first, and finds pieces by na
 		'p01'
 	]);
 	expect((await listStaffProducts(db, { status: 'sold' })).total).toBe(1);
+	// Tab counts follow the search; the rack totals do not.
+	expect(await listStaffProducts(db, { query: 'piece 4' })).toMatchObject({
+		counts: { draft: 7, live: 0, sold: 0, held: 0 },
+		rack: { draft: 42, live: 2, sold: 1, held: 0 }
+	});
 	expect((await listStaffProducts(db, { query: 'piece 4' })).items.map((row) => row.id)).toEqual([
 		'p45',
 		'p44',
