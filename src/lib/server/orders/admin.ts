@@ -10,26 +10,75 @@ import {
 	payments,
 	products
 } from '../db/schema';
+import { containsText } from '../catalog/admin';
 import { orderReference } from './status';
 
-export async function listStaffOrders(db: Database) {
-	const rows = await db
-		.select({
-			id: orders.id,
-			status: orders.status,
-			total_bdt: orders.totalBdt,
-			preview_only: orders.previewOnly,
-			created_at: orders.createdAt,
-			item_count: count(orderItems.productId),
-			fulfillment_state: fulfillments.state
-		})
-		.from(orders)
-		.leftJoin(orderItems, eq(orderItems.orderId, orders.id))
-		.leftJoin(fulfillments, eq(fulfillments.orderId, orders.id))
-		.groupBy(orders.id)
-		.orderBy(desc(orders.createdAt), desc(orders.id))
-		.limit(100);
-	return rows.map((row) => ({ ...row, reference: orderReference(row.id) }));
+const ORDER_PAGE_SIZE = 20;
+const addressField = (field: string) =>
+	sql<string>`json_extract(${orders.addressJson}, ${`$.${field}`})`;
+
+// One box finds an order by its reference, the buyer's name, phone or address, or a piece in it.
+function orderSearch(query: string) {
+	const text = query.trim();
+	if (!text) return undefined;
+	const pattern = containsText(text);
+	const digits = text.replace(/[\s-]/g, '').replace(/^\+880/, '0');
+	const phonePattern = /^\+?\d{3,}$/.test(digits) ? containsText(digits) : null;
+	return sql`(lower(${orders.id}) LIKE ${pattern} ESCAPE '\\'
+		OR lower(${addressField('name')}) LIKE ${pattern} ESCAPE '\\'
+		OR lower(${addressField('line1')}) LIKE ${pattern} ESCAPE '\\'
+		OR lower(${addressField('district')}) LIKE ${pattern} ESCAPE '\\'
+		OR lower(${addressField('area')}) LIKE ${pattern} ESCAPE '\\'
+		OR lower(coalesce(${deliveryAreas.displayName}, '')) LIKE ${pattern} ESCAPE '\\'
+		OR ${addressField('phone')} LIKE ${phonePattern ?? pattern} ESCAPE '\\'
+		OR EXISTS (SELECT 1 FROM ${orderItems} AS search_items
+			JOIN ${products} AS search_products ON search_products.id = search_items.product_id
+			WHERE search_items.order_id = ${orders.id}
+			AND (lower(search_products.name) LIKE ${pattern} ESCAPE '\\'
+				OR lower(coalesce(search_products.code, '')) LIKE ${pattern} ESCAPE '\\')))`;
+}
+
+const areaJoin = and(
+	eq(deliveryAreas.districtKey, addressField('district')),
+	eq(deliveryAreas.areaKey, addressField('area'))
+);
+
+export async function listStaffOrders(
+	db: Database,
+	{ page = 1, query = '' }: { page?: number; query?: string } = {}
+) {
+	const where = orderSearch(query);
+	const current = Math.max(1, Math.floor(page) || 1);
+	const [rows, totals] = await Promise.all([
+		db
+			.select({
+				id: orders.id,
+				status: orders.status,
+				total_bdt: orders.totalBdt,
+				preview_only: orders.previewOnly,
+				created_at: orders.createdAt,
+				customer_name: addressField('name'),
+				phone: addressField('phone'),
+				area: deliveryAreas.displayName,
+				item_count: sql<number>`(SELECT count(*) FROM ${orderItems}
+					WHERE ${orderItems.orderId} = ${orders.id})`.mapWith(Number),
+				fulfillment_state: fulfillments.state
+			})
+			.from(orders)
+			.leftJoin(fulfillments, eq(fulfillments.orderId, orders.id))
+			.leftJoin(deliveryAreas, areaJoin)
+			.where(where)
+			.orderBy(desc(orders.createdAt), desc(orders.id))
+			.limit(ORDER_PAGE_SIZE)
+			.offset((current - 1) * ORDER_PAGE_SIZE),
+		db.select({ total: count() }).from(orders).leftJoin(deliveryAreas, areaJoin).where(where)
+	]);
+	return {
+		items: rows.map((row) => ({ ...row, reference: orderReference(row.id) })),
+		total: totals[0]?.total ?? 0,
+		page: current,
+		page_size: ORDER_PAGE_SIZE
+	};
 }
 
 export async function getStaffOrder(db: Database, id: string) {
@@ -59,7 +108,12 @@ export async function getStaffOrder(db: Database, id: string) {
 	if (!order) return null;
 	const [items, payment, fulfillment, events] = await Promise.all([
 		db
-			.select({ name: products.name, slug: products.slug, price_bdt: orderItems.priceBdt })
+			.select({
+				name: products.name,
+				code: products.code,
+				slug: products.slug,
+				price_bdt: orderItems.priceBdt
+			})
 			.from(orderItems)
 			.innerJoin(products, eq(products.id, orderItems.productId))
 			.where(eq(orderItems.orderId, id))
