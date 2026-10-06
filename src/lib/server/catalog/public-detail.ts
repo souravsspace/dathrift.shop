@@ -4,6 +4,7 @@ import { categories, inventory, productPhotos, products, slugRedirects } from '.
 
 export type PublicProductDetail = {
 	id: string;
+	code: string | null;
 	slug: string;
 	name: string;
 	category: string;
@@ -26,6 +27,7 @@ export async function getPublicProductDetail(
 	const row = await db
 		.select({
 			id: products.id,
+			code: products.code,
 			slug: products.slug,
 			name: products.name,
 			category: products.category,
