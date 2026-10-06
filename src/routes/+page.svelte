@@ -61,7 +61,7 @@
 					{#if hero.photo_key}
 						<img
 							src="/media/{hero.photo_key}"
-							alt={hero.photo_alt ?? hero.name}
+							alt={hero.photo_alt || hero.name}
 							width="1024"
 							height="1280"
 							fetchpriority="high"
@@ -71,7 +71,8 @@
 				<div class="hero-tag" {@attach hang}>
 					<SwingTag size="hero">
 						<p class="tag-meta">
-							{hero.category_name} · {hero.size_label ?? 'Size not listed'}
+							{hero.category_name}{#if hero.size_label}
+								· {hero.size_label}{/if}
 						</p>
 						<p class="tag-price">{formatBdt(hero.price_bdt)}</p>
 						<p class="tag-name">{hero.name}</p>
