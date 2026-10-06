@@ -1,10 +1,10 @@
 import { expect, it, vi } from 'vitest';
 import { localDatabase } from '../testing/local-d1';
-import { addProductPhoto, makeCoverPhoto } from './photos';
+import { addProductPhoto, deleteProductPhoto, makeCoverPhoto } from './photos';
 
 const webp = new Uint8Array([82, 73, 70, 70, 12, 0, 0, 0, 87, 69, 66, 80, 86, 80, 56, 32]);
 
-it('rejects unsafe media and cleans R2 after a failed draft metadata write', async () => {
+it('rejects unsafe media and cleans R2 after a failed metadata write', async () => {
 	const put = vi.fn(async () => ({}));
 	const remove = vi.fn(async () => undefined);
 	const bucket = { put, delete: remove };
@@ -25,7 +25,7 @@ it('rejects unsafe media and cleans R2 after a failed draft metadata write', asy
 			position: 1,
 			altText: 'TEST ONLY garment'
 		})
-	).rejects.toThrow('Draft not available');
+	).rejects.toThrow('Product not available');
 	expect(put).toHaveBeenCalledOnce();
 	expect(remove).toHaveBeenCalledOnce();
 });
@@ -147,4 +147,65 @@ it('moves the chosen photo to the front as the cover, keeping the rest in order'
 	await expect(makeCoverPhoto(db, 'test-shirt', 'test-only/dress-hem.webp')).rejects.toThrow(
 		'Photo not found'
 	);
+});
+
+it('adds photos to a live piece but never to one held in checkout', async () => {
+	const bucket = { put: vi.fn(async () => ({})), delete: vi.fn(async () => undefined) };
+	const { db, sqlite } = localDatabase();
+	const photo = { bytes: webp, contentType: 'image/webp', position: 2, altText: 'TEST ONLY back' };
+	await expect(addProductPhoto(db, bucket, 'test-shirt', photo)).resolves.toMatchObject({
+		position: 2
+	});
+	sqlite.exec("UPDATE inventory SET state = 'reserved' WHERE product_id = 'test-dress'");
+	await expect(addProductPhoto(db, bucket, 'test-dress', photo)).rejects.toThrow(
+		'Product not available'
+	);
+	expect(bucket.delete).toHaveBeenCalledOnce();
+});
+
+it('deletes a photo, closes the gap in the order and removes the stored file', async () => {
+	const remove = vi.fn(async () => undefined);
+	const { db, sqlite } = localDatabase();
+	sqlite.exec(`INSERT INTO product_photos (product_id, position, r2_key, alt_text) VALUES
+		('test-dress', 2, 'test-only/dress-back.webp', 'TEST ONLY back'),
+		('test-dress', 3, 'test-only/dress-hem.webp', 'TEST ONLY hem')`);
+	expect(
+		await deleteProductPhoto(db, { delete: remove }, 'test-dress', 'test-only/dress-back.webp')
+	).toEqual([
+		{
+			position: 1,
+			r2_key: 'test-only/cream-dress.webp',
+			alt_text: 'Generated test-only cream midi dress visual'
+		},
+		{ position: 2, r2_key: 'test-only/dress-hem.webp', alt_text: 'TEST ONLY hem' }
+	]);
+	expect(remove).toHaveBeenCalledWith('test-only/dress-back.webp');
+	// Deleting the cover promotes the next photo.
+	expect(
+		await deleteProductPhoto(db, { delete: remove }, 'test-dress', 'test-only/cream-dress.webp')
+	).toEqual([{ position: 1, r2_key: 'test-only/dress-hem.webp', alt_text: 'TEST ONLY hem' }]);
+	await expect(
+		deleteProductPhoto(db, { delete: remove }, 'test-dress', 'test-only/missing.webp')
+	).rejects.toThrow('Photo not found');
+});
+
+it('keeps at least one photo on a live piece, while a draft may have none', async () => {
+	const remove = vi.fn(async () => undefined);
+	const { db, sqlite } = localDatabase();
+	await expect(
+		deleteProductPhoto(db, { delete: remove }, 'test-shirt', 'test-only/olive-shirt.webp')
+	).rejects.toThrow('Last photo');
+	expect(
+		await deleteProductPhoto(
+			db,
+			{ delete: remove },
+			'test-draft',
+			'test-only/unpublished-skirt.svg'
+		)
+	).toEqual([]);
+	sqlite.exec("UPDATE inventory SET state = 'reserved' WHERE product_id = 'test-dress'");
+	await expect(
+		deleteProductPhoto(db, { delete: remove }, 'test-dress', 'test-only/cream-dress.webp')
+	).rejects.toThrow('Product held');
+	expect(remove).toHaveBeenCalledOnce();
 });
