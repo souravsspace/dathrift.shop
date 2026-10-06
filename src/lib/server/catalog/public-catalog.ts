@@ -105,6 +105,15 @@ export async function isPublishedPhoto(db: Database, key: string): Promise<boole
 	return Boolean(row);
 }
 
+export async function isProductPhoto(db: Database, key: string): Promise<boolean> {
+	const row = await db
+		.select({ productId: productPhotos.productId })
+		.from(productPhotos)
+		.where(eq(productPhotos.r2Key, key))
+		.get();
+	return Boolean(row);
+}
+
 export async function publicFacets(db: Database) {
 	const published = eq(products.publicationState, 'published');
 	const [categoryRows, sizeRows] = await Promise.all([
