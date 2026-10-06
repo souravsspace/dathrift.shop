@@ -18,7 +18,9 @@
 </script>
 
 <a class="skip-link" href="#main-content">Skip to content</a>
-{#if preview}<div class="preview-strip">Local preview · test pieces only</div>{/if}
+{#if preview}<div class="preview-strip">
+		{import.meta.env.DEV ? 'Local preview · test pieces only' : 'Test pieces · not for sale'}
+	</div>{/if}
 <header class="site-header">
 	<a class="brand" href="/" aria-label="daThriftShop home">
 		<img src="/brand/dathrift-logo.webp" alt="" width="40" height="40" />
