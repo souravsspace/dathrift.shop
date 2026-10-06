@@ -26,7 +26,10 @@
 		total: number;
 		page: number;
 		page_size: number;
+		// Matching the search, for the tabs.
 		counts: Record<Status, number>;
+		// The whole rack, for the summary line.
+		rack: Record<Status, number>;
 	};
 	type MeasurementSet = 'top' | 'bottom' | 'none';
 	type Category = { slug: string; name: string; measurement_set: MeasurementSet };
@@ -51,11 +54,14 @@
 		total: 0,
 		page: 1,
 		page_size: 20,
-		counts: { draft: 0, live: 0, sold: 0, held: 0 }
+		counts: { draft: 0, live: 0, sold: 0, held: 0 },
+		rack: { draft: 0, live: 0, sold: 0, held: 0 }
 	});
 	let categories = $state<Category[]>([]);
 	let loading = $state(true);
 	let listError = $state('');
+	// The counts cover the whole rack, not the search, so they stay put once known.
+	let counted = $state(false);
 	let saving = $state(false);
 	let error = $state('');
 	let name = $state('');
@@ -78,19 +84,22 @@
 	let latestRequest = 0;
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
-	let allCount = $derived(Object.values(listing.counts).reduce((sum, value) => sum + value, 0));
+	const sum = (counts: Record<Status, number>) =>
+		Object.values(counts).reduce((total, value) => total + value, 0);
+	let allCount = $derived(sum(listing.counts));
+	let rackCount = $derived(sum(listing.rack));
 	let filters = $derived(
 		(['all', 'draft', 'live', 'sold', 'held'] as const).filter(
-			(key) => key !== 'held' || listing.counts.held > 0
+			(key) => key !== 'held' || listing.rack.held > 0
 		)
 	);
 	let summary = $derived(
 		[
-			plural(allCount, 'piece'),
-			`${listing.counts.live} live`,
-			plural(listing.counts.draft, 'draft'),
-			`${listing.counts.sold} sold`,
-			...(listing.counts.held ? [`${listing.counts.held} held`] : [])
+			plural(rackCount, 'piece'),
+			`${listing.rack.live} live`,
+			plural(listing.rack.draft, 'draft'),
+			`${listing.rack.sold} sold`,
+			...(listing.rack.held ? [`${listing.rack.held} held`] : [])
 		].join(' · ')
 	);
 
@@ -121,7 +130,10 @@
 			if (!response.ok) throw new Error('Could not load products.');
 			const next = (await response.json()) as Listing;
 			// A slower, older response must not replace the list staff asked for last.
-			if (request === latestRequest) listing = next;
+			if (request === latestRequest) {
+				listing = next;
+				counted = true;
+			}
 		} catch {
 			if (request === latestRequest) listError = 'Could not load pieces. Refresh to try again.';
 		} finally {
@@ -254,15 +266,13 @@
 	<AdminHeader current="products" />
 
 	<main class="admin-main">
-		<div class="admin-intro">
-			<div>
-				<h1>Product desk</h1>
-				<p class="desk-summary">{loading ? 'Counting the rack…' : summary}</p>
-			</div>
-			<span class="admin-actor"
-				>{data.actor === 'local-preview' ? 'Local preview' : data.actor}</span
-			>
-		</div>
+		<header class="admin-head">
+			<h1>Product desk</h1>
+			<p class="admin-head-meta">
+				<span class="desk-summary">{counted ? summary : 'Counting the rack…'}</span>
+				{#if data.actor !== 'local-preview'}<span class="admin-actor">{data.actor}</span>{/if}
+			</p>
+		</header>
 
 		{#if data.actor === 'local-preview'}
 			<div class="admin-local-note">
@@ -421,7 +431,7 @@
 					<p class="admin-error" role="alert">{listError}</p>
 				{:else if loading && listing.items.length === 0}
 					<p class="admin-list-state">Loading the rack…</p>
-				{:else if allCount === 0}
+				{:else if rackCount === 0}
 					<p class="admin-list-state">No pieces yet. Create the first draft.</p>
 				{:else if listing.items.length === 0}
 					<p class="admin-list-state">No pieces match.</p>
