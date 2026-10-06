@@ -17,6 +17,21 @@ it('keeps drafts private and returns sold garment details with ordered photo des
 	db.close();
 });
 
+it('describes a photo by piece name and number when staff left it blank', async () => {
+	const { db: d1, sqlite: db } = localDatabase({ seed: true });
+	db.exec(`INSERT INTO product_photos (product_id, position, r2_key, alt_text)
+		SELECT product_id, 2, 'test-only/denim-jacket-back.webp', '' FROM product_photos
+		WHERE r2_key = 'test-only/denim-jacket.webp'`);
+	expect((await getPublicProductDetail(d1, 'test-sold-denim-jacket'))?.photos).toEqual([
+		{ key: 'test-only/denim-jacket.webp', alt: 'Generated test-only denim jacket visual' },
+		{
+			key: 'test-only/denim-jacket-back.webp',
+			alt: 'TEST ONLY — Sold denim jacket, photo 2 of 2'
+		}
+	]);
+	db.close();
+});
+
 it('resolves a corrected slug to the current published URL', async () => {
 	const { db, sqlite } = localDatabase();
 	sqlite.exec(`INSERT INTO slug_redirects (old_slug, product_id) VALUES ('test-olive-shrit', 'test-shirt'),
