@@ -23,7 +23,7 @@ const product = {
 };
 
 it('keeps sold piece readable with condition and measurements but no buy action', async () => {
-	render(ProductPage, { data: { product } });
+	render(ProductPage, { data: { product, related: [] } });
 	await expect.element(page.getByRole('heading', { level: 1 })).toHaveTextContent(product.name);
 	await expect.element(page.getByText('Wear at elbows; photographed.')).toBeInTheDocument();
 	await expect.element(page.getByText('42.5 in')).toBeInTheDocument();
@@ -36,7 +36,7 @@ it('keeps sold piece readable with condition and measurements but no buy action'
 
 it('adds an available piece to the ID-only guest bag without reserving it', async () => {
 	window.localStorage.clear();
-	render(ProductPage, { data: { product: { ...product, stock_state: 'available' } } });
+	render(ProductPage, { data: { product: { ...product, stock_state: 'available' }, related: [] } });
 	await page.getByRole('button', { name: 'Add to bag' }).click();
 	await expect.element(page.getByRole('link', { name: 'View bag' })).toBeInTheDocument();
 	expect(window.localStorage.getItem('dathrift-cart')).toBe('["test-sold"]');
@@ -54,7 +54,8 @@ it('shows every photo with alt text and publishes canonical product metadata', a
 					{ key: 'products/p/front.webp', alt: 'Shirt front' },
 					{ key: 'products/p/flaw.webp', alt: 'Close-up of cuff fading' }
 				]
-			}
+			},
+			related: []
 		}
 	});
 	await page.getByRole('button', { name: 'Show photo 2: Close-up of cuff fading' }).click();
@@ -79,7 +80,7 @@ it('lets a phone swipe through every photo, cover first, with a count and jump t
 		key: `test-only/photo-${n}.webp`,
 		alt: `TEST ONLY view ${n}`
 	}));
-	render(ProductPage, { data: { product: { ...product, photos } } });
+	render(ProductPage, { data: { product: { ...product, photos }, related: [] } });
 	const track = page.getByRole('region', { name: `Photos of ${product.name}` });
 	await expect.element(track).toBeVisible();
 	const images = (track.element() as HTMLElement).querySelectorAll('img');
@@ -96,6 +97,6 @@ it('lets a phone swipe through every photo, cover first, with a count and jump t
 });
 
 it('shows the piece ID buyers can quote when they message the shop', async () => {
-	render(ProductPage, { data: { product } });
+	render(ProductPage, { data: { product, related: [] } });
 	await expect.element(page.getByText('Piece ID OC2026004')).toBeInTheDocument();
 });
