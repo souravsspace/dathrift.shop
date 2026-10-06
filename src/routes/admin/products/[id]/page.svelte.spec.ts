@@ -55,6 +55,9 @@ function editor(product: ReturnType<typeof piece>, routes: Record<string, Handle
 	return fetch;
 }
 
+// Rare actions sit in folded rows; open one before using it.
+const openRow = (name: string) => page.getByText(name, { exact: true }).click();
+
 const sentBody = (fetch: ReturnType<typeof editor>, key: string) => {
 	const call = fetch.mock.calls.find(([url, options]) => `${options?.method} ${url}` === key);
 	return call ? JSON.parse(String(call[1]?.body)) : undefined;
@@ -89,6 +92,7 @@ it('saves details with measurements in inches, then publishes and records an out
 	});
 	await page.getByRole('button', { name: 'Publish piece' }).click();
 	await expect.element(page.getByText('Piece published')).toBeInTheDocument();
+	await openRow('Sold elsewhere');
 	await page.getByRole('textbox', { name: 'External sale reason' }).fill('Sold in person');
 	await page.getByRole('button', { name: 'Mark sold externally' }).click();
 	await expect.element(page.getByText('Recorded as sold externally')).toBeInTheDocument();
@@ -121,6 +125,7 @@ it('changes a draft slug without a redirect', async () => {
 		'POST /admin/api/products/test-draft/slug': () =>
 			Response.json({ id: 'test-draft', slug: 'test-red-skirt' })
 	});
+	await openRow('Page link');
 	const slug = page.getByRole('textbox', { name: 'Slug' });
 	await expect.element(slug).toHaveValue('test-skirt');
 	await slug.fill('test-red-skirt');
@@ -147,6 +152,7 @@ it('corrects a published slug and explains the old URL keeps redirecting', async
 				Response.json({ id: 'test-shirt', slug: 'olive-shirt' })
 		}
 	);
+	await openRow('Page link');
 	await page.getByRole('textbox', { name: 'Corrected slug' }).fill('olive-shirt');
 	await page.getByRole('button', { name: 'Correct slug' }).click();
 	await expect
@@ -175,7 +181,7 @@ it('makes any photo the cover the shop shows first', async () => {
 			)
 	});
 	const figures = () =>
-		[...document.querySelectorAll('.admin-photo-grid img')].map((img) => img.getAttribute('alt'));
+		[...document.querySelectorAll('.editor-photo img')].map((img) => img.getAttribute('alt'));
 	await expect.element(page.getByText('Cover', { exact: true })).toBeInTheDocument();
 	expect(figures()).toEqual(['TEST ONLY view 1', 'TEST ONLY view 2', 'TEST ONLY view 3']);
 	await page.getByRole('button', { name: 'Make photo 3 the cover' }).click();
@@ -257,9 +263,12 @@ it('edits a live piece in place and explains what a live page needs', async () =
 	});
 	const price = page.getByRole('spinbutton', { name: 'Price (৳)' });
 	await expect.element(price).toBeEnabled();
+	await expect.element(page.getByText('Live page is up to date')).toBeInTheDocument();
 	await price.fill('850');
+	await expect.element(page.getByText('Unsaved changes')).toBeInTheDocument();
 	await page.getByRole('button', { name: 'Save live page' }).click();
 	await expect.element(page.getByText('Live page updated')).toBeInTheDocument();
+	await expect.element(page.getByText('Live page is up to date')).toBeInTheDocument();
 	expect(sentBody(fetch, 'PATCH /admin/api/products/test-draft')).toMatchObject({ price_bdt: 850 });
 	status = 422;
 	await page.getByRole('spinbutton', { name: 'Waist (in)' }).fill('');
@@ -296,7 +305,7 @@ it('removes a photo only after staff confirm it', async () => {
 	expect(sentBody(fetch, 'DELETE /admin/api/products/test-draft/photos')).toEqual({
 		r2_key: 'products/test-draft/1.webp'
 	});
-	const alts = [...document.querySelectorAll('.admin-photo-grid img')].map((img) =>
+	const alts = [...document.querySelectorAll('.editor-photo img')].map((img) =>
 		img.getAttribute('alt')
 	);
 	expect(alts).toEqual(['TEST ONLY view 2']);
@@ -323,6 +332,7 @@ it('deletes a never-sold piece after confirmation and returns to the desk', asyn
 	const fetch = editor(piece(), {
 		'DELETE /admin/api/products/test-draft': () => Response.json({ outcome: 'deleted' })
 	});
+	await openRow('Remove piece');
 	await page.getByRole('button', { name: 'Delete piece' }).click();
 	expect(fetch.mock.calls.some(([, options]) => options?.method === 'DELETE')).toBe(false);
 	await page.getByRole('button', { name: 'Delete for good' }).click();
@@ -333,6 +343,7 @@ it('archives a piece with sales history instead of deleting it', async () => {
 	editor(piece({ has_history: true, stock_state: 'sold' }), {
 		'DELETE /admin/api/products/test-draft': () => Response.json({ outcome: 'archived' })
 	});
+	await openRow('Remove piece');
 	await expect.element(page.getByRole('button', { name: 'Delete piece' })).not.toBeInTheDocument();
 	await page.getByRole('button', { name: 'Archive piece' }).click();
 	await page.getByRole('button', { name: 'Archive it' }).click();
