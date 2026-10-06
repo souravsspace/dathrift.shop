@@ -30,6 +30,7 @@ const order = {
 		amount_bdt: 930,
 		updated_at: '2026-10-06 10:01:00'
 	},
+	manual: null,
 	fulfillment: null,
 	events: [
 		{ actor: 'system', action: 'payment_review', note: null, created_at: '2026-10-06 10:02:00' }
@@ -47,7 +48,7 @@ it('gives the owner provider recheck and confirmed close, but no paid toggle', a
 		.element(page.getByRole('checkbox', { name: /I checked bKash records/ }))
 		.toBeInTheDocument();
 	await expect.element(page.getByRole('button', { name: /mark.*paid/i })).not.toBeInTheDocument();
-	await expect.element(page.getByText('Needs owner review')).toBeInTheDocument();
+	await expect.element(page.getByText('Check payment', { exact: true })).toBeInTheDocument();
 	await expect.element(page.getByText('Placed 6 Oct 2026, 4:00 pm')).toBeInTheDocument();
 	await expect
 		.element(page.getByRole('button', { name: 'Start preparing' }))
@@ -104,4 +105,63 @@ it('asks for a courier and tracking code to dispatch, then offers delivery', asy
 	await rerender({ data: fulfilled('dispatched', 'Pathao', 'TEST-TRACK-9'), form: null });
 	await expect.element(page.getByRole('button', { name: 'Mark delivered' })).toBeInTheDocument();
 	await expect.element(page.getByText('Pathao · TEST-TRACK-9').first()).toBeInTheDocument();
+});
+
+const manualOrder = {
+	...order,
+	payment: null,
+	shipping_bdt: 135,
+	total_bdt: 985,
+	manual: {
+		pay_to: '01849584594',
+		plan: 'delivery' as const,
+		amount_bdt: 135,
+		trx_id: '8N7A6D5C4B',
+		sender_number: '01812345678',
+		submitted_at: '2026-10-07 10:00:00',
+		reviewed_by: null,
+		reviewed_at: null
+	}
+};
+
+it('lets the moderator confirm or reject a manual bKash payment after checking the app', async () => {
+	render(OrderPage, { data: { order: manualOrder, is_owner: false }, form: null });
+	await expect
+		.element(page.getByRole('heading', { name: 'Check the bKash payment' }))
+		.toBeInTheDocument();
+	await expect.element(page.getByText('8N7A6D5C4B').first()).toBeInTheDocument();
+	await expect
+		.element(page.getByRole('checkbox', { name: /I found this payment in the bKash app/ }))
+		.toHaveAttribute('value', 'found-in-bkash');
+	await expect
+		.element(page.getByRole('button', { name: 'Payment found · mark paid' }))
+		.toBeInTheDocument();
+	await expect
+		.element(page.getByRole('button', { name: /Not found · close order/ }))
+		.toBeInTheDocument();
+	await expect
+		.element(page.getByRole('button', { name: 'Recheck with bKash' }))
+		.not.toBeInTheDocument();
+});
+
+it('tells staff how much cash the courier must collect when only delivery was paid', async () => {
+	render(OrderPage, {
+		data: {
+			order: {
+				...manualOrder,
+				status: 'paid' as const,
+				manual: {
+					...manualOrder.manual,
+					reviewed_by: 'mod@example.com',
+					reviewed_at: '2026-10-07 10:05:00'
+				}
+			},
+			is_owner: false
+		},
+		form: null
+	});
+	await expect.element(page.getByText(/courier must collect/)).toHaveTextContent('৳850');
+	await expect
+		.element(page.getByRole('heading', { name: 'Check the bKash payment' }))
+		.not.toBeInTheDocument();
 });
