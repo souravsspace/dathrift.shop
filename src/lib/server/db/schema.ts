@@ -126,6 +126,24 @@ export const orderItems = sqliteTable(
 	(table) => [primaryKey({ columns: [table.orderId, table.productId] })]
 );
 
+// Manual bKash Send Money (migration 0020): the buyer's proof, confirmed by staff in the bKash app.
+export const manualPayments = sqliteTable('manual_payments', {
+	orderId: text('order_id')
+		.primaryKey()
+		.references(() => orders.id),
+	payTo: text('pay_to').notNull(),
+	plan: text('plan', { enum: ['full', 'delivery'] }),
+	amountBdt: integer('amount_bdt'),
+	trxId: text('trx_id').unique(),
+	senderNumber: text('sender_number'),
+	submittedAt: text('submitted_at'),
+	reviewedBy: text('reviewed_by'),
+	reviewedAt: text('reviewed_at'),
+	createdAt: text('created_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`)
+});
+
 export const payments = sqliteTable('payments', {
 	paymentId: text('payment_id').primaryKey(),
 	orderId: text('order_id')
