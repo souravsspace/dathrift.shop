@@ -51,7 +51,7 @@ it('keeps one server-owned inventory state per product', () => {
 	db.close();
 });
 
-it('stores up to ten ordered photo slots with nonblank alt text', () => {
+it('stores up to ten ordered photo slots with optional alt text', () => {
 	const db = migratedDb();
 	db.prepare(
 		"INSERT INTO products (id, slug, name, category, price_bdt) VALUES ('product-1', 'test-only-top', 'Test-only top', 'tops', 1200)"
@@ -65,13 +65,14 @@ it('stores up to ten ordered photo slots with nonblank alt text', () => {
 	insert.run('product-1', 10, 'test-only/tenth.jpg', 'Tenth slot');
 	expect(() => insert.run('product-1', 11, 'test-only/eleventh.jpg', 'Eleventh slot')).toThrow();
 	expect(() => insert.run('product-1', 0, 'test-only/zero.jpg', 'Zero slot')).toThrow();
-	expect(() => insert.run('product-1', 2, 'test-only/no-alt.jpg', '   ')).toThrow();
+	insert.run('product-1', 2, 'test-only/no-alt.jpg', '');
 	expect(
 		db
 			.prepare('SELECT position, alt_text FROM product_photos WHERE product_id = ?')
 			.all('product-1')
 	).toEqual([
 		{ position: 1, alt_text: 'Front of test-only top' },
+		{ position: 2, alt_text: '' },
 		{ position: 10, alt_text: 'Tenth slot' }
 	]);
 
