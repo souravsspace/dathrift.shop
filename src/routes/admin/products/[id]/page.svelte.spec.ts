@@ -77,7 +77,9 @@ it('saves details with measurements in inches, then publishes and records an out
 	await expect.element(waist).toHaveAttribute('step', '0.5');
 	await expect.element(page.getByRole('spinbutton', { name: 'Price (৳)' })).toHaveValue(900);
 	await waist.fill('30.5');
-	await page.getByRole('textbox', { name: 'Condition and flaws' }).fill('Visible repaired hem');
+	await page
+		.getByRole('textbox', { name: 'Condition and flaws (optional)' })
+		.fill('Visible repaired hem');
 	await page.getByRole('button', { name: 'Save details' }).click();
 	await expect.element(page.getByText('Draft details saved')).toBeInTheDocument();
 	expect(sentBody(fetch, 'PATCH /admin/api/products/test-draft')).toMatchObject({
@@ -213,14 +215,13 @@ it('converts any picked image to WebP before uploading it', async () => {
 		'POST /admin/api/products/test-draft/photos': (options) => {
 			uploaded = (options.body as FormData).get('photo') as File;
 			return Response.json(
-				{ position: 1, r2_key: 'products/test-draft/a.webp', alt_text: 'TEST ONLY hem' },
+				{ position: 1, r2_key: 'products/test-draft/a.webp', alt_text: '' },
 				{ status: 201 }
 			);
 		}
 	});
 	await page.getByLabelText('Add photo').upload(await pngFile());
 	await expect.element(page.getByText(/WebP · 1600 × 2000/)).toBeInTheDocument();
-	await page.getByRole('textbox', { name: 'Photo description' }).fill('TEST ONLY hem');
 	await page.getByRole('button', { name: 'Upload photo' }).click();
 	await expect.element(page.getByText('Photo uploaded')).toBeInTheDocument();
 	expect(uploaded).not.toBeNull();
@@ -261,11 +262,11 @@ it('edits a live piece in place and explains what a live page needs', async () =
 	await expect.element(page.getByText('Live page updated')).toBeInTheDocument();
 	expect(sentBody(fetch, 'PATCH /admin/api/products/test-draft')).toMatchObject({ price_bdt: 850 });
 	status = 422;
-	await page.getByRole('textbox', { name: 'Fit note' }).fill('');
+	await page.getByRole('spinbutton', { name: 'Waist (in)' }).fill('');
 	await page.getByRole('button', { name: 'Save live page' }).click();
 	await expect
 		.element(page.getByRole('alert'))
-		.toHaveTextContent('A live piece needs every detail');
+		.toHaveTextContent('A live piece needs a name, price');
 });
 
 it('locks a piece held in checkout and says why', async () => {
