@@ -33,7 +33,7 @@
 						{#if product.photo_key}
 							<img
 								src="/media/{product.photo_key}"
-								alt={product.photo_alt ?? product.name}
+								alt={product.photo_alt || product.name}
 								width="1024"
 								height="1280"
 								loading={index < 4 ? 'eager' : 'lazy'}
@@ -45,7 +45,8 @@
 					<div class="piece-tag">
 						<SwingTag>
 							<p class="tag-meta">
-								{product.category_name} · {product.size_label ?? 'Size not listed'}
+								{product.category_name}{#if product.size_label}
+									· {product.size_label}{/if}
 							</p>
 							<p class="tag-price">{formatBdt(product.price_bdt)}</p>
 							<h3 class="tag-name">{product.name}</h3>
