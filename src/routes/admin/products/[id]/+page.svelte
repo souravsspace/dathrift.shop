@@ -65,7 +65,6 @@
 	let photoPreview = $state('');
 	let photoNote = $state('');
 	let converting = $state(false);
-	let photoAlt = $state('');
 	let saleReason = $state('');
 	let newSlug = $state('');
 	let draftSlug = $state('');
@@ -165,7 +164,7 @@
 			const text = reason instanceof Error ? reason.message : '';
 			error =
 				text === 'Incomplete product'
-					? 'A live piece needs every detail, the measurements in half inches and a photo. Fill in what is missing, or unpublish the piece first.'
+					? 'A live piece needs a name, price, the measurements in half inches and a photo. Fill in what is missing, or unpublish the piece first.'
 					: text === 'Product held'
 						? heldMessage
 						: 'Could not save details. Check fields and retry.';
@@ -228,7 +227,6 @@
 		message = error = '';
 		const body = new FormData();
 		body.set('photo', photoFile);
-		body.set('alt_text', photoAlt);
 		body.set('position', String(product.photos.length + 1));
 		try {
 			const response = await fetch(`/admin/api/products/${data.id}/photos`, {
@@ -240,7 +238,6 @@
 				throw new Error('Could not upload photo. Check your connection and try again.');
 			product = { ...product, photos: [...product.photos, await response.json()] };
 			await choosePhoto(undefined);
-			photoAlt = '';
 			message = 'Photo uploaded';
 		} catch (reason) {
 			error = reason instanceof Error ? reason.message : 'Could not upload photo.';
@@ -331,7 +328,7 @@
 		} catch (reason) {
 			error =
 				reason instanceof Error && reason.message === 'Incomplete product'
-					? 'Save every detail, the measurements in half inches and at least one photo before publishing.'
+					? 'Save the measurements in half inches and add at least one photo before publishing.'
 					: reason instanceof Error && reason.message === 'Product held'
 						? heldMessage
 						: 'Could not change publication. Refresh and try again.';
@@ -472,17 +469,17 @@
 							bind:value={brand}
 							disabled={held}
 						/>
-						<label for="edit-description">Description</label><textarea
+						<label for="edit-description">Description (optional)</label><textarea
 							id="edit-description"
 							bind:value={description}
 							rows="4"
 							disabled={held}></textarea>
-						<label for="edit-condition">Condition and flaws</label><textarea
+						<label for="edit-condition">Condition and flaws (optional)</label><textarea
 							id="edit-condition"
 							bind:value={condition}
 							rows="3"
 							disabled={held}></textarea>
-						<label for="edit-size">Tagged size</label><input
+						<label for="edit-size">Tagged size (optional)</label><input
 							id="edit-size"
 							bind:value={size}
 							disabled={held}
@@ -537,7 +534,7 @@
 							</div>
 							<p class="admin-hint">Measured on the garment, to the nearest half inch.</p>
 						{/if}
-						<label for="edit-fit">Fit note</label><textarea
+						<label for="edit-fit">Fit note (optional)</label><textarea
 							id="edit-fit"
 							bind:value={fit}
 							rows="2"
@@ -546,8 +543,8 @@
 								>{live ? 'Save live page' : 'Save details'}</button
 							>{/if}
 						{#if live && !held}<p class="admin-hint">
-								Changes go straight to the public page. Every detail stays required while it is
-								live.
+								Changes go straight to the public page. While it is live, the measurements and at
+								least one photo stay required.
 							</p>{/if}
 					</form>
 				</section>
@@ -558,11 +555,14 @@
 						</div>
 						<p class="admin-hint">
 							{product.photos.length} of {MAX_PHOTOS} photos. The cover shows first in the shop; show
-							every flaw and describe each image for screen readers.
+							every flaw.
 						</p>
 						<div class="admin-photo-grid">
 							{#each product.photos as photo (photo.r2_key)}<figure>
-									<img src="/media/{photo.r2_key}" alt={photo.alt_text} />
+									<img
+										src="/media/{photo.r2_key}"
+										alt={photo.alt_text || `${product.name}, photo ${photo.position}`}
+									/>
 									{#if photo.position === 1}<span class="admin-chip">Cover</span>{:else}<button
 											type="button"
 											class="admin-cover-button"
@@ -593,7 +593,8 @@
 											>{/if}
 									{/if}
 									<figcaption>
-										{String(photo.position).padStart(2, '0')} / {photo.alt_text}
+										{String(photo.position).padStart(2, '0')}{#if photo.alt_text}
+											/ {photo.alt_text}{/if}
 									</figcaption>
 								</figure>{/each}
 						</div>
@@ -617,13 +618,7 @@
 											: photoNote ||
 												'Any photo up to 10 MB, iPhone HEIC included. It is resized and converted to WebP.'}
 									</span>
-								</label><label for="photo-alt">Photo description</label><input
-									id="photo-alt"
-									bind:value={photoAlt}
-									required
-									maxlength="240"
-									placeholder="e.g. Repaired hem on cream skirt"
-								/><button type="submit" disabled={busy || converting || !photoFile}
+								</label><button type="submit" disabled={busy || converting || !photoFile}
 									>Upload photo</button
 								>
 							</form>{/if}
