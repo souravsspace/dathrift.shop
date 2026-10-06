@@ -25,7 +25,7 @@ it('uses the daThriftShop logo as favicon, touch icon and manifest icon', () => 
 });
 
 it('records the design direction contract in the emitted page', () => {
-	expect(readFileSync('src/app.html', 'utf8')).toContain('seed caf442ba');
+	expect(readFileSync('src/app.html', 'utf8')).toContain('seed 23e8f4a5');
 });
 
 it('spells the shop name daThriftShop wherever it is shown', () => {
