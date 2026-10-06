@@ -188,3 +188,17 @@ it('moves existing pieces onto the category table and their measurements into ha
 	).toThrow('Slug unavailable');
 	db.close();
 });
+
+it('never lets an archived piece become public again', () => {
+	const db = migratedDb();
+	db.exec(
+		"INSERT INTO products (id, slug, name, category, price_bdt) VALUES ('p1', 'test-only-top', 'Test-only top', 'tops', 900)"
+	);
+	db.exec("UPDATE products SET archived_at = CURRENT_TIMESTAMP WHERE id = 'p1'");
+	expect(() =>
+		db.exec("UPDATE products SET publication_state = 'published' WHERE id = 'p1'")
+	).toThrow('Archived product');
+	db.exec("UPDATE products SET archived_at = NULL WHERE id = 'p1'");
+	db.exec("UPDATE products SET publication_state = 'published' WHERE id = 'p1'");
+	db.close();
+});
