@@ -4,7 +4,8 @@ import { localD1 } from '../../../lib/server/testing/local-d1';
 import { POST } from './+server';
 
 afterEach(() => {
-	delete (env as { DB?: unknown }).DB;
+	for (const key of ['DB', 'BKASH_MANUAL_PAYMENT', 'BKASH_MANUAL_NUMBER'])
+		delete (env as Record<string, unknown>)[key];
 });
 
 const address = {
@@ -58,4 +59,33 @@ it('explains unavailable pieces and unsupported areas without holding stock', as
 	expect(
 		local.sqlite.prepare("SELECT state FROM inventory WHERE product_id = 'test-shirt'").get()
 	).toEqual({ state: 'available' });
+});
+
+it('with manual bKash on, holds the pieces and sends the buyer to the order page to pay', async () => {
+	const local = localD1();
+	Object.assign(env, {
+		DB: local.db,
+		BKASH_MANUAL_PAYMENT: 'on',
+		BKASH_MANUAL_NUMBER: '01849584594'
+	});
+	const body = {
+		ids: ['test-shirt'],
+		address,
+		checkout_key: 'c0ffee00-0000-4000-8000-0000000000bb'
+	};
+	const response = await POST(event(body));
+	expect(response.status).toBe(200);
+	const started = (await response.json()) as { status_url: string; manual: boolean };
+	expect(started).toEqual({
+		status_url: expect.stringMatching(/^\/orders\/[0-9a-f-]{36}$/),
+		manual: true
+	});
+	expect(local.sqlite.prepare('SELECT pay_to FROM manual_payments').all()).toEqual([
+		{ pay_to: '01849584594' }
+	]);
+	expect(local.sqlite.prepare('SELECT count(*) AS n FROM payments').get()).toEqual({ n: 0 });
+	expect(
+		local.sqlite.prepare("SELECT state FROM inventory WHERE product_id = 'test-shirt'").get()
+	).toEqual({ state: 'reserved' });
+	expect(await (await POST(event(body))).json()).toEqual(started);
 });
