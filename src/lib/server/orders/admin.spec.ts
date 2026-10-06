@@ -24,13 +24,15 @@ it('lists orders and shows staff the delivery contact, payment proof and history
 	const order = await paidOrder(db);
 	const held = await reserveCheckout(db, ['test-dress'], address, true);
 	await holdForReview(db, held.id);
-	const rows = await listStaffOrders(db);
+	const { items: rows } = await listStaffOrders(db);
 	expect(rows.map((row) => row.status).sort()).toEqual(['paid', 'payment_review']);
 	expect(rows.find((row) => row.id === order.id)).toMatchObject({
 		reference: order.id.slice(0, 8).toUpperCase(),
 		total_bdt: 930,
 		item_count: 1,
-		fulfillment_state: null
+		fulfillment_state: null,
+		customer_name: 'Test Buyer',
+		phone: '01712345678'
 	});
 	expect(await getStaffOrder(db, order.id)).toMatchObject({
 		status: 'paid',
@@ -72,4 +74,55 @@ it('moves fulfillment forward only for paid orders and requires tracking at disp
 		'fulfillment_preparing',
 		'fulfillment_dispatched'
 	]);
+});
+
+it('pages orders twenty at a time and finds one by reference, buyer, phone, address or piece', async () => {
+	const { db, sqlite } = localDatabase();
+	const piece = sqlite.prepare(`INSERT INTO products (id, slug, name, category, price_bdt,
+		publication_state) VALUES (?, ?, ?, 'tops', 500, 'published')`);
+	const stock = sqlite.prepare('INSERT INTO inventory (product_id) VALUES (?)');
+	const ids: string[] = [];
+	for (let n = 1; n <= 23; n++) {
+		piece.run(
+			`demo-${n}`,
+			`test-demo-${n}`,
+			`TEST ONLY — Demo ${n === 7 ? 'velvet blazer' : 'piece'}`
+		);
+		stock.run(`demo-${n}`);
+		const order = await reserveCheckout(
+			db,
+			[`demo-${n}`],
+			{
+				...address,
+				name: n === 5 ? 'Nusrat Jahan' : 'Test Buyer',
+				phone: n === 9 ? '01898765432' : address.phone,
+				line1: n === 11 ? 'Flat 4B, Lake Road' : address.line1
+			},
+			true
+		);
+		ids.push(order.id);
+		sqlite
+			.prepare('UPDATE orders SET created_at = ? WHERE id = ?')
+			.run(`2026-10-01 00:${String(n).padStart(2, '0')}:00`, order.id);
+	}
+	const first = await listStaffOrders(db);
+	expect(first).toMatchObject({ total: 23, page: 1, page_size: 20 });
+	expect(first.items[0].id).toBe(ids[22]);
+	expect((await listStaffOrders(db, { page: 2 })).items.map((row) => row.id)).toEqual([
+		ids[2],
+		ids[1],
+		ids[0]
+	]);
+	const found = async (query: string) =>
+		(await listStaffOrders(db, { query })).items.map((row) => row.id);
+	expect(await found(ids[3].slice(0, 8).toUpperCase())).toEqual([ids[3]]);
+	expect(await found('nusrat')).toEqual([ids[4]]);
+	expect(await found('+880 1898-765432')).toEqual([ids[8]]);
+	expect(await found('lake road')).toEqual([ids[10]]);
+	expect(await found('velvet')).toEqual([ids[6]]);
+	const code = (
+		sqlite.prepare("SELECT code FROM products WHERE id = 'demo-13'").get() as { code: string }
+	).code;
+	expect(await found(code)).toEqual([ids[12]]);
+	expect(await found('_')).toEqual([]);
 });
