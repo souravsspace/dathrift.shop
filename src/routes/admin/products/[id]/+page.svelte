@@ -73,6 +73,25 @@
 	// A unit held in someone's checkout must not change under them.
 	let held = $derived(product?.stock_state === 'reserved');
 	let live = $derived(product?.publication_state === 'published');
+	// The save bar says when the form differs from what was last loaded or saved.
+	let fields = $derived(
+		JSON.stringify([
+			name,
+			category,
+			price,
+			brand,
+			description,
+			condition,
+			size,
+			fit,
+			chest,
+			length,
+			waist,
+			inseam
+		])
+	);
+	let savedFields = $state('');
+	let unsaved = $derived(!!product && fields !== savedFields);
 
 	function assignProduct(value: Product) {
 		product = value;
@@ -94,6 +113,7 @@
 		} catch {
 			chest = length = waist = inseam = '';
 		}
+		savedFields = fields;
 	}
 
 	async function loadProduct() {
@@ -159,6 +179,7 @@
 				category_name: categoryLabel,
 				measurement_set: measurementSet
 			};
+			savedFields = fields;
 			message = live ? 'Live page updated' : 'Draft details saved';
 		} catch (reason) {
 			const text = reason instanceof Error ? reason.message : '';
@@ -400,366 +421,399 @@
 		{#if loading}
 			<p>Loading piece…</p>
 		{:else if product}
-			<div class="admin-intro">
-				<div>
-					<h1>{product.name}</h1>
-					<p>
-						{#if product.code}<span class="editor-code">{product.code}</span> ·
-						{/if}/products/{product.slug}
-					</p>
-					<div class="admin-stamps">
-						<StatusStamp kind={product.publication_state} />
-						{#if product.stock_state !== 'available'}<StatusStamp
-								kind={product.stock_state === 'sold' ? 'sold' : 'reserved'}
-							/>{/if}
-						{#if product.featured}<span class="admin-chip">Home hero</span>{/if}
-					</div>
+			<header class="editor-head">
+				<h1>{product.name}</h1>
+				<p class="editor-meta">
+					{#if product.code}<span class="editor-code">{product.code}</span>{/if}
+					<span class="editor-path">/products/{product.slug}</span>
+					{#if data.actor !== 'local-preview'}<span class="admin-actor">{data.actor}</span>{/if}
+				</p>
+				<div class="admin-stamps">
+					<StatusStamp kind={product.publication_state} />
+					{#if product.stock_state !== 'available'}<StatusStamp
+							kind={product.stock_state === 'sold' ? 'sold' : 'reserved'}
+						/>{/if}
+					{#if product.featured}<span class="admin-chip">Home hero</span>{/if}
 				</div>
-				<span class="admin-actor"
-					>{data.actor === 'local-preview' ? 'Local preview' : data.actor}</span
-				>
-			</div>
+			</header>
 			{#if data.actor === 'local-preview'}<div class="admin-local-note">
 					Local preview · test data only. Do not use as live merchandise.
 				</div>{/if}
 			{#if held}<p class="admin-held-note" role="status">{heldMessage}</p>{/if}
-			<div class="admin-columns">
-				<section class="admin-panel" aria-labelledby="details-title">
-					<div class="admin-panel-heading">
-						<h2 id="details-title">Details & fit</h2>
-					</div>
-					<form onsubmit={saveDetails}>
-						<label for="edit-name">Name</label><input
-							id="edit-name"
-							bind:value={name}
-							required
-							maxlength="160"
-							disabled={held}
-						/>
-						<div class="admin-form-pair">
-							<div>
-								<label for="edit-category">Category</label><select
-									id="edit-category"
-									bind:value={category}
-									disabled={held}
-								>
-									{#each categories.length ? categories : [{ slug: product.category, name: categoryLabel }] as item (item.slug)}
-										<option value={item.slug}>{item.name}</option>
-									{/each}
-								</select>
-							</div>
-							<div>
-								<label for="edit-price">Price (৳)</label>
-								<div class="admin-affix">
-									<span aria-hidden="true">৳</span>
-									<input
-										id="edit-price"
-										type="number"
-										inputmode="numeric"
-										min="1"
-										step="1"
-										bind:value={price}
-										disabled={held}
-									/>
-								</div>
-							</div>
-						</div>
-						<label for="edit-brand">Brand (optional)</label><input
-							id="edit-brand"
-							bind:value={brand}
-							disabled={held}
-						/>
-						<label for="edit-description">Description (optional)</label><textarea
-							id="edit-description"
-							bind:value={description}
-							rows="4"
-							disabled={held}></textarea>
-						<label for="edit-condition">Condition and flaws (optional)</label><textarea
-							id="edit-condition"
-							bind:value={condition}
-							rows="3"
-							disabled={held}></textarea>
-						<label for="edit-size">Tagged size (optional)</label><input
-							id="edit-size"
-							bind:value={size}
-							disabled={held}
-						/>
-						{#if measurementSet === 'none'}
-							<p class="admin-hint">{categoryLabel} need no measurements.</p>
-						{:else}
-							<div class="admin-form-pair">
-								{#if measurementSet === 'bottom'}<div>
-										<label for="edit-waist">Waist (in)</label><input
-											id="edit-waist"
-											type="number"
-											inputmode="decimal"
-											min="0.5"
-											step="0.5"
-											bind:value={waist}
-											disabled={held}
-										/>
-									</div>
-									<div>
-										<label for="edit-inseam">Inseam (in)</label><input
-											id="edit-inseam"
-											type="number"
-											inputmode="decimal"
-											min="0.5"
-											step="0.5"
-											bind:value={inseam}
-											disabled={held}
-										/>
-									</div>{:else}<div>
-										<label for="edit-chest">Chest (in)</label><input
-											id="edit-chest"
-											type="number"
-											inputmode="decimal"
-											min="0.5"
-											step="0.5"
-											bind:value={chest}
-											disabled={held}
-										/>
-									</div>
-									<div>
-										<label for="edit-length">Length (in)</label><input
-											id="edit-length"
-											type="number"
-											inputmode="decimal"
-											min="0.5"
-											step="0.5"
-											bind:value={length}
-											disabled={held}
-										/>
-									</div>{/if}
-							</div>
-							<p class="admin-hint">Measured on the garment, to the nearest half inch.</p>
-						{/if}
-						<label for="edit-fit">Fit note (optional)</label><textarea
-							id="edit-fit"
-							bind:value={fit}
-							rows="2"
-							disabled={held}></textarea>
-						{#if !held}<button type="submit" disabled={busy}
-								>{live ? 'Save live page' : 'Save details'}</button
-							>{/if}
-						{#if live && !held}<p class="admin-hint">
-								Changes go straight to the public page. While it is live, the measurements and at
-								least one photo stay required.
-							</p>{/if}
-					</form>
-				</section>
-				<div class="admin-editor-side">
+			<div class="editor-layout">
+				<div class="editor-main">
 					<section class="admin-panel" aria-labelledby="photos-title">
-						<div class="admin-panel-heading">
+						<div class="editor-panel-head">
 							<h2 id="photos-title">Photos</h2>
+							<p>{product.photos.length} of {MAX_PHOTOS} photos</p>
 						</div>
-						<p class="admin-hint">
-							{product.photos.length} of {MAX_PHOTOS} photos. The cover shows first in the shop; show
-							every flaw.
-						</p>
-						<div class="admin-photo-grid">
-							{#each product.photos as photo (photo.r2_key)}<figure>
-									<img
-										src="/media/{photo.r2_key}"
-										alt={photo.alt_text || `${product.name}, photo ${photo.position}`}
-									/>
-									{#if photo.position === 1}<span class="admin-chip">Cover</span>{:else}<button
+						<p class="admin-hint">The cover shows first in the shop. Show every flaw.</p>
+						<div class="editor-photos">
+							{#each product.photos as photo (photo.r2_key)}<figure class="editor-photo">
+									<div class="editor-photo-frame">
+										<img
+											src="/media/{photo.r2_key}"
+											alt={photo.alt_text || `${product.name}, photo ${photo.position}`}
+										/>
+										{#if photo.position === 1}<span class="admin-chip editor-cover-chip">Cover</span
+											>{/if}
+										{#if !held}
+											{#if confirmingPhoto === photo.r2_key}<div class="editor-photo-confirm">
+													<button
+														type="button"
+														class="admin-danger-button"
+														disabled={busy}
+														aria-label="Confirm removing photo {photo.position}"
+														onclick={() => removePhoto(photo)}>Remove</button
+													><button
+														type="button"
+														class="editor-keep-button"
+														aria-label="Keep photo {photo.position}"
+														onclick={() => (confirmingPhoto = '')}>Keep</button
+													>
+												</div>{:else}<button
+													type="button"
+													class="editor-photo-remove"
+													disabled={busy || (live && product.photos.length === 1)}
+													aria-label="Remove photo {photo.position}"
+													onclick={() => (confirmingPhoto = photo.r2_key)}
+													><svg viewBox="0 0 16 16" aria-hidden="true"
+														><path d="M4 4l8 8M12 4l-8 8" /></svg
+													></button
+												>{/if}
+										{/if}
+									</div>
+									{#if photo.position !== 1}<button
 											type="button"
 											class="admin-cover-button"
 											disabled={busy || held}
 											aria-label="Make photo {photo.position} the cover"
 											onclick={() => makeCover(photo)}>Make cover</button
 										>{/if}
-									{#if !held}
-										{#if confirmingPhoto === photo.r2_key}<div class="admin-confirm">
-												<button
-													type="button"
-													class="admin-danger-button"
-													disabled={busy}
-													aria-label="Confirm removing photo {photo.position}"
-													onclick={() => removePhoto(photo)}>Remove</button
-												><button
-													type="button"
-													class="admin-cover-button"
-													aria-label="Keep photo {photo.position}"
-													onclick={() => (confirmingPhoto = '')}>Keep</button
-												>
-											</div>{:else}<button
-												type="button"
-												class="admin-remove-button"
-												disabled={busy || (live && product.photos.length === 1)}
-												aria-label="Remove photo {photo.position}"
-												onclick={() => (confirmingPhoto = photo.r2_key)}>Remove</button
-											>{/if}
-									{/if}
-									<figcaption>
-										{String(photo.position).padStart(2, '0')}{#if photo.alt_text}
-											/ {photo.alt_text}{/if}
-									</figcaption>
 								</figure>{/each}
+							{#if !held && product.photos.length < MAX_PHOTOS}<input
+									id="photo-file"
+									class="admin-drop-input"
+									type="file"
+									form="photo-upload"
+									accept="image/*,.heic,.heif"
+									onchange={(event) => choosePhoto(event.currentTarget.files?.[0])}
+									required
+								/><label class="editor-add" for="photo-file">
+									{#if photoPreview}<img src={photoPreview} alt="" />{:else}<svg
+											viewBox="0 0 24 24"
+											aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg
+										>{/if}
+									<span>Add photo</span>
+								</label>{/if}
 						</div>
 						{#if live && !held && product.photos.length === 1}<p class="admin-hint">
 								A live piece keeps at least one photo.
 							</p>{/if}
-						{#if !held && product.photos.length < MAX_PHOTOS}<form onsubmit={uploadPhoto}>
-								<input
-									id="photo-file"
-									class="admin-drop-input"
-									type="file"
-									accept="image/*,.heic,.heif"
-									onchange={(event) => choosePhoto(event.currentTarget.files?.[0])}
-									required
-								/><label class="admin-drop" for="photo-file">
-									{#if photoPreview}<img src={photoPreview} alt="" />{/if}
-									<span aria-live="polite">
-										<strong>Add photo</strong>
-										{converting
-											? 'Converting to WebP…'
-											: photoNote ||
-												'Any photo up to 10 MB, iPhone HEIC included. It is resized and converted to WebP.'}
-									</span>
-								</label><button type="submit" disabled={busy || converting || !photoFile}
-									>Upload photo</button
-								>
+						{#if !held && product.photos.length < MAX_PHOTOS}<form
+								id="photo-upload"
+								class="editor-upload"
+								onsubmit={uploadPhoto}
+							>
+								<p aria-live="polite">
+									{converting
+										? 'Converting to WebP…'
+										: photoNote ||
+											'Any photo up to 10 MB, iPhone HEIC included. It is resized and converted to WebP.'}
+								</p>
+								{#if photoFile || converting}<button
+										type="submit"
+										disabled={busy || converting || !photoFile}>Upload photo</button
+									>{/if}
 							</form>{/if}
 					</section>
+					<section class="admin-panel" aria-labelledby="details-title">
+						<div class="editor-panel-head">
+							<h2 id="details-title">Details & fit</h2>
+						</div>
+						<form class="editor-form" onsubmit={saveDetails}>
+							<fieldset>
+								<legend>Basics</legend>
+								<label for="edit-name">Name</label><input
+									id="edit-name"
+									bind:value={name}
+									required
+									maxlength="160"
+									disabled={held}
+								/>
+								<div class="admin-form-pair">
+									<div>
+										<label for="edit-category">Category</label><select
+											id="edit-category"
+											bind:value={category}
+											disabled={held}
+										>
+											{#each categories.length ? categories : [{ slug: product.category, name: categoryLabel }] as item (item.slug)}
+												<option value={item.slug}>{item.name}</option>
+											{/each}
+										</select>
+									</div>
+									<div>
+										<label for="edit-price">Price (৳)</label>
+										<div class="admin-affix">
+											<span aria-hidden="true">৳</span>
+											<input
+												id="edit-price"
+												type="number"
+												inputmode="numeric"
+												min="1"
+												step="1"
+												bind:value={price}
+												disabled={held}
+											/>
+										</div>
+									</div>
+								</div>
+								<label for="edit-brand">Brand <span class="editor-optional">(optional)</span></label
+								><input id="edit-brand" bind:value={brand} disabled={held} />
+							</fieldset>
+							<fieldset>
+								<legend>Size and measurements</legend>
+								<label for="edit-size"
+									>Tagged size <span class="editor-optional">(optional)</span></label
+								><input id="edit-size" bind:value={size} disabled={held} />
+								{#if measurementSet === 'none'}
+									<p class="admin-hint">{categoryLabel} need no measurements.</p>
+								{:else}
+									<div class="admin-form-pair">
+										{#if measurementSet === 'bottom'}<div>
+												<label for="edit-waist">Waist (in)</label><input
+													id="edit-waist"
+													type="number"
+													inputmode="decimal"
+													min="0.5"
+													step="0.5"
+													bind:value={waist}
+													disabled={held}
+												/>
+											</div>
+											<div>
+												<label for="edit-inseam">Inseam (in)</label><input
+													id="edit-inseam"
+													type="number"
+													inputmode="decimal"
+													min="0.5"
+													step="0.5"
+													bind:value={inseam}
+													disabled={held}
+												/>
+											</div>{:else}<div>
+												<label for="edit-chest">Chest (in)</label><input
+													id="edit-chest"
+													type="number"
+													inputmode="decimal"
+													min="0.5"
+													step="0.5"
+													bind:value={chest}
+													disabled={held}
+												/>
+											</div>
+											<div>
+												<label for="edit-length">Length (in)</label><input
+													id="edit-length"
+													type="number"
+													inputmode="decimal"
+													min="0.5"
+													step="0.5"
+													bind:value={length}
+													disabled={held}
+												/>
+											</div>{/if}
+									</div>
+									<p class="admin-hint">
+										Needed to publish. Measured on the garment, to the nearest half inch.
+									</p>
+								{/if}
+							</fieldset>
+							<fieldset>
+								<legend>Notes for buyers</legend>
+								<label for="edit-description"
+									>Description <span class="editor-optional">(optional)</span></label
+								><textarea id="edit-description" bind:value={description} rows="3" disabled={held}
+								></textarea>
+								<label for="edit-condition"
+									>Condition and flaws <span class="editor-optional">(optional)</span></label
+								><textarea id="edit-condition" bind:value={condition} rows="3" disabled={held}
+								></textarea>
+								<label for="edit-fit"
+									>Fit note <span class="editor-optional">(optional)</span></label
+								><textarea id="edit-fit" bind:value={fit} rows="2" disabled={held}></textarea>
+							</fieldset>
+							{#if !held}<div class="editor-savebar">
+									<p class:editor-unsaved={unsaved}>
+										{unsaved
+											? 'Unsaved changes'
+											: live
+												? 'Live page is up to date'
+												: 'Draft is up to date'}
+									</p>
+									<button type="submit" disabled={busy}
+										>{live ? 'Save live page' : 'Save details'}</button
+									>
+								</div>{/if}
+						</form>
+					</section>
+				</div>
+				<aside class="editor-side">
 					<section class="admin-panel" aria-labelledby="publish-title">
-						<div class="admin-panel-heading">
+						<div class="editor-panel-head">
 							<h2 id="publish-title">Publication</h2>
 						</div>
-						<p class="admin-hint">
-							Publishing makes this one piece visible. It does not reserve or sell it.
-						</p>
-						{#if product.publication_state === 'draft'}<button
+						{#if product.publication_state === 'draft'}
+							<p class="admin-hint">
+								Publishing makes this one piece visible. It does not reserve or sell it.
+							</p>
+							<button
 								class="admin-action"
 								type="button"
 								disabled={busy || product.stock_state !== 'available'}
 								onclick={() => setPublication('published')}>Publish piece</button
 							>
-							<form class="admin-slug-form" onsubmit={changeSlug}>
-								<label for="draft-slug">Slug</label>
-								<div class="admin-affix">
-									<span aria-hidden="true">/products/</span>
-									<input
-										id="draft-slug"
-										bind:value={draftSlug}
-										required
-										maxlength="160"
-										pattern="[a-z0-9]+(-[a-z0-9]+)*"
-										autocapitalize="none"
-										spellcheck="false"
-									/>
-								</div>
-								<p class="admin-hint">
-									Change it freely until publishing. After that, a change keeps the old link
-									redirecting here.
-								</p>
-								<button type="submit" disabled={busy || draftSlug === product.slug}
-									>Change slug</button
+						{:else}
+							<div class="editor-actions">
+								<a
+									class="admin-action admin-action-outline"
+									href="/products/{product.slug}"
+									target="_blank"
+									rel="noopener">View public page</a
 								>
-							</form>{:else}<a
-								class="admin-public-link"
-								href="/products/{product.slug}"
-								target="_blank"
-								rel="noopener">View public page</a
-							>
-							{#if product.featured}
-								<p class="admin-success">Leads the home page</p>
+								{#if product.featured}
+									<p class="admin-success">Leads the home page</p>
+									<button
+										class="admin-action admin-action-outline"
+										type="button"
+										disabled={busy}
+										onclick={() => setFeatured(false)}>Remove from home page</button
+									>
+								{:else if product.stock_state === 'available'}
+									<button
+										class="admin-action admin-action-outline"
+										type="button"
+										disabled={busy}
+										onclick={() => setFeatured(true)}>Feature on home page</button
+									>
+								{/if}
 								<button
 									class="admin-action admin-action-outline"
 									type="button"
-									disabled={busy}
-									onclick={() => setFeatured(false)}>Remove from home page</button
+									disabled={busy || held}
+									onclick={() => setPublication('draft')}>Unpublish piece</button
 								>
-							{:else if product.stock_state === 'available'}
-								<button
-									class="admin-action"
-									type="button"
-									disabled={busy}
-									onclick={() => setFeatured(true)}>Feature on home page</button
-								>
-							{/if}
-							<button
-								class="admin-action admin-action-outline"
-								type="button"
-								disabled={busy || held}
-								onclick={() => setPublication('draft')}>Unpublish piece</button
-							>
-							<form class="admin-slug-form" onsubmit={changeSlug}>
-								<label for="corrected-slug">Corrected slug</label>
-								<input
-									id="corrected-slug"
-									bind:value={newSlug}
-									required
-									maxlength="160"
-									pattern="[a-z0-9]+(-[a-z0-9]+)*"
-									placeholder={product.slug}
-								/>
-								<p class="admin-hint">
-									For typo fixes only. The current URL keeps redirecting to the new one.
-								</p>
-								<button type="submit" disabled={busy}>Correct slug</button>
-							</form>{/if}
-					</section>
-					<section class="admin-panel" aria-labelledby="external-sale-title">
-						<div class="admin-panel-heading">
-							<h2 id="external-sale-title">Sold elsewhere</h2>
-						</div>
-						<p class="admin-hint">
-							Only use after a completed sale outside this website. This permanently consumes the
-							one sellable unit; it never marks a website order paid.
-						</p>
-						{#if product.stock_state === 'available'}
-							<form onsubmit={recordExternalSale}>
-								<label for="external-sale-reason">External sale reason</label>
-								<input
-									id="external-sale-reason"
-									bind:value={saleReason}
-									required
-									maxlength="1000"
-									placeholder="Where and why this piece sold"
-								/>
-								<button type="submit" disabled={busy}>Mark sold externally</button>
-							</form>
-						{:else}
-							<p class="admin-list-state">
-								This piece is {product.stock_state}; external sale unavailable.
-							</p>
+							</div>
 						{/if}
 					</section>
-					<section class="admin-panel" aria-labelledby="remove-title">
-						<div class="admin-panel-heading">
-							<h2 id="remove-title">Remove piece</h2>
+					<section class="admin-panel editor-more" aria-labelledby="more-title">
+						<div class="editor-panel-head">
+							<h2 id="more-title">Other actions</h2>
 						</div>
-						{#if product.has_history}<p class="admin-hint">
-								This piece has sales or order history, so it is archived: taken off the shop and
-								this desk, with its sale and order records kept.
-							</p>{:else}<p class="admin-hint">
-								Deletes this piece and its photos for good. It never sold, so no records are lost.
-							</p>{/if}
-						{#if held}<p class="admin-list-state">Unavailable while a buyer is paying.</p>
-						{:else if confirmingRemoval}<div class="admin-confirm admin-confirm-wide">
-								<button
-									type="button"
-									class="admin-danger-button"
-									disabled={busy}
-									onclick={removePiece}
-									>{product.has_history ? 'Archive it' : 'Delete for good'}</button
-								><button
-									type="button"
-									class="admin-cover-button"
-									disabled={busy}
-									onclick={() => (confirmingRemoval = false)}>Cancel</button
+						<details>
+							<summary>Page link</summary>
+							{#if product.publication_state === 'draft'}<form
+									class="editor-disclosure"
+									onsubmit={changeSlug}
 								>
-							</div>{:else}<button
-								type="button"
-								class="admin-action admin-action-danger"
-								disabled={busy}
-								onclick={() => (confirmingRemoval = true)}
-								>{product.has_history ? 'Archive piece' : 'Delete piece'}</button
-							>{/if}
+									<label for="draft-slug">Slug</label>
+									<div class="admin-affix">
+										<span aria-hidden="true">/products/</span>
+										<input
+											id="draft-slug"
+											bind:value={draftSlug}
+											required
+											maxlength="160"
+											pattern="[a-z0-9]+(-[a-z0-9]+)*"
+											autocapitalize="none"
+											spellcheck="false"
+										/>
+									</div>
+									<p class="admin-hint">
+										Change it freely until publishing. After that, a change keeps the old link
+										redirecting here.
+									</p>
+									<button type="submit" disabled={busy || draftSlug === product.slug}
+										>Change slug</button
+									>
+								</form>{:else}<form class="editor-disclosure" onsubmit={changeSlug}>
+									<label for="corrected-slug">Corrected slug</label>
+									<input
+										id="corrected-slug"
+										bind:value={newSlug}
+										required
+										maxlength="160"
+										pattern="[a-z0-9]+(-[a-z0-9]+)*"
+										placeholder={product.slug}
+									/>
+									<p class="admin-hint">
+										For typo fixes only. The current URL keeps redirecting to the new one.
+									</p>
+									<button type="submit" disabled={busy}>Correct slug</button>
+								</form>{/if}
+						</details>
+						<details>
+							<summary>Sold elsewhere</summary>
+							<div class="editor-disclosure">
+								<p class="admin-hint">
+									Only use after a completed sale outside this website. This permanently consumes
+									the one sellable unit; it never marks a website order paid.
+								</p>
+								{#if product.stock_state === 'available'}
+									<form onsubmit={recordExternalSale}>
+										<label for="external-sale-reason">External sale reason</label>
+										<input
+											id="external-sale-reason"
+											bind:value={saleReason}
+											required
+											maxlength="1000"
+											placeholder="Where and why this piece sold"
+										/>
+										<button type="submit" disabled={busy}>Mark sold externally</button>
+									</form>
+								{:else}
+									<p class="admin-list-state">
+										This piece is {product.stock_state}; external sale unavailable.
+									</p>
+								{/if}
+							</div>
+						</details>
+						<details class="editor-danger">
+							<summary>Remove piece</summary>
+							<div class="editor-disclosure">
+								{#if product.has_history}<p class="admin-hint">
+										This piece has sales or order history, so it is archived: taken off the shop and
+										this desk, with its sale and order records kept.
+									</p>{:else}<p class="admin-hint">
+										Deletes this piece and its photos for good. It never sold, so no records are
+										lost.
+									</p>{/if}
+								{#if held}<p class="admin-list-state">Unavailable while a buyer is paying.</p>
+								{:else if confirmingRemoval}<div class="admin-confirm admin-confirm-wide">
+										<button
+											type="button"
+											class="admin-danger-button"
+											disabled={busy}
+											onclick={removePiece}
+											>{product.has_history ? 'Archive it' : 'Delete for good'}</button
+										><button
+											type="button"
+											class="admin-cover-button"
+											disabled={busy}
+											onclick={() => (confirmingRemoval = false)}>Cancel</button
+										>
+									</div>{:else}<button
+										type="button"
+										class="admin-action admin-action-danger"
+										disabled={busy}
+										onclick={() => (confirmingRemoval = true)}
+										>{product.has_history ? 'Archive piece' : 'Delete piece'}</button
+									>{/if}
+							</div>
+						</details>
 					</section>
-				</div>
+				</aside>
 			</div>
 			{#if message}<p class="admin-success admin-feedback" role="status">{message}</p>{/if}
 			{#if error}<p class="admin-error admin-feedback" role="alert">{error}</p>{/if}
