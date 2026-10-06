@@ -171,7 +171,8 @@
 					</p>
 				{:else if product.stock_state === 'reserved'}
 					<p class="status">
-						<span class="badge badge-held">On hold</span> Someone is paying for it right now.
+						<span class="badge badge-sold">Sold out</span> Someone is paying for it. If the payment falls
+						through, it comes back here.
 					</p>
 				{:else if inBag}
 					<p class="status in-bag">
