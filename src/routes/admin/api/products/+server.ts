@@ -1,6 +1,10 @@
 import { env } from 'cloudflare:workers';
 import { databaseFrom } from '../../../../lib/server/db/client';
-import { createDraft, listStaffProducts } from '../../../../lib/server/catalog/admin';
+import {
+	createDraft,
+	listStaffProducts,
+	type StaffStatus
+} from '../../../../lib/server/catalog/admin';
 import { staffActorForRequest } from '../../../../lib/server/staff-auth';
 import type { RequestHandler } from './$types';
 
@@ -12,7 +16,19 @@ export const GET: RequestHandler = async ({ request }) => {
 	const db = databaseFrom(env);
 	if (!db) return new Response('Catalog unavailable', { status: 503, headers });
 	try {
-		return Response.json(await listStaffProducts(db), { headers });
+		const params = new URL(request.url).searchParams;
+		const status = params.get('status');
+		return Response.json(
+			await listStaffProducts(db, {
+				page: Number(params.get('page') ?? 1),
+				query: (params.get('q') ?? '').slice(0, 100),
+				status:
+					status && ['draft', 'live', 'sold', 'held'].includes(status)
+						? (status as StaffStatus)
+						: 'all'
+			}),
+			{ headers }
+		);
 	} catch {
 		return new Response('Catalog unavailable', { status: 503, headers });
 	}
