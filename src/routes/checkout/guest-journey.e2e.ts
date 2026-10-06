@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('guest buys two one-off pieces and both turn sold only after verified payment', async ({
+test('guest pays by bKash Send Money; pieces stay sold out until staff confirm the payment', async ({
 	page
 }, testInfo) => {
 	test.skip(testInfo.project.name !== 'desktop', 'Purchases consume the single seeded units once.');
@@ -19,27 +19,46 @@ test('guest buys two one-off pieces and both turn sold only after verified payme
 	await page.waitForLoadState('networkidle');
 
 	await page.getByRole('textbox', { name: 'Name' }).fill('Test Buyer');
-	await page.getByRole('textbox', { name: 'Phone' }).fill('01712345678');
+	await page.getByRole('textbox', { name: 'Phone' }).fill('+880 1712-345678');
 	await page.getByRole('textbox', { name: 'Address line' }).fill('Test building');
 	await page
 		.getByRole('combobox', { name: 'Delivery area' })
 		.selectOption('test-dhaka/test-central');
 	await page.getByRole('button', { name: 'Check total' }).click();
-	await page.getByRole('button', { name: 'Pay ৳2,380 with bKash' }).click();
+	await page.getByRole('button', { name: 'Continue to bKash payment' }).click();
 
-	await expect(page.getByRole('heading', { name: 'Test wallet' })).toBeVisible();
-	await page.getByRole('button', { name: 'Approve payment' }).click();
-
+	// Step 3 lives on the order page, so a refresh keeps the buyer where they were.
 	await expect(page).toHaveURL(/\/orders\/[0-9a-f-]{36}$/);
-	await expect(page.getByText('Payment confirmed by bKash')).toBeVisible();
-	await expect(page.getByText('৳2,380')).toBeVisible();
+	const orderUrl = page.url();
+	await page.reload({ waitUntil: 'networkidle' });
+	await expect(page.getByText('Send your bKash payment')).toBeVisible();
+	await expect(page.getByText('01849-584594')).toBeVisible();
 
+	// Held pieces read as sold out to everyone else.
 	await page.goto('/products/test-olive-cotton-shirt');
 	await expect(page.getByText('Sold out')).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Add to bag' })).toHaveCount(0);
 
-	await page.goto('/admin/orders');
+	await page.goto(orderUrl, { waitUntil: 'networkidle' });
+	await page.getByText('Delivery charge only').click();
+	await page.getByRole('textbox', { name: 'bKash transaction ID' }).fill('8n7a6d5c4b');
+	await page.getByRole('button', { name: 'I have sent ৳80' }).click();
+	await expect(page.getByText('Payment sent, we are checking it')).toBeVisible();
+	await expect(page.getByText('8N7A6D5C4B')).toBeVisible();
+
+	await page.goto('/admin/orders', { waitUntil: 'networkidle' });
+	await expect(page.getByText('Check payment').first()).toBeVisible();
+	await page.locator('a.order-row', { hasText: 'Test Buyer' }).first().click();
+	await page.waitForLoadState('networkidle');
+	await page.getByRole('checkbox', { name: /I found this payment in the bKash app/ }).check();
+	await page.getByRole('button', { name: 'Payment found · mark paid' }).click();
 	await expect(page.getByText('Paid · to ship')).toBeVisible();
+	await expect(page.getByText(/courier must collect/)).toContainText('৳2,300');
+
+	await page.goto(orderUrl);
+	await expect(page.getByText('Payment confirmed', { exact: true })).toBeVisible();
+	await page.goto('/products/test-olive-cotton-shirt');
+	await expect(page.getByText('Sold out')).toBeVisible();
 });
 
 test('a sold piece left in a bag must be removed before checkout', async ({ page }) => {
