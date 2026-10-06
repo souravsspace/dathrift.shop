@@ -136,7 +136,8 @@
 		<div class="detail">
 			<SwingTag size="detail" swing={false}>
 				<p class="tag-meta">
-					{product.category_name} · Size {product.size_label ?? 'not listed'} · 1 of 1
+					{product.category_name} ·{#if product.size_label}
+						Size {product.size_label} ·{/if} 1 of 1
 				</p>
 				{#if product.code}<p class="tag-code">
 						Piece ID <span>{product.code}</span>
@@ -160,10 +161,10 @@
 					</div>
 				{/if}
 				{#if product.description}<p class="tag-section">{product.description}</p>{/if}
-				<section class="tag-section" aria-labelledby="condition-title">
-					<h2 id="condition-title">Condition</h2>
-					<p>{product.condition_notes ?? 'Not recorded'}</p>
-				</section>
+				{#if product.condition_notes}<section class="tag-section" aria-labelledby="condition-title">
+						<h2 id="condition-title">Condition</h2>
+						<p>{product.condition_notes}</p>
+					</section>{/if}
 				<section class="tag-section" aria-labelledby="measure-title">
 					<h2 id="measure-title">Garment measurements</h2>
 					{#if Object.keys(product.measurements).length}
@@ -180,10 +181,10 @@
 					{/if}
 					<p class="fine">Measured on the garment, not the body.</p>
 				</section>
-				<section class="tag-section" aria-labelledby="fit-title">
-					<h2 id="fit-title">Fit notes</h2>
-					<p>{product.fit_note ?? 'Not recorded'}</p>
-				</section>
+				{#if product.fit_note}<section class="tag-section" aria-labelledby="fit-title">
+						<h2 id="fit-title">Fit notes</h2>
+						<p>{product.fit_note}</p>
+					</section>{/if}
 			</SwingTag>
 		</div>
 	</div>
