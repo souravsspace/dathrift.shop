@@ -34,7 +34,7 @@ function stubServer(checkout: Response) {
 
 async function fillAndQuote() {
 	await page.getByRole('textbox', { name: 'Name' }).fill('Test Buyer');
-	await page.getByRole('textbox', { name: 'Bangladesh phone' }).fill('01712345678');
+	await page.getByRole('textbox', { name: 'Phone' }).fill('01712345678');
 	await page.getByRole('textbox', { name: 'Address line' }).fill('Test building');
 	await page
 		.getByRole('combobox', { name: 'Delivery area' })
@@ -87,4 +87,87 @@ it('keeps payment off when no provider or approved area exists', async () => {
 	render(CheckoutPage, { data: { checkout_enabled: false, areas: [] } });
 	await expect.element(page.getByText('Payment is not enabled')).toBeInTheDocument();
 	await expect.element(page.getByRole('button', { name: /with bKash/ })).not.toBeInTheDocument();
+});
+
+it('checks each field with the shared rules and says what to fix, before calling the server', async () => {
+	window.localStorage.setItem('dathrift-cart', '["test-shirt"]');
+	const fetch = stubServer(Response.json({}));
+	render(CheckoutPage, { data: { checkout_enabled: true, areas } });
+	await page.getByRole('textbox', { name: 'Phone' }).fill('0255667788');
+	await page.getByRole('button', { name: 'Check total' }).click();
+	await expect
+		.element(page.getByText('Enter an 11-digit Bangladesh mobile number, like 01712345678.'))
+		.toBeInTheDocument();
+	await expect.element(page.getByText('Enter the name for the delivery.')).toBeInTheDocument();
+	await expect.element(page.getByText('Choose a delivery area.')).toBeInTheDocument();
+	await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveFocus();
+	await expect
+		.element(page.getByRole('textbox', { name: 'Phone' }))
+		.toHaveAttribute('aria-invalid', 'true');
+	expect(fetch).not.toHaveBeenCalled();
+});
+
+it('sends the phone in its national form after a buyer types +880', async () => {
+	window.localStorage.setItem('dathrift-cart', '["test-shirt"]');
+	const fetch = stubServer(Response.json({}));
+	render(CheckoutPage, { data: { checkout_enabled: true, areas } });
+	await page.getByRole('textbox', { name: 'Name' }).fill('Test Buyer');
+	await page.getByRole('textbox', { name: 'Phone' }).fill('+880 1712-345678');
+	await page.getByRole('textbox', { name: 'Address line' }).fill('Test building');
+	await page
+		.getByRole('combobox', { name: 'Delivery area' })
+		.selectOptions('test-dhaka/test-central');
+	await page.getByRole('button', { name: 'Check total' }).click();
+	await expect.element(page.getByText('৳930').first()).toBeInTheDocument();
+	const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+	expect(JSON.parse(String(init.body)).address.phone).toBe('01712345678');
+});
+
+it('saves the delivery address on this device and fills it in next time', async () => {
+	window.localStorage.setItem('dathrift-cart', '["test-shirt"]');
+	stubServer(Response.json({}));
+	const first = render(CheckoutPage, { data: { checkout_enabled: true, areas } });
+	await page.getByRole('textbox', { name: 'Name' }).fill('Test Buyer');
+	await page.getByRole('textbox', { name: 'Phone' }).fill('01712345678');
+	await page.getByRole('textbox', { name: 'Address line' }).fill('Test building');
+	await page
+		.getByRole('combobox', { name: 'Delivery area' })
+		.selectOptions('test-dhaka/test-central');
+	await expect
+		.element(page.getByRole('checkbox', { name: 'Fill it in automatically next time' }))
+		.toBeChecked();
+	await page.getByRole('button', { name: 'Save this address' }).click();
+	await expect.element(page.getByText('Address saved on this device.')).toBeInTheDocument();
+	first.unmount();
+
+	render(CheckoutPage, { data: { checkout_enabled: true, areas } });
+	await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Test Buyer');
+	await expect
+		.element(page.getByRole('combobox', { name: 'Delivery area' }))
+		.toHaveValue('test-dhaka/test-central');
+	await expect.element(page.getByText('Filled in from your saved address.')).toBeInTheDocument();
+	await page.getByRole('button', { name: 'Forget' }).click();
+	expect(window.localStorage.getItem('dathrift-address')).toBeNull();
+});
+
+it('remembers the started order on this device so the buyer can find it again', async () => {
+	window.localStorage.setItem('dathrift-cart', '["test-shirt"]');
+	stubServer(
+		Response.json({
+			redirect_url: '/checkout/test-wallet?paymentId=TEST1',
+			status_url: '/orders/00000000-0000-4000-8000-000000000001'
+		})
+	);
+	render(CheckoutPage, { data: { checkout_enabled: true, areas } });
+	await fillAndQuote();
+	await page.getByRole('button', { name: 'Pay ৳930 with bKash' }).click();
+	await vi.waitFor(() => expect(leaveFor).toHaveBeenCalled());
+	expect(JSON.parse(window.localStorage.getItem('dathrift-orders') ?? '[]')).toMatchObject([
+		{
+			token: '00000000-0000-4000-8000-000000000001',
+			status: 'pending_payment',
+			total_bdt: 930,
+			items: [{ name: 'TEST ONLY — Shirt', slug: 'test-shirt' }]
+		}
+	]);
 });
