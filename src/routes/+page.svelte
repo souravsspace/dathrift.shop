@@ -78,7 +78,9 @@
 						<p class="tag-one">1 of 1</p>
 					</SwingTag>
 				</div>
-				{#if hasTestPieces}<span class="test-note">Test only / local preview</span>{/if}
+				{#if hasTestPieces}<span class="test-note"
+						>{import.meta.env.DEV ? 'Test only / local preview' : 'Test piece · not for sale'}</span
+					>{/if}
 			{:else}
 				<img class="hero-mark" src="/brand/dathrift-logo.webp" alt="" width="640" height="640" />
 			{/if}
