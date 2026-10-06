@@ -18,4 +18,6 @@ it('writes history in plain words', () => {
 	expect(actorLabel('system')).toBe('System');
 	expect(actorLabel('local-preview')).toBe('Local preview');
 	expect(actorLabel('owner@example.com')).toBe('owner@example.com');
+	expect(actorLabel('buyer')).toBe('Buyer');
+	expect(eventLabel('manual_payment_sent')).toBe('Buyer reported a bKash payment');
 });
