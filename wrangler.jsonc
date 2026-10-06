@@ -22,8 +22,10 @@
 		"production": {
 			"routes": [
 				{ "pattern": "dathrift.shop", "custom_domain": true },
-				{ "pattern": "admin.dathrift.shop", "custom_domain": true }
+				{ "pattern": "admin.dathrift.shop", "custom_domain": true },
+				{ "pattern": "www.dathrift.shop", "custom_domain": true }
 			],
+			"observability": { "enabled": true },
 			"d1_databases": [
 				{
 					"binding": "DB",
