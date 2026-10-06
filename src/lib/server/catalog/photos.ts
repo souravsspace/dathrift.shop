@@ -40,7 +40,6 @@ export async function addProductPhoto(
 		!Number.isSafeInteger(input.position) ||
 		input.position < 1 ||
 		input.position > MAX_PHOTOS ||
-		!input.altText.trim() ||
 		input.altText.length > 240 ||
 		input.bytes.length < 16 ||
 		input.bytes.length > 10 * 1024 * 1024 ||
