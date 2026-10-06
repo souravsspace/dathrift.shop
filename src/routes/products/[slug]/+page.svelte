@@ -108,7 +108,9 @@
 				{:else}
 					<div class="gallery-empty">Photo coming</div>
 				{/if}
-				{#if testPiece}<span class="test-note">Test only / local preview</span>{/if}
+				{#if testPiece}<span class="test-note"
+						>{import.meta.env.DEV ? 'Test only / local preview' : 'Test piece · not for sale'}</span
+					>{/if}
 			</div>
 			{#if product.photos.length > 1}
 				<div class="thumbs">
