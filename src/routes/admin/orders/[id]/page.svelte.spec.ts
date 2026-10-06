@@ -21,7 +21,7 @@ const order = {
 		district: 'test-dhaka',
 		area: 'test-central'
 	},
-	items: [{ name: 'TEST ONLY — Shirt', slug: 'test-shirt', price_bdt: 850 }],
+	items: [{ name: 'TEST ONLY — Shirt', code: 'OC2026001', slug: 'test-shirt', price_bdt: 850 }],
 	payment: {
 		provider: 'mock' as const,
 		payment_id: 'TESTpay',
