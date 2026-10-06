@@ -53,7 +53,15 @@ export async function getPublicProductDetail(
 		.where(eq(productPhotos.productId, row.id))
 		.orderBy(asc(productPhotos.position));
 	const { measurements_json, ...details } = row;
-	return { ...details, measurements: JSON.parse(measurements_json ?? '{}'), photos };
+	return {
+		...details,
+		measurements: JSON.parse(measurements_json ?? '{}'),
+		// A photo description is optional; a blank one falls back to the name and photo number.
+		photos: photos.map((photo, index) => ({
+			key: photo.key,
+			alt: photo.alt || `${row.name}, photo ${index + 1} of ${photos.length}`
+		}))
+	};
 }
 
 export async function currentSlugFor(db: Database, oldSlug: string): Promise<string | null> {
