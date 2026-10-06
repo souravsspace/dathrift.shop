@@ -147,7 +147,7 @@ export async function updateProductDetails(db: Database, id: string, input: unkn
 			.where(eq(categories.slug, input.category))
 			.get();
 		const photos = await db
-			.select({ r2_key: productPhotos.r2Key, alt_text: productPhotos.altText })
+			.select({ r2_key: productPhotos.r2Key })
 			.from(productPhotos)
 			.where(eq(productPhotos.productId, id));
 		if (
@@ -191,11 +191,7 @@ export async function publishProduct(db: Database, id: string) {
 			name: products.name,
 			measurement_set: categories.measurementSet,
 			price_bdt: products.priceBdt,
-			description: products.description,
-			condition_notes: products.conditionNotes,
-			size_label: products.sizeLabel,
-			measurements_json: products.measurementsJson,
-			fit_note: products.fitNote
+			measurements_json: products.measurementsJson
 		})
 		.from(products)
 		.innerJoin(inventory, eq(inventory.productId, products.id))
@@ -211,7 +207,7 @@ export async function publishProduct(db: Database, id: string) {
 		.get();
 	if (!product) throw new Error('Draft not available');
 	const photos = await db
-		.select({ r2_key: productPhotos.r2Key, alt_text: productPhotos.altText })
+		.select({ r2_key: productPhotos.r2Key })
 		.from(productPhotos)
 		.where(eq(productPhotos.productId, id))
 		.orderBy(asc(productPhotos.position));
@@ -226,13 +222,9 @@ export async function publishProduct(db: Database, id: string) {
 				eq(products.publicationState, 'draft'),
 				availableUnit(id),
 				sql`trim(${products.name}) != '' AND ${products.priceBdt} > 0
-				 AND trim(coalesce(${products.description}, '')) != ''
-				 AND trim(coalesce(${products.conditionNotes}, '')) != ''
-				 AND trim(coalesce(${products.sizeLabel}, '')) != ''
-				 AND trim(coalesce(${products.fitNote}, '')) != ''
 				 AND (SELECT count(*) FROM ${productPhotos} WHERE ${productPhotos.productId} = ${id}) BETWEEN 1 AND ${MAX_PHOTOS}
 				 AND NOT EXISTS (SELECT 1 FROM ${productPhotos} WHERE ${productPhotos.productId} = ${id}
-				   AND (trim(${productPhotos.r2Key}) = '' OR trim(${productPhotos.altText}) = ''))
+				   AND trim(${productPhotos.r2Key}) = '')
 				 AND CASE (SELECT ${categories.measurementSet} FROM ${categories}
 				   WHERE ${categories.slug} = ${products.category})
 				 WHEN 'none' THEN 1
