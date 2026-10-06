@@ -1100,11 +1100,11 @@ main {
 	top: 0;
 	z-index: 30;
 	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
+	align-items: stretch;
 	justify-content: space-between;
-	gap: 12px 24px;
-	padding: 10px var(--gutter);
+	gap: 0 24px;
+	min-height: 60px;
+	padding: 0 var(--gutter);
 	background: var(--color-ink);
 	color: var(--color-ivory);
 }
@@ -1127,8 +1127,9 @@ main {
 
 .admin-brand small {
 	padding: 3px 7px;
-	border: 1px solid rgb(251 235 214 / 0.3);
+	border: 1px solid rgb(211 176 127 / 0.55);
 	border-radius: 4px;
+	color: var(--color-gold);
 	font-family: var(--font-mono);
 	font-size: var(--text-label);
 	font-stretch: 100%;
@@ -1136,29 +1137,84 @@ main {
 	text-transform: uppercase;
 }
 
+.admin-brand:focus-visible,
+.admin-nav a:focus-visible {
+	outline: 2px solid var(--color-gold);
+	outline-offset: -4px;
+	border-radius: 6px;
+}
+
+/* Tabs that fill the bar's height; the current one wears a gold rail along the bottom edge. */
 .admin-nav {
 	display: flex;
+	align-items: stretch;
 	gap: 4px;
 }
 
 .admin-nav a {
+	position: relative;
 	display: inline-flex;
 	align-items: center;
-	min-height: 40px;
-	padding: 0 14px;
-	border-radius: 999px;
+	justify-content: center;
+	padding: 0 16px;
+	color: rgb(251 235 214 / 0.68);
 	font-size: var(--text-ui);
-	font-weight: 600;
+	font-weight: 650;
 	text-decoration: none;
+	transition: color 200ms var(--ease-out);
+}
+
+.admin-nav a::after {
+	position: absolute;
+	inset: auto 12px 0;
+	height: 3px;
+	border-radius: 3px 3px 0 0;
+	background: var(--color-gold);
+	content: '';
+	scale: 0 1;
+	transition: scale 220ms var(--ease-out);
 }
 
 .admin-nav a:hover {
-	background: rgb(251 235 214 / 0.1);
+	color: var(--color-ivory);
 }
 
 .admin-nav a[aria-current='page'] {
-	background: var(--color-ivory);
-	color: var(--color-ink);
+	color: var(--color-ivory);
+}
+
+.admin-nav a[aria-current='page']::after {
+	scale: 1 1;
+}
+
+@media (max-width: 560px) {
+	.admin-header {
+		flex-wrap: wrap;
+		min-height: 0;
+	}
+
+	.admin-brand {
+		min-height: 56px;
+	}
+
+	/* Phones: the two tabs become one full-width row under the brand. */
+	.admin-nav {
+		flex: 0 0 calc(100% + var(--gutter) * 2);
+		gap: 0;
+		margin: 0 calc(var(--gutter) * -1);
+		border-top: 1px solid rgb(251 235 214 / 0.12);
+	}
+
+	.admin-nav a {
+		flex: 1;
+		min-height: 48px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.admin-nav a::after {
+		transition: none;
+	}
 }
 
 .admin-main {
@@ -1556,10 +1612,46 @@ main {
 	text-underline-offset: 4px;
 }
 
+/* A back link reads as a control: arrow, outline, no underline. */
 .admin-back {
 	display: inline-flex;
 	align-items: center;
+	gap: 6px;
 	min-height: 40px;
+	margin-bottom: 14px;
+	padding: 0 14px 0 10px;
+	border: 1px solid rgb(4 36 26 / 0.22);
+	border-radius: 999px;
+	color: var(--color-ink);
+	text-decoration: none;
+	transition:
+		border-color 200ms var(--ease-out),
+		background-color 200ms var(--ease-out);
+}
+
+.admin-back svg {
+	width: 16px;
+	height: 16px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	transition: translate 200ms var(--ease-out);
+}
+
+.admin-back:hover {
+	border-color: var(--color-ink);
+	background: rgb(4 36 26 / 0.05);
+}
+
+.admin-back:hover svg {
+	translate: -2px 0;
+}
+
+.admin-back:focus-visible {
+	outline: 2px solid var(--color-moss);
+	outline-offset: 2px;
 }
 
 .admin-public-link {
@@ -1590,21 +1682,105 @@ main {
 	background: rgb(29 92 68 / 0.06);
 }
 
-/* Results of an action stay in view, even when the button that caused them is far up the page. */
-.admin-feedback {
-	position: sticky;
+/* Results of an action: ink for a confirmation that leaves on its own, rust for an error that waits. */
+.admin-toast {
+	position: fixed;
+	left: 50%;
 	bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-	z-index: 10;
-	margin-top: 20px;
-	box-shadow: 0 8px 24px rgb(4 36 26 / 0.18);
+	z-index: 40;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	width: min(480px, calc(100% - 32px));
+	padding: 6px 6px 6px 14px;
+	border-radius: 14px;
+	background: var(--color-ink);
+	color: var(--color-ivory);
+	box-shadow: 0 10px 28px rgb(4 36 26 / 0.3);
+	translate: -50% 0;
+	animation: 260ms var(--ease-out) both toast-in;
 }
 
-.admin-success.admin-feedback {
-	background: #e3e8d9;
+.admin-main:has(.editor-savebar, .desk-actions) .admin-toast {
+	bottom: calc(88px + env(safe-area-inset-bottom, 0px));
 }
 
-.admin-error.admin-feedback {
-	background: #f6ddd4;
+.admin-toast-error {
+	background: var(--color-rust);
+}
+
+.admin-toast p {
+	flex: 1;
+	margin: 8px 0;
+	font-size: var(--text-ui);
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.admin-toast-icon {
+	flex-shrink: 0;
+	width: 24px;
+	height: 24px;
+	padding: 3px;
+	border-radius: 999px;
+	background: var(--color-gold);
+	fill: none;
+	stroke: var(--color-ink);
+	stroke-width: 2.2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.admin-toast-error .admin-toast-icon {
+	background: var(--color-ivory);
+	stroke: var(--color-rust);
+}
+
+.admin-toast-close {
+	display: grid;
+	flex-shrink: 0;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	border: 0;
+	border-radius: 10px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	touch-action: manipulation;
+	transition: background-color 200ms var(--ease-out);
+}
+
+.admin-toast-close svg {
+	width: 16px;
+	height: 16px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+}
+
+.admin-toast-close:hover {
+	background: rgb(251 235 214 / 0.14);
+}
+
+.admin-toast-close:focus-visible {
+	outline: 2px solid var(--color-gold);
+	outline-offset: -2px;
+}
+
+@keyframes toast-in {
+	from {
+		opacity: 0;
+		translate: -50% 14px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.admin-toast {
+		animation: none;
+	}
 }
 
 .admin-held-note {
@@ -1771,11 +1947,12 @@ main {
 .desk {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+	grid-template-rows: auto 1fr;
 	grid-template-areas:
 		'list new'
 		'list categories';
 	align-items: start;
-	gap: 20px 40px;
+	gap: 28px 40px;
 }
 
 .desk-list {
@@ -1832,7 +2009,7 @@ main {
 	margin-bottom: 8px;
 }
 
-.desk-filters button {
+.desk-filters :is(button, a) {
 	display: inline-flex;
 	align-items: center;
 	gap: 8px;
@@ -1845,24 +2022,26 @@ main {
 	font: inherit;
 	font-size: var(--text-ui);
 	font-weight: 650;
+	text-decoration: none;
 	cursor: pointer;
 	transition:
 		background-color 200ms var(--ease-out),
 		color 200ms var(--ease-out);
 }
 
-.desk-filters button span {
+.desk-filters :is(button, a) span {
 	font-family: var(--font-mono);
 	font-size: var(--text-label);
 	font-variant-numeric: tabular-nums;
 	opacity: 0.75;
 }
 
-.desk-filters button:hover {
+.desk-filters :is(button, a):hover {
 	border-color: var(--color-ink);
 }
 
-.desk-filters button[aria-pressed='true'] {
+.desk-filters button[aria-pressed='true'],
+.desk-filters a[aria-current='page'] {
 	border-color: var(--color-ink);
 	background: var(--color-ink);
 	color: var(--color-ivory);
@@ -1997,6 +2176,7 @@ main {
 @media (max-width: 900px) {
 	.desk {
 		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: none;
 		grid-template-areas:
 			'new'
 			'list'
@@ -2039,6 +2219,7 @@ main {
 
 .desk.desk-compact {
 	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: none;
 	grid-template-areas: 'list';
 }
 
@@ -2225,54 +2406,7 @@ main {
 	cursor: not-allowed;
 }
 
-.order-row {
-	grid-template-columns: 96px minmax(0, 1fr) auto auto;
-}
-
-.order-ref {
-	font-family: var(--font-mono);
-	font-size: var(--text-ui);
-	font-weight: 600;
-	letter-spacing: 0.02em;
-}
-
-.order-status-paid {
-	color: var(--color-moss);
-}
-
-.order-status-pending_payment {
-	color: var(--color-ink-soft);
-	border-style: dashed;
-}
-
-.order-status-payment_review {
-	border-color: var(--color-gold-deep);
-	background: var(--color-gold);
-	color: var(--color-ink);
-}
-
-.order-status-cancelled,
-.order-status-expired {
-	color: var(--color-rust);
-}
-
 @media (max-width: 560px) {
-	.order-row {
-		grid-template-columns: minmax(0, 1fr) auto;
-		grid-template-areas:
-			'ref price'
-			'text text'
-			'state state';
-	}
-
-	.order-ref {
-		grid-area: ref;
-	}
-
-	.order-row .desk-row-state {
-		justify-content: flex-start;
-	}
-
 	.desk-search-form {
 		width: 100%;
 		order: 3;
@@ -2280,10 +2414,6 @@ main {
 
 	.admin-panel .desk-search-form input.desk-search {
 		order: 0;
-	}
-
-	.order-row .desk-row-text small {
-		white-space: normal;
 	}
 }
 
@@ -2301,16 +2431,17 @@ main {
 	font-size: var(--text-label);
 }
 
-/* Product editor: the piece's photos and details lead; publishing and rare actions sit beside. */
+/* Detail pages (a piece, an order) keep a readable width. */
 .admin-main.admin-editor {
 	max-width: 1240px;
 }
 
-.editor-head {
+/* Every admin page opens the same way: back link, condensed title, mono facts, stamps. */
+.admin-head {
 	margin-bottom: 24px;
 }
 
-.editor-head h1 {
+.admin-head h1 {
 	margin: 0 0 10px;
 	font-size: var(--text-section);
 	font-stretch: 68%;
@@ -2322,7 +2453,7 @@ main {
 	text-wrap: balance;
 }
 
-.editor-meta {
+.admin-head-meta {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -2332,31 +2463,31 @@ main {
 	font-size: var(--text-ui);
 }
 
-.editor-path {
+.admin-head-path {
 	font-family: var(--font-mono);
 	font-size: var(--text-label);
 	overflow-wrap: anywhere;
 }
 
-.editor-head .admin-stamps {
+.admin-head .admin-stamps {
 	margin-top: 14px;
 }
 
-.editor-layout {
+.admin-layout {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
 	align-items: start;
 	gap: 28px 48px;
 }
 
-.editor-main,
-.editor-side {
+.admin-layout-main,
+.admin-layout-side {
 	display: grid;
 	gap: 28px;
 	min-width: 0;
 }
 
-.editor-panel-head {
+.admin-panel-head {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
@@ -2365,7 +2496,7 @@ main {
 	margin-bottom: 4px;
 }
 
-.editor-panel-head p {
+.admin-panel-head p {
 	margin: 0;
 	color: var(--color-ink-soft);
 	font-family: var(--font-mono);
@@ -2660,27 +2791,23 @@ main {
 	scale: 0.97;
 }
 
-.admin-editor .admin-feedback {
-	bottom: calc(84px + env(safe-area-inset-bottom, 0px));
-}
-
 /* Publication: one clear action for a draft, a short stack of outline actions once live. */
-.editor-side .admin-hint + .admin-action {
+.admin-layout-side .admin-hint + .admin-action {
 	margin-top: 14px;
 }
 
-.editor-actions {
+.admin-actions {
 	display: grid;
 	gap: 10px;
 	margin-top: 14px;
 }
 
-.editor-actions .admin-action {
+.admin-actions .admin-action {
 	margin-top: 0;
 	text-decoration: none;
 }
 
-.editor-actions .admin-success {
+.admin-actions .admin-success {
 	margin: 0;
 }
 
@@ -2740,7 +2867,7 @@ main {
 }
 
 @media (max-width: 900px) {
-	.editor-layout {
+	.admin-layout {
 		grid-template-columns: minmax(0, 1fr);
 	}
 }
@@ -2749,4 +2876,453 @@ main {
 	.editor-more summary::after {
 		transition: none;
 	}
+}
+
+/* Order stages, in the stamp language the desk uses for pieces. */
+.order-stage-review {
+	border-color: var(--color-gold-deep);
+	background: var(--color-gold);
+	color: var(--color-ink);
+}
+
+.order-stage-awaiting {
+	border-style: dashed;
+	color: var(--color-ink-soft);
+}
+
+.order-stage-to_ship {
+	border-color: var(--color-moss);
+	background: var(--color-moss);
+	color: var(--color-ivory);
+}
+
+.order-stage-dispatched {
+	color: var(--color-moss);
+}
+
+.order-stage-delivered {
+	color: var(--color-ink-soft);
+}
+
+.order-stage-closed,
+.order-stage-expired {
+	color: var(--color-rust);
+}
+
+.order-head-total {
+	color: var(--color-ink);
+	font-family: var(--font-mono);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+
+.admin-panel.order-review {
+	margin-bottom: 28px;
+	padding: 18px;
+	border: 1.5px solid var(--color-rust);
+	border-top-width: 3px;
+	border-radius: 8px;
+}
+
+.order-review-actions {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	align-items: end;
+	gap: 16px 24px;
+}
+
+.admin-panel .order-review-actions form > button {
+	margin-top: 14px;
+}
+
+/* Fulfillment as three steps; the parcel only moves forward. */
+.order-steps {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	margin: 14px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.order-steps li {
+	position: relative;
+	display: grid;
+	justify-items: start;
+	gap: 8px;
+	padding-right: 8px;
+	color: var(--color-ink-soft);
+}
+
+/* The rail between markers fills in once a step is done. */
+.order-steps li + li::before {
+	position: absolute;
+	top: 13px;
+	right: calc(100% - 4px);
+	width: calc(100% - 36px);
+	height: 2px;
+	background: rgb(4 36 26 / 0.15);
+	content: '';
+}
+
+.order-steps li.done::before {
+	background: var(--color-moss);
+}
+
+.order-step-mark {
+	display: grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	border: 2px solid rgb(4 36 26 / 0.25);
+	border-radius: 999px;
+	background: var(--color-ivory);
+}
+
+.order-steps li.done {
+	color: var(--color-ink);
+}
+
+.order-steps li.done .order-step-mark {
+	border-color: var(--color-moss);
+	background: var(--color-moss);
+}
+
+.order-step-mark svg {
+	width: 16px;
+	height: 16px;
+	fill: none;
+	stroke: var(--color-ivory);
+	stroke-width: 2.4;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.order-step-text {
+	display: grid;
+	gap: 2px;
+	font-size: var(--text-ui);
+}
+
+.order-step-text small {
+	color: var(--color-ink-soft);
+	font-family: var(--font-mono);
+	font-size: var(--text-label);
+	overflow-wrap: anywhere;
+}
+
+.admin-panel form.order-step-form {
+	margin-top: 22px;
+	padding-top: 4px;
+	border-top: 1px solid rgb(4 36 26 / 0.12);
+}
+
+.order-lines {
+	margin: 10px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.order-lines li {
+	display: flex;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 12px 0;
+	border-bottom: 1px solid rgb(4 36 26 / 0.1);
+	font-size: var(--text-ui);
+}
+
+.order-lines li > span:last-child {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.order-lines .order-line-quiet {
+	color: var(--color-ink-soft);
+}
+
+.order-lines .order-line-total {
+	border-bottom: 0;
+	font-weight: 750;
+}
+
+.order-history {
+	position: relative;
+	margin: 14px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.order-history li {
+	position: relative;
+	display: grid;
+	gap: 2px;
+	padding: 0 0 18px 24px;
+	font-size: var(--text-ui);
+}
+
+.order-history li::before {
+	position: absolute;
+	top: 5px;
+	left: 0;
+	width: 10px;
+	height: 10px;
+	border: 2px solid var(--color-moss);
+	border-radius: 999px;
+	background: var(--color-ivory);
+	content: '';
+}
+
+.order-history li:not(:last-child)::after {
+	position: absolute;
+	top: 19px;
+	bottom: 2px;
+	left: 6px;
+	width: 2px;
+	background: rgb(4 36 26 / 0.12);
+	content: '';
+}
+
+.order-history small {
+	color: var(--color-ink-soft);
+	overflow-wrap: anywhere;
+}
+
+.order-contact {
+	display: grid;
+	gap: 4px;
+	margin-top: 10px;
+	font-size: var(--text-ui);
+}
+
+.order-contact strong {
+	font-size: var(--text-body);
+}
+
+.order-contact a {
+	justify-self: start;
+	display: inline-flex;
+	align-items: center;
+	min-height: 40px;
+	font-family: var(--font-mono);
+	font-weight: 600;
+	text-underline-offset: 4px;
+}
+
+.order-contact p {
+	margin: 0;
+	color: var(--color-ink-soft);
+	line-height: 1.5;
+}
+
+/* The next fulfillment step as one card: what happens, what it needs, one button. */
+.admin-panel .order-next {
+	margin-top: 22px;
+	padding: 18px;
+	border-radius: 10px;
+	background: rgb(4 36 26 / 0.05);
+}
+
+.order-next-title {
+	margin: 0;
+	font-size: var(--text-body);
+	font-weight: 750;
+}
+
+.order-next .admin-hint {
+	margin-top: 4px;
+}
+
+.admin-panel form.order-next > button {
+	margin-top: 18px;
+}
+
+.order-next-done {
+	color: var(--color-moss);
+	font-weight: 650;
+}
+
+.order-couriers {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+	margin: 14px 0 0;
+	padding: 0;
+	border: 0;
+}
+
+.order-couriers legend {
+	margin-bottom: 6px;
+	padding: 0;
+	font-size: var(--text-ui);
+	font-weight: 650;
+}
+
+.admin-panel .order-couriers label {
+	display: block;
+	margin: 0;
+	cursor: pointer;
+}
+
+.order-couriers input {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.order-couriers span {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 48px;
+	border: 1px solid rgb(4 36 26 / 0.3);
+	border-radius: 8px;
+	background: var(--color-ivory);
+	font-weight: 700;
+	transition:
+		background-color 200ms var(--ease-out),
+		border-color 200ms var(--ease-out),
+		color 200ms var(--ease-out);
+}
+
+.order-couriers label:hover span {
+	border-color: var(--color-ink);
+}
+
+.order-couriers input:checked + span {
+	border-color: var(--color-ink);
+	background: var(--color-ink);
+	color: var(--color-ivory);
+}
+
+.order-couriers input:focus-visible + span {
+	outline: 2px solid var(--color-moss);
+	outline-offset: 2px;
+}
+
+.order-step-mark {
+	color: var(--color-ink-soft);
+	font-family: var(--font-mono);
+	font-size: var(--text-label);
+	font-weight: 600;
+}
+
+/* Phones: the address follows the next step, since staff ship from it. */
+@media (max-width: 900px) {
+	.order-layout > div {
+		display: contents;
+	}
+
+	.order-fulfillment {
+		order: 1;
+	}
+
+	.order-contact-panel {
+		order: 2;
+	}
+
+	.order-pieces {
+		order: 3;
+	}
+
+	.order-payment {
+		order: 4;
+	}
+
+	.order-history-panel {
+		order: 5;
+	}
+}
+
+/* An order row: who and how much lead, the stage says what to do, the rest stays quiet. */
+.order-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 11rem 13rem 6.5rem;
+	align-items: center;
+	gap: 6px 20px;
+	min-height: 72px;
+	padding: 14px 8px;
+	border-radius: 6px;
+	color: var(--color-ink);
+	text-decoration: none;
+	transition: background-color 200ms var(--ease-out);
+}
+
+.order-row:hover {
+	background: rgb(4 36 26 / 0.04);
+}
+
+.order-row:focus-visible {
+	outline: 2px solid var(--color-moss);
+	outline-offset: 2px;
+}
+
+.order-row-buyer {
+	display: grid;
+	gap: 3px;
+	min-width: 0;
+}
+
+.order-row-buyer strong {
+	overflow: hidden;
+	font-size: var(--text-body);
+	font-weight: 700;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.order-row-buyer small {
+	overflow: hidden;
+	color: var(--color-ink-soft);
+	font-family: var(--font-mono);
+	font-size: var(--text-label);
+	text-overflow: ellipsis;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+.order-row-time {
+	color: var(--color-ink-soft);
+	font-size: var(--text-stamp);
+}
+
+.order-row-total {
+	font-family: var(--font-mono);
+	font-size: var(--text-body);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+}
+
+@media (max-width: 760px) {
+	.order-row {
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas:
+			'buyer total'
+			'stage time';
+		gap: 8px 12px;
+		padding: 14px 4px;
+	}
+
+	.order-row-buyer {
+		grid-area: buyer;
+	}
+
+	.order-row-total {
+		grid-area: total;
+		align-self: start;
+	}
+
+	.order-row-stage {
+		grid-area: stage;
+	}
+
+	.order-row-time {
+		grid-area: time;
+		text-align: right;
+	}
+}
+
+.admin-panel .order-next input:not([type='radio']) {
+	background: var(--color-ivory);
 }
