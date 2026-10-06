@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import AdminHeader from '../../../../lib/components/AdminHeader.svelte';
 	import StatusStamp from '../../../../lib/components/StatusStamp.svelte';
 	import { toWebp } from '../../../../lib/images/to-webp';
@@ -25,6 +26,8 @@
 		size_label: string | null;
 		measurements_json: string | null;
 		fit_note: string | null;
+		// Sold, ordered or sold elsewhere: such a piece is archived, never deleted.
+		has_history: boolean;
 		photos: Photo[];
 	};
 
@@ -65,6 +68,11 @@
 	let saleReason = $state('');
 	let newSlug = $state('');
 	let draftSlug = $state('');
+	let confirmingPhoto = $state('');
+	let confirmingRemoval = $state(false);
+	// A unit held in someone's checkout must not change under them.
+	let held = $derived(product?.stock_state === 'reserved');
+	let live = $derived(product?.publication_state === 'published');
 
 	function assignProduct(value: Product) {
 		product = value;
@@ -143,20 +151,30 @@
 					fit_note: fit || null
 				})
 			});
-			if (!response.ok) throw new Error('Save failed.');
+			if (!response.ok) throw new Error(await response.text());
 			product = {
 				...product,
+				name: name.trim(),
 				category,
 				category_name: categoryLabel,
 				measurement_set: measurementSet
 			};
-			message = 'Draft details saved';
-		} catch {
-			error = 'Could not save details. Check fields and retry.';
+			message = live ? 'Live page updated' : 'Draft details saved';
+		} catch (reason) {
+			const text = reason instanceof Error ? reason.message : '';
+			error =
+				text === 'Incomplete product'
+					? 'A live piece needs every detail, the measurements in half inches and a photo. Fill in what is missing, or unpublish the piece first.'
+					: text === 'Product held'
+						? heldMessage
+						: 'Could not save details. Check fields and retry.';
 		} finally {
 			busy = false;
 		}
 	}
+
+	const heldMessage =
+		'A buyer is paying for this piece right now. Editing, photos and removal unlock when the hold ends.';
 
 	const megabytes = (bytes: number) =>
 		bytes >= 1024 * 1024
@@ -216,13 +234,15 @@
 				method: 'POST',
 				body
 			});
-			if (!response.ok) throw new Error('Upload failed.');
+			if (response.status === 409) throw new Error(heldMessage);
+			if (!response.ok)
+				throw new Error('Could not upload photo. Check your connection and try again.');
 			product = { ...product, photos: [...product.photos, await response.json()] };
 			await choosePhoto(undefined);
 			photoAlt = '';
 			message = 'Photo uploaded';
-		} catch {
-			error = 'Could not upload photo. Check your connection and try again.';
+		} catch (reason) {
+			error = reason instanceof Error ? reason.message : 'Could not upload photo.';
 		} finally {
 			busy = false;
 		}
@@ -248,6 +268,52 @@
 		}
 	}
 
+	async function removePhoto(photo: Photo) {
+		if (!product) return;
+		busy = true;
+		message = error = '';
+		try {
+			const response = await fetch(`/admin/api/products/${data.id}/photos`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ r2_key: photo.r2_key })
+			});
+			if (!response.ok) throw new Error(await response.text());
+			product = { ...product, photos: await response.json() };
+			message = 'Photo removed';
+		} catch (reason) {
+			const text = reason instanceof Error ? reason.message : '';
+			error =
+				text === 'Last photo'
+					? 'A live piece keeps at least one photo. Add another first, or unpublish the piece.'
+					: text === 'Product held'
+						? heldMessage
+						: 'Could not remove the photo. Refresh and try again.';
+		} finally {
+			confirmingPhoto = '';
+			busy = false;
+		}
+	}
+
+	async function removePiece() {
+		if (!product) return;
+		busy = true;
+		message = error = '';
+		try {
+			const response = await fetch(`/admin/api/products/${data.id}`, { method: 'DELETE' });
+			if (!response.ok) throw new Error(await response.text());
+			await goto('/admin');
+		} catch (reason) {
+			error =
+				reason instanceof Error && reason.message === 'Product held'
+					? heldMessage
+					: 'Could not remove the piece. Refresh and try again.';
+			confirmingRemoval = false;
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function setPublication(state: 'draft' | 'published') {
 		if (!product) return;
 		busy = true;
@@ -265,7 +331,9 @@
 			error =
 				reason instanceof Error && reason.message === 'Incomplete product'
 					? 'Save every detail, the measurements in half inches and at least one photo before publishing.'
-					: 'Could not change publication. Refresh and try again.';
+					: reason instanceof Error && reason.message === 'Product held'
+						? heldMessage
+						: 'Could not change publication. Refresh and try again.';
 		} finally {
 			busy = false;
 		}
@@ -353,6 +421,7 @@
 			{#if data.actor === 'local-preview'}<div class="admin-local-note">
 					Local preview · test data only. Do not use as live merchandise.
 				</div>{/if}
+			{#if held}<p class="admin-held-note" role="status">{heldMessage}</p>{/if}
 			<div class="admin-columns">
 				<section class="admin-panel" aria-labelledby="details-title">
 					<div class="admin-panel-heading">
@@ -364,14 +433,14 @@
 							bind:value={name}
 							required
 							maxlength="160"
-							disabled={product.publication_state !== 'draft'}
+							disabled={held}
 						/>
 						<div class="admin-form-pair">
 							<div>
 								<label for="edit-category">Category</label><select
 									id="edit-category"
 									bind:value={category}
-									disabled={product.publication_state !== 'draft'}
+									disabled={held}
 								>
 									{#each categories.length ? categories : [{ slug: product.category, name: categoryLabel }] as item (item.slug)}
 										<option value={item.slug}>{item.name}</option>
@@ -389,7 +458,7 @@
 										min="1"
 										step="1"
 										bind:value={price}
-										disabled={product.publication_state !== 'draft'}
+										disabled={held}
 									/>
 								</div>
 							</div>
@@ -397,22 +466,22 @@
 						<label for="edit-brand">Brand (optional)</label><input
 							id="edit-brand"
 							bind:value={brand}
-							disabled={product.publication_state !== 'draft'}
+							disabled={held}
 						/>
 						<label for="edit-description">Description</label><textarea
 							id="edit-description"
 							bind:value={description}
 							rows="4"
-							disabled={product.publication_state !== 'draft'}></textarea>
+							disabled={held}></textarea>
 						<label for="edit-condition">Condition and flaws</label><textarea
 							id="edit-condition"
 							bind:value={condition}
 							rows="3"
-							disabled={product.publication_state !== 'draft'}></textarea>
+							disabled={held}></textarea>
 						<label for="edit-size">Tagged size</label><input
 							id="edit-size"
 							bind:value={size}
-							disabled={product.publication_state !== 'draft'}
+							disabled={held}
 						/>
 						{#if measurementSet === 'none'}
 							<p class="admin-hint">{categoryLabel} need no measurements.</p>
@@ -426,7 +495,7 @@
 											min="0.5"
 											step="0.5"
 											bind:value={waist}
-											disabled={product.publication_state !== 'draft'}
+											disabled={held}
 										/>
 									</div>
 									<div>
@@ -437,7 +506,7 @@
 											min="0.5"
 											step="0.5"
 											bind:value={inseam}
-											disabled={product.publication_state !== 'draft'}
+											disabled={held}
 										/>
 									</div>{:else}<div>
 										<label for="edit-chest">Chest (in)</label><input
@@ -447,7 +516,7 @@
 											min="0.5"
 											step="0.5"
 											bind:value={chest}
-											disabled={product.publication_state !== 'draft'}
+											disabled={held}
 										/>
 									</div>
 									<div>
@@ -458,7 +527,7 @@
 											min="0.5"
 											step="0.5"
 											bind:value={length}
-											disabled={product.publication_state !== 'draft'}
+											disabled={held}
 										/>
 									</div>{/if}
 							</div>
@@ -468,10 +537,14 @@
 							id="edit-fit"
 							bind:value={fit}
 							rows="2"
-							disabled={product.publication_state !== 'draft'}></textarea>
-						{#if product.publication_state === 'draft'}<button type="submit" disabled={busy}
-								>Save details</button
+							disabled={held}></textarea>
+						{#if !held}<button type="submit" disabled={busy}
+								>{live ? 'Save live page' : 'Save details'}</button
 							>{/if}
+						{#if live && !held}<p class="admin-hint">
+								Changes go straight to the public page. Every detail stays required while it is
+								live.
+							</p>{/if}
 					</form>
 				</section>
 				<div class="admin-editor-side">
@@ -489,18 +562,41 @@
 									{#if photo.position === 1}<span class="admin-chip">Cover</span>{:else}<button
 											type="button"
 											class="admin-cover-button"
-											disabled={busy}
+											disabled={busy || held}
 											aria-label="Make photo {photo.position} the cover"
 											onclick={() => makeCover(photo)}>Make cover</button
 										>{/if}
+									{#if !held}
+										{#if confirmingPhoto === photo.r2_key}<div class="admin-confirm">
+												<button
+													type="button"
+													class="admin-danger-button"
+													disabled={busy}
+													aria-label="Confirm removing photo {photo.position}"
+													onclick={() => removePhoto(photo)}>Remove</button
+												><button
+													type="button"
+													class="admin-cover-button"
+													aria-label="Keep photo {photo.position}"
+													onclick={() => (confirmingPhoto = '')}>Keep</button
+												>
+											</div>{:else}<button
+												type="button"
+												class="admin-remove-button"
+												disabled={busy || (live && product.photos.length === 1)}
+												aria-label="Remove photo {photo.position}"
+												onclick={() => (confirmingPhoto = photo.r2_key)}>Remove</button
+											>{/if}
+									{/if}
 									<figcaption>
 										{String(photo.position).padStart(2, '0')} / {photo.alt_text}
 									</figcaption>
 								</figure>{/each}
 						</div>
-						{#if product.publication_state === 'draft' && product.photos.length < MAX_PHOTOS}<form
-								onsubmit={uploadPhoto}
-							>
+						{#if live && !held && product.photos.length === 1}<p class="admin-hint">
+								A live piece keeps at least one photo.
+							</p>{/if}
+						{#if !held && product.photos.length < MAX_PHOTOS}<form onsubmit={uploadPhoto}>
 								<input
 									id="photo-file"
 									class="admin-drop-input"
@@ -587,7 +683,7 @@
 							<button
 								class="admin-action admin-action-outline"
 								type="button"
-								disabled={busy || product.stock_state !== 'available'}
+								disabled={busy || held}
 								onclick={() => setPublication('draft')}>Unpublish piece</button
 							>
 							<form class="admin-slug-form" onsubmit={changeSlug}>
@@ -631,6 +727,38 @@
 								This piece is {product.stock_state}; external sale unavailable.
 							</p>
 						{/if}
+					</section>
+					<section class="admin-panel" aria-labelledby="remove-title">
+						<div class="admin-panel-heading">
+							<h2 id="remove-title">Remove piece</h2>
+						</div>
+						{#if product.has_history}<p class="admin-hint">
+								This piece has sales or order history, so it is archived: taken off the shop and
+								this desk, with its sale and order records kept.
+							</p>{:else}<p class="admin-hint">
+								Deletes this piece and its photos for good. It never sold, so no records are lost.
+							</p>{/if}
+						{#if held}<p class="admin-list-state">Unavailable while a buyer is paying.</p>
+						{:else if confirmingRemoval}<div class="admin-confirm admin-confirm-wide">
+								<button
+									type="button"
+									class="admin-danger-button"
+									disabled={busy}
+									onclick={removePiece}
+									>{product.has_history ? 'Archive it' : 'Delete for good'}</button
+								><button
+									type="button"
+									class="admin-cover-button"
+									disabled={busy}
+									onclick={() => (confirmingRemoval = false)}>Cancel</button
+								>
+							</div>{:else}<button
+								type="button"
+								class="admin-action admin-action-danger"
+								disabled={busy}
+								onclick={() => (confirmingRemoval = true)}
+								>{product.has_history ? 'Archive piece' : 'Delete piece'}</button
+							>{/if}
 					</section>
 				</div>
 			</div>
