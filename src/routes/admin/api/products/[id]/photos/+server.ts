@@ -19,7 +19,8 @@ export const POST: RequestHandler = async ({ request, params }) => {
 	try {
 		const form = await request.formData();
 		const photo = form.get('photo');
-		const altText = form.get('alt_text');
+		// Staff no longer describe photos; the storefront names them after the piece.
+		const altText = form.get('alt_text') ?? '';
 		const position = form.get('position');
 		if (!(photo instanceof File) || typeof altText !== 'string' || typeof position !== 'string')
 			return new Response('Invalid photo', { status: 400, headers });
