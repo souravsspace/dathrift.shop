@@ -35,6 +35,7 @@ const listing = (items = [row()], extra: Record<string, unknown> = {}) => ({
 	page: 1,
 	page_size: 20,
 	counts: { draft: items.length, live: 0, sold: 0, held: 0 },
+	rack: { draft: items.length, live: 0, sold: 0, held: 0 },
 	...extra
 });
 const categories = [
@@ -152,7 +153,8 @@ it('asks the server for one state, a search or the next twenty pieces', async ()
 					{
 						total: 45,
 						page: Number(url.searchParams.get('page') ?? 1),
-						counts: { draft: 40, live: 3, sold: 2, held: 0 }
+						counts: { draft: 40, live: 3, sold: 2, held: 0 },
+						rack: { draft: 40, live: 3, sold: 2, held: 0 }
 					}
 				)
 			)
@@ -179,12 +181,18 @@ it('says so when no piece matches', async () => {
 		'GET /admin/api/products': (url) =>
 			Response.json(
 				url.searchParams.get('q')
-					? listing([], { counts: { draft: 1, live: 0, sold: 0, held: 0 } })
+					? listing([], {
+							counts: { draft: 0, live: 0, sold: 0, held: 0 },
+							rack: { draft: 1, live: 0, sold: 0, held: 0 }
+						})
 					: listing()
 			)
 	});
 	await page.getByRole('searchbox', { name: 'Find a piece' }).fill('velvet');
 	await expect.element(page.getByText('No pieces match.')).toBeInTheDocument();
+	// The tabs count only matches; the summary still counts the whole rack.
+	await expect.element(page.getByRole('button', { name: 'All 0' })).toBeInTheDocument();
+	await expect.element(page.getByText('1 piece · 0 live · 1 draft · 0 sold')).toBeInTheDocument();
 });
 
 it('opens New piece and Categories as sheets on a phone', async () => {
@@ -208,4 +216,21 @@ it('opens New piece and Categories as sheets on a phone', async () => {
 				.getByRole('textbox', { name: 'Category name' })
 		)
 		.toBeVisible();
+});
+
+it('keeps the rack counts in place while a search loads', async () => {
+	let release: (() => void) | undefined;
+	desk({
+		'GET /admin/api/products': (async (url: URL) => {
+			if (url.searchParams.get('q')) await new Promise<void>((resolve) => (release = resolve));
+			return Response.json(listing());
+		}) as unknown as Handler
+	});
+	const summary = page.getByText('1 piece · 0 live · 1 draft · 0 sold');
+	await expect.element(summary).toBeInTheDocument();
+	await page.getByRole('searchbox', { name: 'Find a piece' }).fill('olive');
+	await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+	await expect.element(summary).toBeInTheDocument();
+	await expect.element(page.getByText('Counting the rack…')).not.toBeInTheDocument();
+	release?.();
 });
