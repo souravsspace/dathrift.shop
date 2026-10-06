@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
-import { isPublishedPhoto } from '../../../lib/server/catalog/public-catalog';
+import { isProductPhoto, isPublishedPhoto } from '../../../lib/server/catalog/public-catalog';
+import { staffActorForRequest } from '../../../lib/server/staff-auth';
 import { databaseFrom } from '../../../lib/server/db/client';
 import type { RequestHandler } from './$types';
 
@@ -15,7 +16,7 @@ type MediaEnv = {
 const noStore = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
 const imageTypes = new Set(['image/webp', 'image/jpeg', 'image/png', 'image/avif']);
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, request }) => {
 	const key = params.key;
 	if (!/^(?=.{1,256}$)(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.(?:webp|jpe?g|png|avif)$/.test(key))
 		return new Response('Not found', { status: 404, headers: noStore });
@@ -24,8 +25,12 @@ export const GET: RequestHandler = async ({ params }) => {
 	if (!db || !PRODUCT_IMAGES)
 		return new Response('Media unavailable', { status: 503, headers: noStore });
 	try {
-		const published = await isPublishedPhoto(db, key);
-		if (!published) return new Response('Not found', { status: 404, headers: noStore });
+		// Staff also see the photos of pieces that are not public yet.
+		const visible =
+			(await isPublishedPhoto(db, key)) ||
+			((await staffActorForRequest(request, env, import.meta.env.DEV)) !== null &&
+				(await isProductPhoto(db, key)));
+		if (!visible) return new Response('Not found', { status: 404, headers: noStore });
 		const object = await PRODUCT_IMAGES.get(key);
 		if (!object) return new Response('Not found', { status: 404, headers: noStore });
 		const contentType = object.httpMetadata?.contentType;
