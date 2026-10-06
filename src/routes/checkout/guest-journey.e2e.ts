@@ -19,7 +19,7 @@ test('guest buys two one-off pieces and both turn sold only after verified payme
 	await page.waitForLoadState('networkidle');
 
 	await page.getByRole('textbox', { name: 'Name' }).fill('Test Buyer');
-	await page.getByRole('textbox', { name: 'Bangladesh phone' }).fill('01712345678');
+	await page.getByRole('textbox', { name: 'Phone' }).fill('01712345678');
 	await page.getByRole('textbox', { name: 'Address line' }).fill('Test building');
 	await page
 		.getByRole('combobox', { name: 'Delivery area' })
