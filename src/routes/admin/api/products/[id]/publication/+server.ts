@@ -35,9 +35,12 @@ export const POST: RequestHandler = async ({ request, params }) => {
 			return new Response(error.message, { status: 422, headers });
 		if (
 			error instanceof Error &&
-			['Draft not available', 'Product not available', 'Draft changed; retry publication'].includes(
-				error.message
-			)
+			[
+				'Draft not available',
+				'Product not available',
+				'Product held',
+				'Draft changed; retry publication'
+			].includes(error.message)
 		)
 			return new Response(error.message, { status: 409, headers });
 		return new Response('Catalog unavailable', { status: 503, headers });
