@@ -25,16 +25,28 @@ it('loads only the server-selected catalog rows for storefront rendering', async
 	expect(products.map((product) => product.slug)).not.toContain('test-unpublished-skirt');
 });
 
-it('applies query filters server-side and flags the page as a filtered variant', async () => {
+it('sends old home-page filter links to the shop with the same query', async () => {
 	(env as { DB?: unknown }).DB = localD1().db;
-	const data = (await load(event('?category=tops&available=1'))) as {
-		products: { slug: string }[];
-		filtered: boolean;
-		facets: { categories: { slug: string; name: string }[] };
+	await expect(load(event('?category=tops&available=1'))).rejects.toMatchObject({
+		status: 308,
+		location: '/shop?category=tops&available=1'
+	});
+});
+
+it('shows the newest pieces and every category with its count and cover', async () => {
+	(env as { DB?: unknown }).DB = localD1().db;
+	const data = (await load(event())) as {
+		products: unknown[];
+		facets: { categories: { slug: string; count: number; photo_key: string | null }[] };
 	};
-	expect(data.products.map((product) => product.slug)).toEqual(['test-olive-cotton-shirt']);
-	expect(data.filtered).toBe(true);
-	expect(data.facets.categories).toContainEqual({ slug: 'outerwear', name: 'Outerwear' });
+	expect(data.products.length).toBeLessThanOrEqual(8);
+	expect(data.facets.categories).toContainEqual(
+		expect.objectContaining({
+			slug: 'outerwear',
+			count: 1,
+			photo_key: 'test-only/denim-jacket.webp'
+		})
+	);
 });
 
 it('loads the owner-featured hero piece for the home page', async () => {
