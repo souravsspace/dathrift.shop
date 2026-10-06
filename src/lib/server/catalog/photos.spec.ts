@@ -57,6 +57,25 @@ it('accepts only WebP photos within the 10 MB upload limit', async () => {
 	expect(put).not.toHaveBeenCalled();
 });
 
+it('stores a photo without a description as blank alt text', async () => {
+	const bucket = { put: vi.fn(async () => ({})), delete: vi.fn(async () => undefined) };
+	const { db, sqlite } = localDatabase();
+	const photo = await addProductPhoto(db, bucket, 'test-draft', {
+		bytes: webp,
+		contentType: 'image/webp',
+		position: 2,
+		altText: '   '
+	});
+	expect(photo).toMatchObject({ position: 2, alt_text: '' });
+	expect(
+		sqlite
+			.prepare(
+				"SELECT alt_text FROM product_photos WHERE product_id = 'test-draft' AND position = 2"
+			)
+			.get()
+	).toEqual({ alt_text: '' });
+});
+
 it('stores validated WebP bytes and ordered metadata for a draft', async () => {
 	const put = vi.fn(async () => ({}));
 	const remove = vi.fn(async () => undefined);
