@@ -17,5 +17,28 @@
 	"assets": {
 		"directory": ".svelte-kit/cloudflare",
 		"binding": "ASSETS"
+	},
+	"env": {
+		"production": {
+			"routes": [
+				{ "pattern": "dathrift.shop", "custom_domain": true },
+				{ "pattern": "admin.dathrift.shop", "custom_domain": true }
+			],
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "dathrift-production",
+					"database_id": "a58a1c38-d972-4c64-a9fd-33ed39dc2669",
+					"migrations_dir": "db/migrations"
+				}
+			],
+			"r2_buckets": [
+				{ "binding": "PRODUCT_IMAGES", "bucket_name": "dathrift-production-products" }
+			],
+			"vars": {
+				"STAFF_HOST": "admin.dathrift.shop",
+				"PAYMENT_PROVIDER": "off"
+			}
+		}
 	}
 }
