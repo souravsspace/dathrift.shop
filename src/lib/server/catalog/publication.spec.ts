@@ -1,29 +1,33 @@
 import { expect, it } from 'vitest';
 import { publicationErrors } from './publication';
 
-const photo = { r2_key: 'test-only/top.jpg', alt_text: 'Front of test-only top' };
+const photo = { r2_key: 'test-only/top.jpg' };
 
-it('refuses publication without honest garment details and a described photo', () => {
+it('refuses publication without measurements and a photo', () => {
 	const product = {
 		name: 'Test-only top',
 		measurement_set: 'top' as const,
 		price_bdt: 1200,
-		description: '',
-		condition_notes: '',
-		size_label: '',
-		measurements_json: '{}',
-		fit_note: ''
+		measurements_json: '{}'
 	};
 
-	expect(publicationErrors(product, [])).toEqual([
-		'description',
-		'condition_notes',
-		'size_label',
-		'measurements_json',
-		'fit_note',
-		'photos'
-	]);
+	expect(publicationErrors(product, [])).toEqual(['measurements_json', 'photos']);
 	expect(publicationErrors({ ...product, measurement_set: null }, [])).toContain('category');
+});
+
+it('treats description, condition, size and fit note as optional', () => {
+	const product = {
+		name: 'Test-only top',
+		measurement_set: 'top' as const,
+		price_bdt: 1200,
+		description: null,
+		condition_notes: null,
+		size_label: null,
+		measurements_json: '{"chest_in":20.5,"length_in":27}',
+		fit_note: null
+	};
+
+	expect(publicationErrors(product, [{ r2_key: 'test-only/top.jpg' }])).toEqual([]);
 });
 
 it('requires the category measurement set in half inches before publishing', () => {
