@@ -9,6 +9,8 @@
 	// Native view transitions: pages crossfade and shared garment photos morph between them.
 	onNavigate((navigation) => {
 		if (!document.startViewTransition) return;
+		// Same page, new query (search, filter tab, paging): update in place, no crossfade.
+		if (navigation.from?.url.pathname === navigation.to?.url.pathname) return;
 		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 		return new Promise((resolve) => {
 			document.startViewTransition(async () => {
