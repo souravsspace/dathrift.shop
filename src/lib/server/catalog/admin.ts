@@ -294,17 +294,24 @@ export async function listStaffProducts(
 	}: { page?: number; query?: string; status?: StaffStatus | 'all' } = {}
 ) {
 	const pattern = containsText(query);
-	const matches = and(
+	const searched = and(
 		notArchived,
 		query.trim()
 			? sql`(lower(${products.name}) LIKE ${pattern} ESCAPE '\\'
 				OR lower(coalesce(${products.code}, '')) LIKE ${pattern} ESCAPE '\\'
 				OR lower(${products.slug}) LIKE ${pattern} ESCAPE '\\')`
-			: undefined,
-		status === 'all' ? undefined : sql`${staffStatus} = ${status}`
+			: undefined
 	);
+	const matches = and(searched, status === 'all' ? undefined : sql`${staffStatus} = ${status}`);
+	const countBy = (where: typeof searched) =>
+		db
+			.select({ status: staffStatus, total: count() })
+			.from(products)
+			.innerJoin(inventory, eq(inventory.productId, products.id))
+			.where(where)
+			.groupBy(staffStatus);
 	const current = Math.max(1, Math.floor(page) || 1);
-	const [items, totals, statusRows] = await Promise.all([
+	const [items, totals, statusRows, rackRows] = await Promise.all([
 		db
 			.select({
 				...staffColumns,
@@ -325,16 +332,24 @@ export async function listStaffProducts(
 			.from(products)
 			.innerJoin(inventory, eq(inventory.productId, products.id))
 			.where(matches),
-		db
-			.select({ status: staffStatus, total: count() })
-			.from(products)
-			.innerJoin(inventory, eq(inventory.productId, products.id))
-			.where(notArchived)
-			.groupBy(staffStatus)
+		// Tab counts follow the search; the rack totals in the desk summary do not.
+		countBy(searched),
+		query.trim() ? countBy(notArchived) : null
 	]);
-	const counts: Record<StaffStatus, number> = { draft: 0, live: 0, sold: 0, held: 0 };
-	for (const row of statusRows) counts[row.status] = row.total;
-	return { items, total: totals[0]?.total ?? 0, page: current, page_size: PAGE_SIZE, counts };
+	const tally = (rows: { status: StaffStatus; total: number }[]) => {
+		const result: Record<StaffStatus, number> = { draft: 0, live: 0, sold: 0, held: 0 };
+		for (const row of rows) result[row.status] = row.total;
+		return result;
+	};
+	const counts = tally(statusRows);
+	return {
+		items,
+		total: totals[0]?.total ?? 0,
+		page: current,
+		page_size: PAGE_SIZE,
+		counts,
+		rack: rackRows ? tally(rackRows) : counts
+	};
 }
 
 export async function getStaffProduct(db: Database, id: string) {
