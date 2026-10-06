@@ -202,3 +202,46 @@ it('never lets an archived piece become public again', () => {
 	db.exec("UPDATE products SET publication_state = 'published' WHERE id = 'p1'");
 	db.close();
 });
+
+it('gives every piece a month code that restarts each month and never reuses a number', () => {
+	const db = new DatabaseSync(':memory:');
+	db.exec('PRAGMA foreign_keys = ON');
+	const files = readdirSync('db/migrations').sort();
+	migrate(
+		db,
+		files.filter((file) => file < '0018')
+	);
+	const add = db.prepare(
+		"INSERT INTO products (id, slug, name, category, price_bdt, created_at) VALUES (?, ?, 'Test-only piece', 'tops', 900, ?)"
+	);
+	// Existing pieces are numbered by when they were added, in Bangladesh time.
+	add.run('old-1', 'test-old-1', '2026-09-30 17:59:00');
+	add.run('old-2', 'test-old-2', '2026-09-30 18:00:00');
+	add.run('old-3', 'test-old-3', '2026-10-05 08:00:00');
+	migrate(
+		db,
+		files.filter((file) => file >= '0018')
+	);
+	const code = (id: string) =>
+		(db.prepare('SELECT code FROM products WHERE id = ?').get(id) as { code: string }).code;
+	expect([code('old-1'), code('old-2'), code('old-3')]).toEqual([
+		'SE2026001',
+		'OC2026001',
+		'OC2026002'
+	]);
+	add.run('new-1', 'test-new-1', '2026-10-06 09:00:00');
+	expect(code('new-1')).toBe('OC2026003');
+	db.exec("DELETE FROM products WHERE id = 'new-1'");
+	add.run('new-2', 'test-new-2', '2026-10-06 10:00:00');
+	expect(code('new-2')).toBe('OC2026004');
+	add.run('nov-1', 'test-nov-1', '2026-11-02 10:00:00');
+	add.run('mar-1', 'test-mar-1', '2027-03-02 10:00:00');
+	add.run('may-1', 'test-may-1', '2027-05-02 10:00:00');
+	expect([code('nov-1'), code('mar-1'), code('may-1')]).toEqual([
+		'NO2026001',
+		'MR2027001',
+		'MY2027001'
+	]);
+	expect(() => db.exec("UPDATE products SET code = 'OC2026001' WHERE id = 'new-2'")).toThrow();
+	db.close();
+});
