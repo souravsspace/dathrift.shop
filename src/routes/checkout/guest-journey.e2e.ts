@@ -39,7 +39,7 @@ test('guest buys two one-off pieces and both turn sold only after verified payme
 	await expect(page.getByRole('button', { name: 'Add to bag' })).toHaveCount(0);
 
 	await page.goto('/admin/orders');
-	await expect(page.getByText('Paid (bKash verified)')).toBeVisible();
+	await expect(page.getByText('Paid · to ship')).toBeVisible();
 });
 
 test('a sold piece left in a bag must be removed before checkout', async ({ page }) => {
