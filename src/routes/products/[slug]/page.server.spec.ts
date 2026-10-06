@@ -20,8 +20,19 @@ it('returns 404 for a draft and a sold product detail for a published slug', asy
 	const event = (slug: string) => ({ params: { slug } }) as Parameters<typeof load>[0];
 	await expect(load(event('test-unpublished-skirt'))).rejects.toMatchObject({ status: 404 });
 	expect(await load(event('test-sold-denim-jacket'))).toMatchObject({
-		product: { stock_state: 'sold' }
+		product: { stock_state: 'sold' },
+		related: []
 	});
+});
+
+it('suggests other available pieces from the same category, never the piece itself', async () => {
+	const local = localD1();
+	local.sqlite.exec("UPDATE products SET category = 'tops' WHERE id = 'test-dress'");
+	(env as { DB?: unknown }).DB = local.db;
+	const data = (await load({
+		params: { slug: 'test-olive-cotton-shirt' }
+	} as Parameters<typeof load>[0])) as { related: { slug: string }[] };
+	expect(data.related.map((item) => item.slug)).toEqual(['test-cream-midi-dress']);
 });
 
 it('permanently redirects a corrected slug to the current product URL', async () => {
