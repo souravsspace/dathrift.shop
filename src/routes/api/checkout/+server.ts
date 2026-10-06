@@ -2,7 +2,8 @@ import { env } from 'cloudflare:workers';
 import { quoteCheckout } from '../../../lib/server/checkout/quote';
 import { databaseFrom } from '../../../lib/server/db/client';
 import { expireStaleOrders, startPayment } from '../../../lib/server/payments/checkout';
-import { paymentProviderFor } from '../../../lib/server/payments/select';
+import { expireManualHolds, startManualPayment } from '../../../lib/server/payments/manual';
+import { checkoutModeFor } from '../../../lib/server/payments/select';
 import { reserveCheckout } from '../../../lib/server/reservation/reserve';
 import type { RequestHandler } from './$types';
 
@@ -32,8 +33,8 @@ export const POST: RequestHandler = async ({ request, url }) => {
 	if (!request.headers.get('Content-Type')?.startsWith('application/json'))
 		return text('Invalid request', 415);
 	const db = databaseFrom(env);
-	const provider = db && paymentProviderFor(env, db, import.meta.env.DEV);
-	if (!db || !provider) return text('Checkout unavailable', 503);
+	const mode = db && checkoutModeFor(env, db, import.meta.env.DEV);
+	if (!db || !mode) return text('Checkout unavailable', 503);
 	let input: { ids?: unknown; address?: unknown; checkout_key?: unknown };
 	try {
 		input = await request.json();
@@ -42,7 +43,8 @@ export const POST: RequestHandler = async ({ request, url }) => {
 	}
 	const key = typeof input?.checkout_key === 'string' ? input.checkout_key : null;
 	try {
-		await expireStaleOrders(db, provider);
+		if (mode.kind === 'gateway') await expireStaleOrders(db, mode.provider);
+		await expireManualHolds(db);
 	} catch {
 		// Expiry is best effort; stale holds are retried on the next checkout or status read.
 	}
@@ -54,17 +56,24 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			return text(error.message, 400);
 		return holdFailure(db, input?.ids, input?.address);
 	}
+	const statusUrl = `/orders/${order.status_token}`;
+	if (mode.kind === 'manual') {
+		// No payment page: the order page shows where to send money and takes the proof.
+		try {
+			await startManualPayment(db, order.id, mode.payTo);
+			return Response.json({ status_url: statusUrl, manual: true }, { headers });
+		} catch {
+			return text('Payment unavailable', 503);
+		}
+	}
 	try {
 		const { redirectUrl } = await startPayment(
 			db,
-			provider,
+			mode.provider,
 			order,
 			`${url.origin}/checkout/callback`
 		);
-		return Response.json(
-			{ redirect_url: redirectUrl, status_url: `/orders/${order.status_token}` },
-			{ headers }
-		);
+		return Response.json({ redirect_url: redirectUrl, status_url: statusUrl }, { headers });
 	} catch {
 		return text('Payment unavailable', 503);
 	}
