@@ -174,7 +174,7 @@ it('deletes a never-sold piece outright and archives one with sales history', as
 	).toEqual({ publication_state: 'draft', archived: 1 });
 	expect(removed).toEqual([]);
 	expect(await getStaffProduct(d1, 'test-sold')).toBeNull();
-	expect((await listStaffProducts(d1)).map((row) => row.id)).not.toContain('test-sold');
+	expect((await listStaffProducts(d1)).items.map((row) => row.id)).not.toContain('test-sold');
 	await expect(updateProductDetails(d1, 'test-sold', reworkedSkirt)).rejects.toThrow(
 		'Product not found'
 	);
@@ -202,15 +202,17 @@ it('archives rather than deletes a piece that was ever ordered or sold elsewhere
 
 it('lists every staff piece and reads one with ordered private photo metadata', async () => {
 	const { db } = localDatabase();
-	const rows = await listStaffProducts(db);
+	const { items: rows, total } = await listStaffProducts(db);
 	expect(rows).toHaveLength(4);
+	expect(total).toBe(4);
 	expect(rows).toContainEqual(
 		expect.objectContaining({
 			id: 'test-draft',
 			publication_state: 'draft',
 			stock_state: 'available',
 			size_label: 'M',
-			cover_key: 'test-only/unpublished-skirt.svg'
+			cover_key: 'test-only/unpublished-skirt.svg',
+			code: expect.stringMatching(/^[A-Z]{2}\d{7}$/)
 		})
 	);
 	expect(await getStaffProduct(db, 'test-draft')).toMatchObject({
@@ -233,7 +235,7 @@ it('lists every staff piece and reads one with ordered private photo metadata', 
 
 it('tells staff which piece leads the home page', async () => {
 	const { db } = localDatabase();
-	expect(await listStaffProducts(db)).toContainEqual(
+	expect((await listStaffProducts(db)).items).toContainEqual(
 		expect.objectContaining({ id: 'test-dress', featured: true })
 	);
 	expect(await getStaffProduct(db, 'test-dress')).toMatchObject({ featured: true });
@@ -261,4 +263,56 @@ it('changes a draft slug freely and corrects a published one while keeping a red
 	await expect(changeSlug(db, 'test-dress', 'test-olive-shirt')).rejects.toThrow(
 		'Slug unavailable'
 	);
+});
+
+it('pages the desk twenty pieces at a time, newest first, and finds pieces by name or code', async () => {
+	const { db, sqlite } = localDatabase({ seed: false });
+	const add = sqlite.prepare(
+		"INSERT INTO products (id, slug, name, category, price_bdt, created_at) VALUES (?, ?, ?, 'tops', 900, ?)"
+	);
+	const stock = sqlite.prepare("INSERT INTO inventory (product_id, state) VALUES (?, 'available')");
+	for (let n = 1; n <= 45; n++) {
+		const id = `p${String(n).padStart(2, '0')}`;
+		add.run(
+			id,
+			`test-${id}`,
+			`TEST ONLY — Piece ${n}`,
+			`2026-10-01 0${Math.floor(n / 10)}:${String(n % 10).padStart(2, '0')}:00`
+		);
+		stock.run(id);
+	}
+	sqlite.exec("UPDATE products SET publication_state = 'published' WHERE id IN ('p01', 'p02')");
+	sqlite.exec("UPDATE inventory SET state = 'sold' WHERE product_id = 'p03'");
+
+	const first = await listStaffProducts(db);
+	expect(first).toMatchObject({ total: 45, page: 1, page_size: 20 });
+	expect(first.items).toHaveLength(20);
+	expect(first.items[0].id).toBe('p45');
+	expect(first.counts).toEqual({ draft: 42, live: 2, sold: 1, held: 0 });
+	const last = await listStaffProducts(db, { page: 3 });
+	expect(last.items.map((row) => row.id)).toEqual(['p05', 'p04', 'p03', 'p02', 'p01']);
+
+	expect((await listStaffProducts(db, { status: 'live' })).items.map((row) => row.id)).toEqual([
+		'p02',
+		'p01'
+	]);
+	expect((await listStaffProducts(db, { status: 'sold' })).total).toBe(1);
+	expect((await listStaffProducts(db, { query: 'piece 4' })).items.map((row) => row.id)).toEqual([
+		'p45',
+		'p44',
+		'p43',
+		'p42',
+		'p41',
+		'p40',
+		'p04'
+	]);
+	const code = (
+		sqlite.prepare("SELECT code FROM products WHERE id = 'p07'").get() as { code: string }
+	).code;
+	expect(
+		(await listStaffProducts(db, { query: code.toLowerCase() })).items.map((row) => row.id)
+	).toEqual(['p07']);
+	// Search terms are text, never patterns.
+	expect((await listStaffProducts(db, { query: '%' })).total).toBe(0);
+	expect((await listStaffProducts(db, { page: 99 })).items).toEqual([]);
 });
