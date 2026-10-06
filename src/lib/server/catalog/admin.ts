@@ -1,9 +1,11 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import {
 	categories,
+	externalSales,
 	homeFeature,
 	inventory,
+	orderItems,
 	productPhotos,
 	products,
 	slugRedirects
@@ -68,7 +70,7 @@ export async function createDraft(db: Database, input: unknown) {
 	return { id, slug: input.slug, publication_state: 'draft' as const };
 }
 
-type DraftDetails = {
+type ProductDetails = {
 	name: string;
 	category: DraftInput['category'];
 	price_bdt: number;
@@ -80,7 +82,7 @@ type DraftDetails = {
 	fit_note: string | null;
 };
 
-function isDraftDetails(value: unknown): value is DraftDetails {
+function isProductDetails(value: unknown): value is ProductDetails {
 	if (!value || typeof value !== 'object') return false;
 	const input = value as Record<string, unknown>;
 	const optional = ['brand', 'description', 'condition_notes', 'size_label', 'fit_note'];
@@ -121,8 +123,39 @@ const halfInch = (key: string) => {
 const availableUnit = (id: string) =>
 	sql`EXISTS (SELECT 1 FROM ${inventory} WHERE ${inventory.productId} = ${id} AND ${inventory.state} = 'available')`;
 
-export async function updateDraftDetails(db: Database, id: string, input: unknown) {
-	if (!isDraftDetails(input)) throw new Error('Invalid details');
+// A unit held in someone's checkout must not change under them; every other piece stays editable.
+const notHeld = (id: string) =>
+	sql`NOT EXISTS (SELECT 1 FROM ${inventory} WHERE ${inventory.productId} = ${id} AND ${inventory.state} = 'reserved')`;
+
+const notArchived = isNull(products.archivedAt);
+
+// Drafts and live pieces are both editable. A live piece must stay complete, since buyers see it.
+export async function updateProductDetails(db: Database, id: string, input: unknown) {
+	if (!isProductDetails(input)) throw new Error('Invalid details');
+	const current = await db
+		.select({ publication_state: products.publicationState, stock_state: inventory.state })
+		.from(products)
+		.innerJoin(inventory, eq(inventory.productId, products.id))
+		.where(and(eq(products.id, id), notArchived))
+		.get();
+	if (!current) throw new Error('Product not found');
+	if (current.stock_state === 'reserved') throw new Error('Product held');
+	if (current.publication_state === 'published') {
+		const category = await db
+			.select({ measurement_set: categories.measurementSet })
+			.from(categories)
+			.where(eq(categories.slug, input.category))
+			.get();
+		const photos = await db
+			.select({ r2_key: productPhotos.r2Key, alt_text: productPhotos.altText })
+			.from(productPhotos)
+			.where(eq(productPhotos.productId, id));
+		if (
+			publicationErrors({ ...input, measurement_set: category?.measurement_set ?? null }, photos)
+				.length
+		)
+			throw new Error('Incomplete product');
+	}
 	const result = await db
 		.update(products)
 		.set({
@@ -136,13 +169,20 @@ export async function updateDraftDetails(db: Database, id: string, input: unknow
 			measurementsJson: input.measurements_json,
 			fitNote: input.fit_note?.trim() || null
 		})
-		.where(and(eq(products.id, id), eq(products.publicationState, 'draft')))
+		.where(
+			and(
+				eq(products.id, id),
+				eq(products.publicationState, current.publication_state),
+				notArchived,
+				notHeld(id)
+			)
+		)
 		.catch((error: unknown) => {
 			throw catalogWriteError(error);
 		});
 	// D1 counts trigger writes in meta.changes, so only zero means the row was not written.
-	if (result.meta.changes === 0) throw new Error('Draft not found');
-	return { id, publication_state: 'draft' as const };
+	if (result.meta.changes === 0) throw new Error('Product changed; retry');
+	return { id, publication_state: current.publication_state };
 }
 
 export async function publishProduct(db: Database, id: string) {
@@ -164,7 +204,8 @@ export async function publishProduct(db: Database, id: string) {
 			and(
 				eq(products.id, id),
 				eq(products.publicationState, 'draft'),
-				eq(inventory.state, 'available')
+				eq(inventory.state, 'available'),
+				notArchived
 			)
 		)
 		.get();
@@ -204,13 +245,19 @@ export async function publishProduct(db: Database, id: string) {
 	return { id, publication_state: 'published' as const };
 }
 
+// Sold pieces may come down too; only a unit held in checkout keeps its page up.
 export async function unpublishProduct(db: Database, id: string) {
 	const result = await db
 		.update(products)
 		.set({ publicationState: 'draft' })
-		.where(and(eq(products.id, id), eq(products.publicationState, 'published'), availableUnit(id)));
-	if (result.meta.changes === 0) throw new Error('Product not available');
-	return { id, publication_state: 'draft' as const };
+		.where(and(eq(products.id, id), eq(products.publicationState, 'published'), notHeld(id)));
+	if (result.meta.changes > 0) return { id, publication_state: 'draft' as const };
+	const stock = await db
+		.select({ state: inventory.state })
+		.from(inventory)
+		.where(eq(inventory.productId, id))
+		.get();
+	throw new Error(stock?.state === 'reserved' ? 'Product held' : 'Product not available');
 }
 
 const staffColumns = {
@@ -229,11 +276,17 @@ const staffColumns = {
 
 export async function listStaffProducts(db: Database) {
 	return db
-		.select(staffColumns)
+		.select({
+			...staffColumns,
+			size_label: products.sizeLabel,
+			cover_key: sql<string | null>`(SELECT ${productPhotos.r2Key} FROM ${productPhotos}
+				WHERE ${productPhotos.productId} = ${products.id} AND ${productPhotos.position} = 1)`
+		})
 		.from(products)
 		.innerJoin(inventory, eq(inventory.productId, products.id))
 		.leftJoin(categories, eq(categories.slug, products.category))
 		.leftJoin(homeFeature, eq(homeFeature.productId, products.id))
+		.where(notArchived)
 		.orderBy(desc(products.createdAt), desc(products.id))
 		.limit(100);
 }
@@ -247,13 +300,18 @@ export async function getStaffProduct(db: Database, id: string) {
 			condition_notes: products.conditionNotes,
 			size_label: products.sizeLabel,
 			measurements_json: products.measurementsJson,
-			fit_note: products.fitNote
+			fit_note: products.fitNote,
+			has_history: sql<boolean>`(${inventory.state} = 'sold'
+				OR EXISTS (SELECT 1 FROM ${orderItems} WHERE ${orderItems.productId} = ${products.id})
+				OR EXISTS (SELECT 1 FROM ${externalSales} WHERE ${externalSales.productId} = ${products.id}))`.mapWith(
+				Boolean
+			)
 		})
 		.from(products)
 		.innerJoin(inventory, eq(inventory.productId, products.id))
 		.leftJoin(categories, eq(categories.slug, products.category))
 		.leftJoin(homeFeature, eq(homeFeature.productId, products.id))
-		.where(eq(products.id, id))
+		.where(and(eq(products.id, id), notArchived))
 		.get();
 	if (!product) return null;
 	const photos = await db
@@ -303,4 +361,38 @@ export async function changeSlug(db: Database, id: string, slug: string) {
 		throw error;
 	}
 	return { id, slug };
+}
+
+type PhotoStore = { delete(key: string): Promise<unknown> };
+
+// A piece that never sold or entered an order is deleted with its photos. Anything with sales or
+// order history is archived instead: hidden from the shop and the desk, its records kept intact.
+export async function removeProduct(db: Database, bucket: PhotoStore, id: string) {
+	const product = await getStaffProduct(db, id);
+	if (!product) throw new Error('Product not found');
+	if (product.stock_state === 'reserved') throw new Error('Product held');
+	const unfeature = db.delete(homeFeature).where(eq(homeFeature.productId, id));
+	if (product.has_history) {
+		const [, archived] = await db.batch([
+			unfeature,
+			db
+				.update(products)
+				.set({ archivedAt: sql`CURRENT_TIMESTAMP`, publicationState: 'draft' })
+				.where(and(eq(products.id, id), notArchived, notHeld(id)))
+		]);
+		if (archived.meta.changes === 0) throw new Error('Product changed; retry');
+		return { outcome: 'archived' as const };
+	}
+	// The inventory delete only matches an available unit, so a checkout that grabs the piece
+	// mid-way leaves the product row referenced and the whole batch fails instead.
+	await db.batch([
+		unfeature,
+		db.delete(slugRedirects).where(eq(slugRedirects.productId, id)),
+		db.delete(productPhotos).where(eq(productPhotos.productId, id)),
+		db.delete(inventory).where(and(eq(inventory.productId, id), eq(inventory.state, 'available'))),
+		db.delete(products).where(eq(products.id, id))
+	]);
+	// The rows are gone, so the photos are already unreachable; a failed cleanup only leaves an orphan.
+	await Promise.allSettled(product.photos.map((photo) => bucket.delete(photo.r2_key)));
+	return { outcome: 'deleted' as const };
 }
