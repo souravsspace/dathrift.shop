@@ -40,6 +40,12 @@
 					? { kind: 'success' as const, text: form.message }
 					: null
 	);
+	let manual = $derived(order.manual);
+	let checkable = $derived(
+		order.status === 'payment_review' && !!manual?.submitted_at && !manual.reviewed_at
+	);
+	// With "delivery charge only", the courier collects the rest in cash.
+	let collect = $derived(manual?.plan === 'delivery' ? order.total_bdt - order.shipping_bdt : 0);
 	let phoneHref = $derived(`tel:${order.address.phone.replace(/[^\d+]/g, '')}`);
 </script>
 
@@ -89,10 +95,43 @@
 					</form>
 				</div>
 			</section>
-		{:else if order.status === 'payment_review'}
+		{:else if order.status === 'payment_review' && !manual}
 			<p class="admin-held-note" role="status">
 				The owner needs to check this payment in bKash before anything else happens.
 			</p>
+		{/if}
+
+		{#if checkable && manual}
+			<section class="admin-panel order-review" aria-labelledby="manual-check-title">
+				<div class="admin-panel-head">
+					<h2 id="manual-check-title">Check the bKash payment</h2>
+				</div>
+				<p class="admin-hint">
+					Open the bKash app for {manual.pay_to} and look for a Send Money of
+					<strong>{price(manual.amount_bdt ?? 0)}</strong>{#if manual.trx_id}
+						with transaction ID <code>{manual.trx_id}</code>{/if}{#if manual.sender_number}
+						{manual.trx_id ? 'or' : ''} from <strong>{manual.sender_number}</strong>{/if}. The
+					pieces stay held as sold out until you decide.
+				</p>
+				<div class="order-review-actions">
+					<form method="POST" action="?/confirmManual" use:enhance>
+						<label class="admin-check"
+							><input type="checkbox" name="confirm" value="found-in-bkash" required /> I found this payment
+							in the bKash app</label
+						>
+						<button type="submit">Payment found · mark paid</button>
+					</form>
+					<form method="POST" action="?/rejectManual" use:enhance>
+						<label class="admin-check"
+							><input type="checkbox" name="confirm" value="not-in-bkash" required /> I could not find
+							it in bKash</label
+						>
+						<button type="submit" class="admin-action-outline"
+							>Not found · close order and release pieces</button
+						>
+					</form>
+				</div>
+			</section>
 		{/if}
 
 		<div class="admin-layout order-layout">
@@ -100,6 +139,10 @@
 				{#if order.status === 'paid'}
 					<section class="admin-panel order-fulfillment" aria-labelledby="fulfillment-title">
 						<div class="admin-panel-head"><h2 id="fulfillment-title">Fulfillment</h2></div>
+						{#if collect}<p class="admin-held-note" role="note">
+								Cash on delivery: the courier must collect <strong>{price(collect)}</strong>. The
+								buyer paid only the delivery charge by bKash.
+							</p>{/if}
 						<ol class="order-steps">
 							{#each steps as step, index (step)}
 								<li
@@ -231,6 +274,34 @@
 							<dd><code>{order.payment.payment_id}</code></dd>
 							<dt>Transaction</dt>
 							<dd><code>{order.payment.trx_id ?? '—'}</code></dd>
+						</dl>
+					{:else if manual}
+						<dl class="admin-facts">
+							<dt>Method</dt>
+							<dd>bKash Send Money to {manual.pay_to}</dd>
+							{#if manual.submitted_at}
+								<dt>Sent</dt>
+								<dd>
+									{price(manual.amount_bdt ?? 0)} · {manual.plan === 'delivery'
+										? 'delivery charge only'
+										: 'full total'}
+								</dd>
+								<dt>Transaction</dt>
+								<dd><code>{manual.trx_id ?? '—'}</code></dd>
+								<dt>Paid from</dt>
+								<dd>{manual.sender_number ?? '—'}</dd>
+								<dt>Reported</dt>
+								<dd>{bangladeshTime(manual.submitted_at)}</dd>
+								{#if collect}<dt>Cash on delivery</dt>
+									<dd>{price(collect)}</dd>{/if}
+								{#if manual.reviewed_by}<dt>Checked by</dt>
+									<dd>{actorLabel(manual.reviewed_by)}</dd>{/if}
+							{:else}
+								<dt>Status</dt>
+								<dd>
+									Waiting for the buyer to send money (hold ends {bangladeshTime(order.expires_at)})
+								</dd>
+							{/if}
 						</dl>
 					{:else}
 						<p class="admin-hint">No provider payment was created.</p>
