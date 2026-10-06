@@ -1218,11 +1218,6 @@ main {
 	gap: 20px;
 }
 
-.admin-editor-side {
-	display: grid;
-	gap: 20px;
-}
-
 .admin-panel {
 	min-width: 0;
 	padding: 18px 0 8px;
@@ -1572,42 +1567,6 @@ main {
 	margin-top: 16px;
 }
 
-.admin-photo-grid {
-	display: grid;
-	margin-top: 14px;
-	grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-	gap: 10px;
-}
-
-.admin-photo-grid figure {
-	display: grid;
-	align-content: start;
-	gap: 6px;
-	margin: 0;
-}
-
-.admin-photo-grid img {
-	display: block;
-	width: 100%;
-	aspect-ratio: 4 / 5;
-	border-radius: 6px;
-	background: rgb(4 36 26 / 0.08);
-	object-fit: cover;
-}
-
-.admin-photo-grid figcaption {
-	padding: 6px 0;
-	color: var(--color-ink-soft);
-	font-size: var(--text-label);
-	line-height: 1.4;
-}
-
-.admin-photo-grid figure > .admin-chip {
-	justify-self: start;
-	margin: 0;
-	padding: 4px 8px;
-}
-
 /* Quiet ledger action under each non-cover photo; the cover wears the gold chip instead. */
 .admin-cover-button {
 	min-height: 44px;
@@ -1658,8 +1617,7 @@ main {
 	font-weight: 650;
 }
 
-/* Removing is quieter than "Make cover" until it is chosen, then asks once in rust. */
-.admin-remove-button,
+/* A destructive step asks once, in rust. */
 .admin-danger-button {
 	min-height: 44px;
 	padding: 0 12px;
@@ -1672,20 +1630,6 @@ main {
 	transition:
 		border-color 200ms var(--ease-out),
 		background-color 200ms var(--ease-out);
-}
-
-.admin-remove-button {
-	justify-self: start;
-	border: 1px solid transparent;
-	background: transparent;
-	color: var(--color-rust);
-	text-decoration: underline;
-	text-underline-offset: 3px;
-}
-
-.admin-remove-button:hover:not(:disabled) {
-	border-color: rgb(166 61 38 / 0.35);
-	text-decoration: none;
 }
 
 .admin-danger-button,
@@ -1755,12 +1699,6 @@ main {
 	align-items: flex-start;
 }
 
-.admin-slug-form {
-	margin-top: 24px;
-	padding-top: 18px;
-	border-top: 1px solid rgb(4 36 26 / 0.12);
-}
-
 .admin-order-items {
 	margin: 0 0 24px;
 	padding: 0;
@@ -1796,50 +1734,7 @@ main {
 	}
 }
 
-/* Photo drop zone: the native file input stays reachable, the label is the visible target. */
-.admin-drop {
-	display: flex;
-	align-items: center;
-	gap: 14px;
-	min-height: 96px;
-	margin: 16px 0 0 !important;
-	padding: 14px;
-	border: 1.5px dashed rgb(4 36 26 / 0.35);
-	border-radius: 8px;
-	background: rgb(4 36 26 / 0.03);
-	font-weight: 400 !important;
-	cursor: pointer;
-	transition:
-		border-color 200ms var(--ease-out),
-		background-color 200ms var(--ease-out);
-}
-
-.admin-drop:hover,
-.admin-drop-input:focus-visible + .admin-drop {
-	border-color: var(--color-moss);
-	background: rgb(29 92 68 / 0.04);
-}
-
-.admin-drop img {
-	width: 64px;
-	aspect-ratio: 4 / 5;
-	border-radius: 4px;
-	object-fit: cover;
-}
-
-.admin-drop span {
-	display: grid;
-	gap: 4px;
-	color: var(--color-ink-soft);
-	font-size: var(--text-ui);
-	line-height: 1.4;
-}
-
-.admin-drop strong {
-	color: var(--color-ink);
-	font-size: var(--text-body);
-}
-
+/* The native file input stays reachable; its label is the visible target. */
 .admin-drop-input {
 	position: absolute;
 	width: 1px !important;
@@ -1849,11 +1744,6 @@ main {
 	overflow: hidden;
 	clip-path: inset(50%);
 	white-space: nowrap;
-}
-
-.admin-drop-input:focus-visible + .admin-drop {
-	outline: 2px solid var(--color-moss);
-	outline-offset: 2px;
 }
 
 .admin-row-meta .admin-stamps {
@@ -2409,4 +2299,454 @@ main {
 	color: var(--color-ink-soft);
 	font-family: var(--font-mono);
 	font-size: var(--text-label);
+}
+
+/* Product editor: the piece's photos and details lead; publishing and rare actions sit beside. */
+.admin-main.admin-editor {
+	max-width: 1240px;
+}
+
+.editor-head {
+	margin-bottom: 24px;
+}
+
+.editor-head h1 {
+	margin: 0 0 10px;
+	font-size: var(--text-section);
+	font-stretch: 68%;
+	font-weight: 850;
+	letter-spacing: -0.02em;
+	word-spacing: 0.16em;
+	line-height: 0.95;
+	text-transform: uppercase;
+	text-wrap: balance;
+}
+
+.editor-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 14px;
+	margin: 0;
+	color: var(--color-ink-soft);
+	font-size: var(--text-ui);
+}
+
+.editor-path {
+	font-family: var(--font-mono);
+	font-size: var(--text-label);
+	overflow-wrap: anywhere;
+}
+
+.editor-head .admin-stamps {
+	margin-top: 14px;
+}
+
+.editor-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+	align-items: start;
+	gap: 28px 48px;
+}
+
+.editor-main,
+.editor-side {
+	display: grid;
+	gap: 28px;
+	min-width: 0;
+}
+
+.editor-panel-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 4px 12px;
+	margin-bottom: 4px;
+}
+
+.editor-panel-head p {
+	margin: 0;
+	color: var(--color-ink-soft);
+	font-family: var(--font-mono);
+	font-size: var(--text-label);
+	text-transform: uppercase;
+}
+
+/* Photos: one board of 4:5 tiles, the add tile last. */
+.editor-photos {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+	gap: 14px 12px;
+	margin-top: 14px;
+}
+
+.editor-photo {
+	display: grid;
+	align-content: start;
+	gap: 6px;
+	margin: 0;
+}
+
+.editor-photo-frame {
+	position: relative;
+}
+
+.editor-photo-frame img {
+	display: block;
+	width: 100%;
+	aspect-ratio: 4 / 5;
+	border-radius: 6px;
+	background: rgb(4 36 26 / 0.08);
+	object-fit: cover;
+}
+
+.editor-photo .editor-cover-chip {
+	position: absolute;
+	left: 6px;
+	bottom: 6px;
+	margin: 0;
+	padding: 3px 7px;
+}
+
+/* A 44px hit area around a small ink disc in the photo's corner. */
+.admin-panel .editor-photo-remove {
+	position: absolute;
+	top: 0;
+	right: 0;
+	display: grid;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+	touch-action: manipulation;
+}
+
+.editor-photo-remove svg {
+	width: 28px;
+	height: 28px;
+	padding: 7px;
+	border-radius: 999px;
+	background: rgb(4 36 26 / 0.8);
+	fill: none;
+	stroke: var(--color-ivory);
+	stroke-width: 2;
+	stroke-linecap: round;
+	transition: background-color 200ms var(--ease-out);
+}
+
+.editor-photo-remove:hover:not(:disabled) svg {
+	background: var(--color-rust);
+}
+
+.editor-photo-remove:focus-visible {
+	outline: none;
+}
+
+.editor-photo-remove:focus-visible svg {
+	outline: 2px solid var(--color-gold);
+	outline-offset: 2px;
+}
+
+.admin-panel .editor-photo-remove:disabled {
+	opacity: 1;
+}
+
+.editor-photo-remove:disabled svg {
+	opacity: 0.35;
+}
+
+.editor-photo-confirm {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	align-content: end;
+	gap: 6px;
+	padding: 8px;
+	border-radius: 6px;
+	background: rgb(4 36 26 / 0.68);
+}
+
+.editor-keep-button {
+	min-height: 44px;
+	border: 1px solid rgb(251 235 214 / 0.6);
+	border-radius: 8px;
+	background: transparent;
+	color: var(--color-ivory);
+	font: inherit;
+	font-size: var(--text-ui);
+	font-weight: 650;
+	cursor: pointer;
+	touch-action: manipulation;
+}
+
+.editor-photo .admin-cover-button {
+	padding: 0 8px;
+}
+
+.admin-panel label.editor-add {
+	position: relative;
+	display: grid;
+	place-items: center;
+	align-content: center;
+	gap: 8px;
+	aspect-ratio: 4 / 5;
+	margin: 0;
+	overflow: hidden;
+	border: 1.5px dashed rgb(4 36 26 / 0.35);
+	border-radius: 6px;
+	background: rgb(4 36 26 / 0.03);
+	font-weight: 650;
+	cursor: pointer;
+	transition:
+		border-color 200ms var(--ease-out),
+		background-color 200ms var(--ease-out);
+}
+
+.editor-add svg {
+	width: 28px;
+	height: 28px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.75;
+	stroke-linecap: round;
+}
+
+.editor-add img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.editor-add:has(img) span {
+	position: relative;
+	margin-top: auto;
+	margin-bottom: 8px;
+	padding: 4px 10px;
+	border-radius: 999px;
+	background: var(--color-ivory);
+	font-size: var(--text-ui);
+}
+
+.editor-add:hover,
+.admin-drop-input:focus-visible + .editor-add {
+	border-color: var(--color-moss);
+	background: rgb(29 92 68 / 0.06);
+}
+
+.admin-drop-input:focus-visible + .editor-add {
+	outline: 2px solid var(--color-moss);
+	outline-offset: 2px;
+}
+
+.admin-panel form.editor-upload {
+	flex-flow: row wrap;
+	align-items: center;
+	gap: 10px 16px;
+	margin-top: 12px;
+}
+
+.editor-upload p {
+	flex: 1 1 220px;
+	margin: 0;
+	color: var(--color-ink-soft);
+	font-size: var(--text-stamp);
+	line-height: 1.45;
+}
+
+.admin-panel form.editor-upload > button {
+	width: auto;
+	margin: 0;
+}
+
+/* Details: three labelled groups, then a save bar that stays in reach while the form is in view. */
+.editor-form fieldset {
+	min-width: 0;
+	margin: 0;
+	padding: 0 0 4px;
+	border: 0;
+}
+
+.editor-form fieldset + fieldset {
+	margin-top: 26px;
+	border-top: 1px solid rgb(4 36 26 / 0.12);
+}
+
+.editor-form legend {
+	float: left;
+	width: 100%;
+	margin-bottom: 6px;
+	padding: 20px 0 0;
+	font-size: var(--text-body);
+	font-weight: 750;
+}
+
+.editor-form fieldset:first-of-type legend {
+	padding-top: 8px;
+}
+
+.editor-form legend + * {
+	clear: both;
+}
+
+.editor-form label {
+	display: block;
+}
+
+.admin-panel .editor-form .admin-form-pair {
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+}
+
+.editor-optional {
+	color: var(--color-ink-soft);
+	font-weight: 450;
+}
+
+.editor-savebar {
+	position: sticky;
+	bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+	z-index: 15;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 24px;
+	padding: 8px 8px 8px 18px;
+	border-radius: 14px;
+	background: var(--color-ink);
+	color: rgb(251 235 214 / 0.8);
+	box-shadow: 0 10px 28px rgb(4 36 26 / 0.25);
+}
+
+.editor-savebar p {
+	margin: 0;
+	font-size: var(--text-ui);
+}
+
+.editor-savebar .editor-unsaved {
+	color: var(--color-gold);
+	font-weight: 650;
+}
+
+.editor-savebar button {
+	flex-shrink: 0;
+	min-height: 48px;
+	padding: 0 22px;
+	border: 1px solid var(--color-gold);
+	border-radius: 999px;
+	background: var(--color-gold);
+	color: var(--color-ink);
+	font: inherit;
+	font-size: var(--text-ui);
+	font-weight: 750;
+	cursor: pointer;
+	touch-action: manipulation;
+	transition:
+		background-color 200ms var(--ease-out),
+		scale 160ms var(--ease-out);
+}
+
+.editor-savebar button:hover:not(:disabled) {
+	background: var(--color-ivory);
+}
+
+.editor-savebar button:active:not(:disabled) {
+	scale: 0.97;
+}
+
+.admin-editor .admin-feedback {
+	bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Publication: one clear action for a draft, a short stack of outline actions once live. */
+.editor-side .admin-hint + .admin-action {
+	margin-top: 14px;
+}
+
+.editor-actions {
+	display: grid;
+	gap: 10px;
+	margin-top: 14px;
+}
+
+.editor-actions .admin-action {
+	margin-top: 0;
+	text-decoration: none;
+}
+
+.editor-actions .admin-success {
+	margin: 0;
+}
+
+/* Rare actions fold away as ledger rows. */
+.editor-more details {
+	border-bottom: 1px solid rgb(4 36 26 / 0.12);
+}
+
+.editor-more summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 52px;
+	font-weight: 650;
+	cursor: pointer;
+	list-style: none;
+}
+
+.editor-more summary::-webkit-details-marker {
+	display: none;
+}
+
+.editor-more summary::after {
+	width: 8px;
+	height: 8px;
+	margin-right: 6px;
+	border-right: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	content: '';
+	rotate: 45deg;
+	translate: 0 -2px;
+	transition: rotate 200ms var(--ease-out);
+}
+
+.editor-more details[open] summary::after {
+	rotate: 225deg;
+	translate: 0 2px;
+}
+
+.editor-more summary:focus-visible {
+	outline: 2px solid var(--color-moss);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+.editor-more .editor-danger summary {
+	color: var(--color-rust);
+}
+
+.editor-disclosure {
+	padding-bottom: 20px;
+}
+
+.editor-disclosure > .admin-hint:first-child,
+.admin-panel .editor-disclosure > label:first-child {
+	margin-top: 0;
+}
+
+@media (max-width: 900px) {
+	.editor-layout {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.editor-more summary::after {
+		transition: none;
+	}
 }
