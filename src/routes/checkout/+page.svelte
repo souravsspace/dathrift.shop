@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { readCartIds } from '../../lib/cart/browser-cart';
+	import { BAG_EVENT, readCartIds } from '../../lib/cart/browser-cart';
 	import { addressSchema } from '../../lib/checkout/address';
 	import { leaveFor } from '../../lib/checkout/navigate';
 	import {
@@ -9,6 +10,7 @@
 		saveAddress,
 		type SavedAddress
 	} from '../../lib/checkout/saved-address';
+	import { groupAreas } from '../../lib/delivery-zones';
 	import { saveOrder } from '../../lib/orders/device-orders';
 	import SiteFooter from '../../lib/components/SiteFooter.svelte';
 	import Icon from '../../lib/components/Icon.svelte';
@@ -177,7 +179,11 @@
 			if (response.status === 409)
 				throw new Error('One of these pieces is no longer available. Please review your bag.');
 			if (!response.ok) throw new Error('Payment could not start. No money has been taken.');
-			const started = (await response.json()) as { redirect_url: string; status_url?: string };
+			const started = (await response.json()) as {
+				redirect_url?: string;
+				status_url?: string;
+				manual?: boolean;
+			};
 			const token = started.status_url?.split('/').pop();
 			// Remembered on this device only, so the buyer can find the order page again.
 			if (token)
@@ -190,7 +196,10 @@
 					created_at: new Date().toISOString()
 				});
 			window.localStorage.setItem('dathrift-cart', '[]');
-			leaveFor(started.redirect_url);
+			window.dispatchEvent(new Event(BAG_EVENT));
+			// Manual bKash: the order page shows where to send money; otherwise bKash's own page.
+			if (started.manual && started.status_url) await goto(started.status_url);
+			else if (started.redirect_url) leaveFor(started.redirect_url);
 		} catch (failure) {
 			error = (failure as Error).message;
 			paying = false;
@@ -334,10 +343,14 @@
 							aria-describedby={errors.areaKey ? 'area-error' : undefined}
 						>
 							<option value="" disabled>Choose an area</option>
-							{#each data.areas as area (`${area.district}/${area.area}`)}
-								<option value="{area.district}/{area.area}"
-									>{area.name} — {price(area.fee_bdt)} delivery</option
-								>
+							{#each groupAreas(data.areas) as group (group.label)}
+								<optgroup label={group.label}>
+									{#each group.areas as area (`${area.district}/${area.area}`)}
+										<option value="{area.district}/{area.area}"
+											>{area.name} — {price(area.fee_bdt)} delivery</option
+										>
+									{/each}
+								</optgroup>
 							{/each}
 						</select>
 						<Icon name="chevron-down" size={18} />
@@ -355,8 +368,10 @@
 						<span>Fill it in automatically next time</span>
 					</label>
 				</div>
-				<button class="button button-ink wide" type="submit" disabled={loading || paying}
-					>{loading ? 'Checking…' : 'Check total'}</button
+				<button
+					class="button wide {quote ? 'button-outline' : 'button-ink'}"
+					type="submit"
+					disabled={loading || paying}>{loading ? 'Checking…' : 'Check total'}</button
 				>
 			</form>
 			<aside class="summary card" aria-label="Order total">
@@ -383,14 +398,25 @@
 							type="button"
 							onclick={pay}
 							disabled={paying}
-							><Icon name="lock" size={18} />{paying
-								? 'Opening bKash…'
-								: `Pay ${price(quote.total_bdt)} with bKash`}</button
+							><Icon name="lock" size={18} />{data.manual_payment
+								? paying
+									? 'Holding your pieces…'
+									: 'Continue to bKash payment'
+								: paying
+									? 'Opening bKash…'
+									: `Pay ${price(quote.total_bdt)} with bKash`}</button
 						>
-						<p class="summary-note">
-							<Icon name="clock" size={16} />Your pieces are held for 15 minutes while bKash
-							confirms payment.
-						</p>
+						{#if data.manual_payment}
+							<p class="summary-note">
+								<Icon name="clock" size={16} />Next, send money by bKash. Your pieces are held for
+								30 minutes, and you can pay the full total or only the delivery charge.
+							</p>
+						{:else}
+							<p class="summary-note">
+								<Icon name="clock" size={16} />Your pieces are held for 15 minutes while bKash
+								confirms payment.
+							</p>
+						{/if}
 					{/if}
 				{:else}<p class="summary-note">
 						<Icon name="info" size={16} />Enter your address to see current prices and the delivery
