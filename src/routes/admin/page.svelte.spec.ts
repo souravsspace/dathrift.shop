@@ -1,38 +1,56 @@
 import { page } from 'vitest/browser';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { goto } from '$app/navigation';
 import AdminPage from './+page.svelte';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 
+beforeEach(async () => {
+	await page.viewport(1280, 900);
+});
+
 afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.mocked(goto).mockClear();
 });
 
-const rows = [
-	{
-		id: 'test-old',
-		slug: 'test-old-top',
-		name: 'TEST ONLY — Old top',
-		category: 'tops',
-		category_name: 'Tops',
-		price_bdt: 800,
-		publication_state: 'draft',
-		stock_state: 'available'
-	}
-];
+const row = (overrides: Record<string, unknown> = {}) => ({
+	id: 'test-old',
+	code: 'OC2026001',
+	slug: 'test-old-top',
+	name: 'TEST ONLY — Old top',
+	category: 'tops',
+	category_name: 'Tops',
+	price_bdt: 800,
+	publication_state: 'draft',
+	stock_state: 'available',
+	size_label: 'M',
+	cover_key: null,
+	...overrides
+});
+const listing = (items = [row()], extra: Record<string, unknown> = {}) => ({
+	items,
+	total: items.length,
+	page: 1,
+	page_size: 20,
+	counts: { draft: items.length, live: 0, sold: 0, held: 0 },
+	...extra
+});
 const categories = [
 	{ slug: 'bottoms', name: 'Bottoms', measurement_set: 'bottom' },
 	{ slug: 'tops', name: 'Tops', measurement_set: 'top' }
 ];
 
-function desk(overrides: Record<string, () => Response> = {}) {
-	const fetch = vi.fn(async (url: string, options?: RequestInit) => {
-		const key = `${options?.method ?? 'GET'} ${url}`;
-		if (overrides[key]) return overrides[key]();
-		if (key === 'GET /admin/api/products') return Response.json(rows);
+type Handler = (url: URL) => Response;
+
+// Routes each request by "METHOD path"; the list handler also sees the query string.
+function desk(overrides: Record<string, Handler> = {}) {
+	const fetch = vi.fn(async (input: string, options?: RequestInit) => {
+		const url = new URL(input, 'http://127.0.0.1');
+		const key = `${options?.method ?? 'GET'} ${url.pathname}`;
+		if (overrides[key]) return overrides[key](url);
+		if (key === 'GET /admin/api/products') return Response.json(listing());
 		if (key === 'GET /admin/api/categories') return Response.json(categories);
 		if (key === 'POST /admin/api/products')
 			return Response.json(
@@ -46,11 +64,17 @@ function desk(overrides: Record<string, () => Response> = {}) {
 	return fetch;
 }
 
+const listRequests = (fetch: ReturnType<typeof desk>) =>
+	fetch.mock.calls
+		.map(([input, options]) => ({ url: new URL(input, 'http://127.0.0.1'), options }))
+		.filter(({ url, options }) => url.pathname === '/admin/api/products' && !options?.method)
+		.map(({ url }) => Object.fromEntries(url.searchParams));
+
 it('fills the slug from the name, keeps a typed slug, and opens the new draft to finish it', async () => {
 	const fetch = desk();
 	await expect.element(page.getByRole('heading', { level: 1 })).toHaveTextContent('Product desk');
 	await expect.element(page.getByText('TEST ONLY — Old top')).toBeInTheDocument();
-	await expect.element(page.getByText('Tops / test-old-top')).toBeInTheDocument();
+	await expect.element(page.getByText('OC2026001 · Tops · Size M')).toBeInTheDocument();
 	await expect
 		.element(page.getByRole('link', { name: 'Edit TEST ONLY — Old top' }))
 		.toHaveAttribute('href', '/admin/products/test-old');
@@ -119,39 +143,69 @@ it('shows a list error instead of an empty desk when pieces cannot load', async 
 	await expect.element(page.getByText('No pieces yet')).not.toBeInTheDocument();
 });
 
-it('sorts the desk by state, finds a piece by name and shows its cover', async () => {
-	const piece = (id: string, name: string, extra: Record<string, unknown>) => ({
-		...rows[0],
-		id,
-		slug: `test-${id}`,
-		name,
-		cover_key: null,
-		...extra
+it('asks the server for one state, a search or the next twenty pieces', async () => {
+	const fetch = desk({
+		'GET /admin/api/products': (url) =>
+			Response.json(
+				listing(
+					[row({ cover_key: url.searchParams.get('page') === '2' ? null : 'products/a/1.webp' })],
+					{
+						total: 45,
+						page: Number(url.searchParams.get('page') ?? 1),
+						counts: { draft: 40, live: 3, sold: 2, held: 0 }
+					}
+				)
+			)
 	});
-	desk({
-		'GET /admin/api/products': () =>
-			Response.json([
-				piece('a', 'TEST ONLY — Linen shirt', { cover_key: 'products/a/1.webp' }),
-				piece('b', 'TEST ONLY — Wool coat', { publication_state: 'published' }),
-				piece('c', 'TEST ONLY — Denim skirt', {
-					publication_state: 'published',
-					stock_state: 'sold'
-				})
-			])
-	});
-	await expect.element(page.getByText('3 pieces · 1 live · 1 draft · 1 sold')).toBeInTheDocument();
 	await expect
-		.element(page.getByRole('img', { name: 'TEST ONLY — Linen shirt' }))
+		.element(page.getByText('45 pieces · 3 live · 40 drafts · 2 sold'))
+		.toBeInTheDocument();
+	await expect
+		.element(page.getByRole('img', { name: 'TEST ONLY — Old top' }))
 		.toHaveAttribute('src', '/media/products/a/1.webp');
-	const listed = () =>
-		[...document.querySelectorAll('.desk-row strong')].map((node) => node.textContent);
-	await page.getByRole('button', { name: 'Live 1' }).click();
-	expect(listed()).toEqual(['TEST ONLY — Wool coat']);
-	await page.getByRole('button', { name: 'Sold 1' }).click();
-	expect(listed()).toEqual(['TEST ONLY — Denim skirt']);
-	await page.getByRole('button', { name: 'All 3' }).click();
-	await page.getByRole('searchbox', { name: 'Find a piece' }).fill('linen');
-	expect(listed()).toEqual(['TEST ONLY — Linen shirt']);
+	await expect.element(page.getByText('1–20 of 45')).toBeInTheDocument();
+	await page.getByRole('button', { name: 'Older' }).click();
+	await expect.element(page.getByText('21–40 of 45')).toBeInTheDocument();
+	await page.getByRole('button', { name: 'Live 3' }).click();
+	await page.getByRole('searchbox', { name: 'Find a piece' }).fill('oc2026');
+	await vi.waitFor(() =>
+		expect(listRequests(fetch).at(-1)).toEqual({ page: '1', status: 'live', q: 'oc2026' })
+	);
+	expect(listRequests(fetch)).toContainEqual({ page: '2', status: 'all', q: '' });
+});
+
+it('says so when no piece matches', async () => {
+	desk({
+		'GET /admin/api/products': (url) =>
+			Response.json(
+				url.searchParams.get('q')
+					? listing([], { counts: { draft: 1, live: 0, sold: 0, held: 0 } })
+					: listing()
+			)
+	});
 	await page.getByRole('searchbox', { name: 'Find a piece' }).fill('velvet');
 	await expect.element(page.getByText('No pieces match.')).toBeInTheDocument();
+});
+
+it('opens New piece and Categories as sheets on a phone', async () => {
+	await page.viewport(390, 844);
+	desk();
+	await expect.element(page.getByText('TEST ONLY — Old top')).toBeInTheDocument();
+	await expect
+		.element(page.getByRole('textbox', { name: 'Name', exact: true }))
+		.not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'New piece' }).click();
+	const sheet = page.getByRole('dialog', { name: 'New piece' });
+	await expect.element(sheet).toBeVisible();
+	await expect.element(sheet.getByRole('textbox', { name: 'Name', exact: true })).toHaveFocus();
+	await sheet.getByRole('button', { name: 'Close' }).click();
+	await expect.element(sheet).not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Categories' }).click();
+	await expect
+		.element(
+			page
+				.getByRole('dialog', { name: 'Categories' })
+				.getByRole('textbox', { name: 'Category name' })
+		)
+		.toBeVisible();
 });
