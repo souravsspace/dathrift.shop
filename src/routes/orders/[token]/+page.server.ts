@@ -22,5 +22,5 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
 		error(503, 'Order status unavailable');
 	}
 	if (!order) error(404, 'Order not found');
-	return { order };
+	return { order, token: params.token };
 };
