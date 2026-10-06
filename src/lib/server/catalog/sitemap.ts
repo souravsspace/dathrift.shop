@@ -33,6 +33,8 @@ export async function sitemapEntries(db: Database): Promise<Entry[]> {
 	);
 	return [
 		{ path: '/', lastmod: day(latest) },
+		// The all-pieces shop page exists once there is indexable stock to list.
+		...(pieces.length ? [{ path: '/shop', lastmod: day(latest) }] : []),
 		...categories.map((row) => ({ path: `/shop/${row.category}`, lastmod: day(row.updatedAt) })),
 		...pieces.map((piece) => ({ path: `/products/${piece.slug}`, lastmod: day(piece.updatedAt) }))
 	];
