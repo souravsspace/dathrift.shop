@@ -205,10 +205,7 @@
 									>
 								</span>
 								<span class="suggestion-price">
-									{#if item.stock_state === 'sold'}<span class="badge badge-sold">Sold</span>
-									{:else if item.stock_state === 'reserved'}<span class="badge badge-held"
-											>On hold</span
-										>
+									{#if item.stock_state !== 'available'}<span class="badge badge-sold">Sold</span>
 									{:else}<span class="price">{formatBdt(item.price_bdt)}</span>{/if}
 								</span>
 							</a>
