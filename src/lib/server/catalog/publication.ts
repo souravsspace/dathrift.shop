@@ -5,14 +5,10 @@ type ProductForPublication = {
 	// The category's measurement set; null when the category does not exist.
 	measurement_set: MeasurementSet | null;
 	price_bdt: number;
-	description: string | null;
-	condition_notes: string | null;
-	size_label: string | null;
 	measurements_json: string | null;
-	fit_note: string | null;
 };
 
-type PhotoForPublication = { r2_key: string; alt_text: string };
+type PhotoForPublication = { r2_key: string };
 
 export const MAX_PHOTOS = 10;
 
@@ -31,19 +27,15 @@ export function publicationErrors(
 	if (!product.name.trim()) errors.push('name');
 	if (!product.measurement_set) errors.push('category');
 	if (!Number.isSafeInteger(product.price_bdt) || product.price_bdt <= 0) errors.push('price_bdt');
-	if (!product.description?.trim()) errors.push('description');
-	if (!product.condition_notes?.trim()) errors.push('condition_notes');
-	if (!product.size_label?.trim()) errors.push('size_label');
 	if (
 		product.measurement_set &&
 		!hasMeasurements(product.measurements_json, product.measurement_set)
 	)
 		errors.push('measurements_json');
-	if (!product.fit_note?.trim()) errors.push('fit_note');
 	if (
 		photos.length < 1 ||
 		photos.length > MAX_PHOTOS ||
-		photos.some((photo) => !photo.r2_key.trim() || !photo.alt_text.trim())
+		photos.some((photo) => !photo.r2_key.trim())
 	)
 		errors.push('photos');
 	return errors;
