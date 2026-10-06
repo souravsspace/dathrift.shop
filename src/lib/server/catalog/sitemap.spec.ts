@@ -12,6 +12,7 @@ it('lists indexable published pieces, including sold ones, with their real chang
 		       ('real-3', 'available');`);
 	expect((await sitemapEntries(db)).map((entry) => entry.path)).toEqual([
 		'/',
+		'/shop',
 		'/shop/outerwear',
 		'/shop/tops',
 		'/products/linen-shirt',
