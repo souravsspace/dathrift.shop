@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import { categories, homeFeature, inventory, productPhotos, products } from '../db/schema';
-import type { PublicListing } from './public-catalog';
+import { parseMeasurements, type PublicListing } from './public-catalog';
 
 export type HomeHero = PublicListing & { featured: boolean };
 
@@ -17,8 +17,10 @@ export async function homeHero(db: Database): Promise<HomeHero | null> {
 			category_name: categories.name,
 			price_bdt: products.priceBdt,
 			stock_state: inventory.state,
+			brand: products.brand,
 			size_label: products.sizeLabel,
 			condition_notes: products.conditionNotes,
+			measurements_json: products.measurementsJson,
 			photo_key: productPhotos.r2Key,
 			photo_alt: productPhotos.altText,
 			featured: sql<number>`${homeFeature.productId} IS NOT NULL`
@@ -34,7 +36,13 @@ export async function homeHero(db: Database): Promise<HomeHero | null> {
 		.where(and(eq(products.publicationState, 'published'), eq(inventory.state, 'available')))
 		.orderBy(asc(isNull(homeFeature.productId)), desc(products.createdAt), desc(products.id))
 		.get();
-	return row ? { ...row, featured: Boolean(row.featured) } : null;
+	if (!row) return null;
+	const { measurements_json, ...piece } = row;
+	return {
+		...piece,
+		measurements: parseMeasurements(measurements_json),
+		featured: Boolean(row.featured)
+	};
 }
 
 export async function featureOnHome(db: Database, id: string) {
