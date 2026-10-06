@@ -35,8 +35,10 @@ export async function staffEmailForRequest(
 	verify: VerifyAccess = verifyAccessJwt
 ): Promise<string | null> {
 	const url = new URL(request.url);
-	if (url.protocol !== 'https:' || !env.STAFF_HOST || url.hostname !== env.STAFF_HOST) return null;
-	if (!env.STAFF_EMAILS || !env.ACCESS_AUD || !env.ACCESS_TEAM_DOMAIN) return null;
+	if (url.protocol !== 'https:' || !env.STAFF_HOST || url.hostname !== env.STAFF_HOST)
+		return denied('not the staff host');
+	if (!env.STAFF_EMAILS || !env.ACCESS_AUD || !env.ACCESS_TEAM_DOMAIN)
+		return denied('staff settings missing');
 	const teamDomain = new URL(env.ACCESS_TEAM_DOMAIN);
 	if (
 		teamDomain.protocol !== 'https:' ||
@@ -45,16 +47,22 @@ export async function staffEmailForRequest(
 		teamDomain.search ||
 		teamDomain.hash
 	)
-		return null;
+		return denied('invalid team domain');
 	const token = request.headers.get('Cf-Access-Jwt-Assertion');
-	if (!token) return null;
+	if (!token) return denied('no Access token');
 	try {
 		const email = (await verify(token, teamDomain.origin, env.ACCESS_AUD))?.toLowerCase();
 		const allowed = env.STAFF_EMAILS.split(',').map((value) => value.trim().toLowerCase());
-		return email && allowed.includes(email) ? email : null;
-	} catch {
-		return null;
+		return email && allowed.includes(email) ? email : denied('email not in STAFF_EMAILS');
+	} catch (cause) {
+		return denied(`Access token rejected: ${(cause as { code?: string }).code ?? cause}`);
 	}
+}
+
+// Logs why staff access was refused, without the email or token, so a 403 can be traced.
+function denied(reason: string): null {
+	console.warn(`staff access denied: ${reason}`);
+	return null;
 }
 
 export function staffActorForRequest(
