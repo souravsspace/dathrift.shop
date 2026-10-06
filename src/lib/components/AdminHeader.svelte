@@ -3,7 +3,7 @@
 </script>
 
 <header class="admin-header">
-	<a class="admin-brand" href="/" aria-label="daThriftShop home">
+	<a class="admin-brand" href="/admin" aria-label="daThriftShop staff desk">
 		<img src="/brand/dathrift-logo.webp" alt="" width="32" height="32" />
 		<span>daThriftShop</span>
 		<small>Staff</small>
