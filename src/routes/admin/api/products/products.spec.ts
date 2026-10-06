@@ -21,11 +21,20 @@ it('keeps draft listing staff-only and returns local preview rows without public
 	} as Parameters<typeof GET>[0]);
 	expect(response.status).toBe(200);
 	expect(response.headers.get('Cache-Control')).toBe('no-store');
-	const rows = (await response.json()) as { id: string; publication_state: string }[];
-	expect(rows).toHaveLength(4);
-	expect(rows).toContainEqual(
+	const { items, total } = (await response.json()) as {
+		items: { id: string; publication_state: string }[];
+		total: number;
+	};
+	expect(total).toBe(4);
+	expect(items).toContainEqual(
 		expect.objectContaining({ id: 'test-draft', publication_state: 'draft' })
 	);
+	const live = await GET({
+		request: new Request('http://127.0.0.1:5173/admin/api/products?status=live&q=olive&page=1')
+	} as Parameters<typeof GET>[0]);
+	expect(((await live.json()) as { items: { id: string }[] }).items.map((row) => row.id)).toEqual([
+		'test-shirt'
+	]);
 });
 
 const input = {
