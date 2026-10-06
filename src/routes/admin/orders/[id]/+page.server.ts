@@ -4,6 +4,7 @@ import { databaseFrom } from '../../../../lib/server/db/client';
 import { getStaffOrder, recordFulfillment } from '../../../../lib/server/orders/admin';
 import { closeUnpaidOrder } from '../../../../lib/server/orders/lifecycle';
 import { verifyPayment } from '../../../../lib/server/payments/checkout';
+import { confirmManualPayment, rejectManualPayment } from '../../../../lib/server/payments/manual';
 import { paymentProviderFor } from '../../../../lib/server/payments/select';
 import { isOwnerActor, staffActorForRequest } from '../../../../lib/server/staff-auth';
 import type { Actions, PageServerLoad } from './$types';
@@ -46,6 +47,38 @@ export const actions: Actions = {
 				return fail(400, { error: 'Choose a state; dispatch needs a tracking code.' });
 			if (message === 'Order not paid' || message === 'Invalid fulfillment transition')
 				return fail(409, { error: 'Fulfillment can only move forward on a paid order.' });
+			return fail(503, { error: 'Orders unavailable.' });
+		}
+	},
+
+	// Owner or moderator: the buyer's bKash Send Money was found in the bKash app.
+	confirmManual: async ({ request, params }) => {
+		const { actor, db } = await staff(request);
+		const form = await request.formData();
+		if (form.get('confirm') !== 'found-in-bkash')
+			return fail(400, { error: 'Tick that you found this payment in the bKash app first.' });
+		try {
+			await confirmManualPayment(db, params.id, actor);
+			return { message: 'Payment confirmed. The order is paid and its pieces are sold.' };
+		} catch (failure) {
+			if (failure instanceof Error && failure.message === 'Nothing to confirm')
+				return fail(409, { error: 'This order has no bKash payment waiting for a check.' });
+			return fail(503, { error: 'Orders unavailable.' });
+		}
+	},
+
+	// Owner or moderator: no matching money in the bKash app, so the pieces go back on sale.
+	rejectManual: async ({ request, params }) => {
+		const { actor, db } = await staff(request);
+		const form = await request.formData();
+		if (form.get('confirm') !== 'not-in-bkash')
+			return fail(400, { error: 'Tick that you could not find this payment in bKash first.' });
+		try {
+			await rejectManualPayment(db, params.id, actor);
+			return { message: 'Order closed and pieces released.' };
+		} catch (failure) {
+			if (failure instanceof Error && failure.message === 'Nothing to reject')
+				return fail(409, { error: 'Only an order waiting for a payment check can be closed.' });
 			return fail(503, { error: 'Orders unavailable.' });
 		}
 	},
