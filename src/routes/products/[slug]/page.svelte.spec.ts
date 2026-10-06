@@ -10,6 +10,7 @@ const product = {
 	name: 'TEST ONLY — Sold denim jacket',
 	category: 'outerwear',
 	category_name: 'Outerwear',
+	code: 'OC2026004',
 	brand: null,
 	price_bdt: 1750,
 	stock_state: 'sold' as const,
@@ -92,4 +93,9 @@ it('lets a phone swipe through every photo, cover first, with a count and jump t
 		.element(page.getByRole('button', { name: 'Show photo 3: TEST ONLY view 3' }))
 		.toHaveAttribute('aria-pressed', 'true');
 	await expect.element(page.getByText('3 / 3')).toBeInTheDocument();
+});
+
+it('shows the piece ID buyers can quote when they message the shop', async () => {
+	render(ProductPage, { data: { product } });
+	await expect.element(page.getByText('Piece ID OC2026004')).toBeInTheDocument();
 });
