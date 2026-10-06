@@ -4,6 +4,7 @@ import { databaseErrorText } from '../db/errors';
 import {
 	deliveryAreas,
 	fulfillments,
+	manualPayments,
 	orderEvents,
 	orderItems,
 	orders,
@@ -140,7 +141,7 @@ export async function getStaffOrder(db: Database, id: string) {
 		.where(eq(orders.id, id))
 		.get();
 	if (!order) return null;
-	const [items, payment, fulfillment, events] = await Promise.all([
+	const [items, payment, fulfillment, events, manual] = await Promise.all([
 		db
 			.select({
 				name: products.name,
@@ -183,7 +184,21 @@ export async function getStaffOrder(db: Database, id: string) {
 			})
 			.from(orderEvents)
 			.where(eq(orderEvents.orderId, id))
-			.orderBy(asc(orderEvents.id))
+			.orderBy(asc(orderEvents.id)),
+		db
+			.select({
+				pay_to: manualPayments.payTo,
+				plan: manualPayments.plan,
+				amount_bdt: manualPayments.amountBdt,
+				trx_id: manualPayments.trxId,
+				sender_number: manualPayments.senderNumber,
+				submitted_at: manualPayments.submittedAt,
+				reviewed_by: manualPayments.reviewedBy,
+				reviewed_at: manualPayments.reviewedAt
+			})
+			.from(manualPayments)
+			.where(eq(manualPayments.orderId, id))
+			.get()
 	]);
 	const { address_json, ...rest } = order;
 	return {
@@ -198,6 +213,7 @@ export async function getStaffOrder(db: Database, id: string) {
 		},
 		items,
 		payment: payment ?? null,
+		manual: manual ?? null,
 		fulfillment: fulfillment ?? null,
 		events
 	};
