@@ -91,7 +91,8 @@ it('edits a live piece only while it stays complete and is not held in checkout'
 	const saved = await patch(shirt);
 	expect(saved.status).toBe(200);
 	expect(await saved.json()).toEqual({ id: 'test-shirt', publication_state: 'published' });
-	expect((await patch({ ...shirt, fit_note: null })).status).toBe(422);
+	expect((await patch({ ...shirt, fit_note: null })).status).toBe(200);
+	expect((await patch({ ...shirt, measurements_json: null })).status).toBe(422);
 	sqlite.exec("UPDATE inventory SET state = 'reserved' WHERE product_id = 'test-shirt'");
 	expect((await patch(shirt)).status).toBe(409);
 });
