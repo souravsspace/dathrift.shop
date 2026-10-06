@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import {
 	categories,
@@ -262,6 +262,7 @@ export async function unpublishProduct(db: Database, id: string) {
 
 const staffColumns = {
 	id: products.id,
+	code: products.code,
 	slug: products.slug,
 	name: products.name,
 	category: products.category,
@@ -274,21 +275,74 @@ const staffColumns = {
 	featured: sql<boolean>`${homeFeature.productId} IS NOT NULL`.mapWith(Boolean)
 };
 
-export async function listStaffProducts(db: Database) {
-	return db
-		.select({
-			...staffColumns,
-			size_label: products.sizeLabel,
-			cover_key: sql<string | null>`(SELECT ${productPhotos.r2Key} FROM ${productPhotos}
-				WHERE ${productPhotos.productId} = ${products.id} AND ${productPhotos.position} = 1)`
-		})
-		.from(products)
-		.innerJoin(inventory, eq(inventory.productId, products.id))
-		.leftJoin(categories, eq(categories.slug, products.category))
-		.leftJoin(homeFeature, eq(homeFeature.productId, products.id))
-		.where(notArchived)
-		.orderBy(desc(products.createdAt), desc(products.id))
-		.limit(100);
+export const PAGE_SIZE = 20;
+
+export type StaffStatus = 'draft' | 'live' | 'sold' | 'held';
+
+// One state per piece, in the order staff act on them; matches the desk filter tabs.
+const staffStatus = sql<StaffStatus>`CASE
+	WHEN ${inventory.state} = 'reserved' THEN 'held'
+	WHEN ${inventory.state} = 'sold' THEN 'sold'
+	WHEN ${products.publicationState} = 'published' THEN 'live'
+	ELSE 'draft' END`;
+
+// Staff type plain text; % and _ must not act as wildcards.
+export const containsText = (query: string) =>
+	`%${query
+		.trim()
+		.toLowerCase()
+		.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
+
+export async function listStaffProducts(
+	db: Database,
+	{
+		page = 1,
+		query = '',
+		status = 'all'
+	}: { page?: number; query?: string; status?: StaffStatus | 'all' } = {}
+) {
+	const pattern = containsText(query);
+	const matches = and(
+		notArchived,
+		query.trim()
+			? sql`(lower(${products.name}) LIKE ${pattern} ESCAPE '\\'
+				OR lower(coalesce(${products.code}, '')) LIKE ${pattern} ESCAPE '\\'
+				OR lower(${products.slug}) LIKE ${pattern} ESCAPE '\\')`
+			: undefined,
+		status === 'all' ? undefined : sql`${staffStatus} = ${status}`
+	);
+	const current = Math.max(1, Math.floor(page) || 1);
+	const [items, totals, statusRows] = await Promise.all([
+		db
+			.select({
+				...staffColumns,
+				size_label: products.sizeLabel,
+				cover_key: sql<string | null>`(SELECT ${productPhotos.r2Key} FROM ${productPhotos}
+					WHERE ${productPhotos.productId} = ${products.id} AND ${productPhotos.position} = 1)`
+			})
+			.from(products)
+			.innerJoin(inventory, eq(inventory.productId, products.id))
+			.leftJoin(categories, eq(categories.slug, products.category))
+			.leftJoin(homeFeature, eq(homeFeature.productId, products.id))
+			.where(matches)
+			.orderBy(desc(products.createdAt), desc(products.id))
+			.limit(PAGE_SIZE)
+			.offset((current - 1) * PAGE_SIZE),
+		db
+			.select({ total: count() })
+			.from(products)
+			.innerJoin(inventory, eq(inventory.productId, products.id))
+			.where(matches),
+		db
+			.select({ status: staffStatus, total: count() })
+			.from(products)
+			.innerJoin(inventory, eq(inventory.productId, products.id))
+			.where(notArchived)
+			.groupBy(staffStatus)
+	]);
+	const counts: Record<StaffStatus, number> = { draft: 0, live: 0, sold: 0, held: 0 };
+	for (const row of statusRows) counts[row.status] = row.total;
+	return { items, total: totals[0]?.total ?? 0, page: current, page_size: PAGE_SIZE, counts };
 }
 
 export async function getStaffProduct(db: Database, id: string) {
