@@ -11,6 +11,7 @@ import {
 	products
 } from '../db/schema';
 import { containsText } from '../catalog/admin';
+import { ORDER_FILTERS, type OrderFilter } from '../../order-stage';
 import { orderReference } from './status';
 
 const ORDER_PAGE_SIZE = 20;
@@ -43,13 +44,27 @@ const areaJoin = and(
 	eq(deliveryAreas.areaKey, addressField('area'))
 );
 
+// The orders list tab each order falls under; matches orderStage in $lib/order-stage.
+const orderFilter = sql<OrderFilter>`CASE
+	WHEN ${orders.status} = 'payment_review' THEN 'review'
+	WHEN ${orders.status} = 'pending_payment' THEN 'awaiting'
+	WHEN ${orders.status} = 'paid' AND coalesce(${fulfillments.state}, 'preparing') = 'preparing'
+		THEN 'to_ship'
+	WHEN ${orders.status} = 'paid' THEN 'shipped'
+	ELSE 'closed' END`;
+
 export async function listStaffOrders(
 	db: Database,
-	{ page = 1, query = '' }: { page?: number; query?: string } = {}
+	{
+		page = 1,
+		query = '',
+		filter = 'all'
+	}: { page?: number; query?: string; filter?: OrderFilter | 'all' } = {}
 ) {
-	const where = orderSearch(query);
+	const searched = orderSearch(query);
+	const where = and(searched, filter === 'all' ? undefined : sql`${orderFilter} = ${filter}`);
 	const current = Math.max(1, Math.floor(page) || 1);
-	const [rows, totals] = await Promise.all([
+	const [rows, totals, filterRows] = await Promise.all([
 		db
 			.select({
 				id: orders.id,
@@ -71,13 +86,32 @@ export async function listStaffOrders(
 			.orderBy(desc(orders.createdAt), desc(orders.id))
 			.limit(ORDER_PAGE_SIZE)
 			.offset((current - 1) * ORDER_PAGE_SIZE),
-		db.select({ total: count() }).from(orders).leftJoin(deliveryAreas, areaJoin).where(where)
+		db
+			.select({ total: count() })
+			.from(orders)
+			.leftJoin(fulfillments, eq(fulfillments.orderId, orders.id))
+			.leftJoin(deliveryAreas, areaJoin)
+			.where(where),
+		// Tab counts follow the search box.
+		db
+			.select({ filter: orderFilter, total: count() })
+			.from(orders)
+			.leftJoin(fulfillments, eq(fulfillments.orderId, orders.id))
+			.leftJoin(deliveryAreas, areaJoin)
+			.where(searched)
+			.groupBy(orderFilter)
 	]);
+	const counts = Object.fromEntries(ORDER_FILTERS.map((key) => [key, 0])) as Record<
+		OrderFilter,
+		number
+	>;
+	for (const row of filterRows) counts[row.filter] = row.total;
 	return {
 		items: rows.map((row) => ({ ...row, reference: orderReference(row.id) })),
 		total: totals[0]?.total ?? 0,
 		page: current,
-		page_size: ORDER_PAGE_SIZE
+		page_size: ORDER_PAGE_SIZE,
+		counts
 	};
 }
 
