@@ -126,3 +126,29 @@ it('pages orders twenty at a time and finds one by reference, buyer, phone, addr
 	expect(await found(code)).toEqual([ids[12]]);
 	expect(await found('_')).toEqual([]);
 });
+
+it('sorts orders into the tabs staff work from and counts each one', async () => {
+	const { db } = localDatabase();
+	const shipped = await paidOrder(db);
+	await recordFulfillment(db, shipped.id, 'staff@example.com', {
+		state: 'dispatched',
+		courier: 'Steadfast',
+		tracking_code: 'TEST-TRACK-1'
+	});
+	const review = await reserveCheckout(db, ['test-dress'], address, true);
+	await holdForReview(db, review.id);
+	const { counts } = await listStaffOrders(db);
+	expect(counts).toEqual({ review: 1, to_ship: 0, shipped: 1, awaiting: 0, closed: 0 });
+	const ids = async (filter: 'review' | 'shipped' | 'to_ship') =>
+		(await listStaffOrders(db, { filter })).items.map((row) => row.id);
+	expect(await ids('review')).toEqual([review.id]);
+	expect(await ids('shipped')).toEqual([shipped.id]);
+	expect(await ids('to_ship')).toEqual([]);
+	expect((await listStaffOrders(db, { query: 'nobody' })).counts).toEqual({
+		review: 0,
+		to_ship: 0,
+		shipped: 0,
+		awaiting: 0,
+		closed: 0
+	});
+});
