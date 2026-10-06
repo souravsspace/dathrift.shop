@@ -7,8 +7,9 @@ import {
 	getStaffProduct,
 	listStaffProducts,
 	publishProduct,
+	removeProduct,
 	unpublishProduct,
-	updateDraftDetails
+	updateProductDetails
 } from './admin';
 
 it('creates one private draft and available unit atomically, rejecting invalid input', async () => {
@@ -52,7 +53,7 @@ it('publishes a piece whose category needs no measurements', async () => {
 	db.close();
 });
 
-it('publishes only a complete photographed draft and can unpublish an available piece', async () => {
+it('publishes only a complete photographed draft and can unpublish any piece not held in checkout', async () => {
 	const { db: d1, sqlite: db } = localDatabase({ seed: false });
 	db.exec(
 		"INSERT INTO products (id, slug, name, category, price_bdt) VALUES ('a', 'test-top', 'TEST ONLY — Top', 'tops', 500)"
@@ -77,38 +78,125 @@ it('publishes only a complete photographed draft and can unpublish an available 
 	expect(await unpublishProduct(d1, 'a')).toEqual({ id: 'a', publication_state: 'draft' });
 	db.exec("UPDATE products SET publication_state = 'published' WHERE id = 'a'");
 	db.exec("UPDATE inventory SET state = 'sold' WHERE product_id = 'a'");
-	await expect(unpublishProduct(d1, 'a')).rejects.toThrow('Product not available');
+	expect(await unpublishProduct(d1, 'a')).toEqual({ id: 'a', publication_state: 'draft' });
+	db.exec("UPDATE products SET publication_state = 'published' WHERE id = 'a'");
+	db.exec("UPDATE inventory SET state = 'reserved' WHERE product_id = 'a'");
+	await expect(unpublishProduct(d1, 'a')).rejects.toThrow('Product held');
 	db.close();
 });
 
+const reworkedSkirt = {
+	name: 'TEST ONLY — Reworked skirt',
+	category: 'bottoms',
+	price_bdt: 875,
+	brand: null,
+	description: 'A local fixture.',
+	condition_notes: 'Small mark at hem.',
+	size_label: 'M',
+	measurements_json: '{"waist_in":30.5,"inseam_in":27.5}',
+	fit_note: 'Relaxed through the leg.'
+};
+
 it('updates a draft garment without changing its stable slug or publication state', async () => {
 	const { db: d1, sqlite: db } = localDatabase({ seed: true });
-	const details = {
-		name: 'TEST ONLY — Reworked skirt',
-		category: 'bottoms',
-		price_bdt: 875,
-		brand: null,
-		description: 'A local fixture.',
-		condition_notes: 'Small mark at hem.',
-		size_label: 'M',
-		measurements_json: '{"waist_in":30.5,"inseam_in":27.5}',
-		fit_note: 'Relaxed through the leg.'
-	};
-	await expect(updateDraftDetails(d1, 'test-draft', { ...details, price_bdt: 0 })).rejects.toThrow(
-		'Invalid details'
-	);
-	await updateDraftDetails(d1, 'test-draft', details);
+	await expect(
+		updateProductDetails(d1, 'test-draft', { ...reworkedSkirt, price_bdt: 0 })
+	).rejects.toThrow('Invalid details');
+	await updateProductDetails(d1, 'test-draft', reworkedSkirt);
 	expect(
 		db
 			.prepare('SELECT slug, name, price_bdt, publication_state FROM products WHERE id = ?')
 			.get('test-draft')
 	).toEqual({
 		slug: 'test-unpublished-skirt',
-		name: details.name,
+		name: reworkedSkirt.name,
 		price_bdt: 875,
 		publication_state: 'draft'
 	});
-	await expect(updateDraftDetails(d1, 'test-shirt', details)).rejects.toThrow('Draft not found');
+	await expect(updateProductDetails(d1, 'missing', reworkedSkirt)).rejects.toThrow(
+		'Product not found'
+	);
+	db.close();
+});
+
+it('edits a live piece in place while it stays complete and is not held in checkout', async () => {
+	const { db: d1, sqlite: db } = localDatabase({ seed: true });
+	const shirt = {
+		...reworkedSkirt,
+		name: 'TEST ONLY — Olive shirt, relabelled',
+		category: 'tops',
+		price_bdt: 800,
+		measurements_json: '{"chest_in":41.5,"length_in":28.5}'
+	};
+	expect(await updateProductDetails(d1, 'test-shirt', shirt)).toEqual({
+		id: 'test-shirt',
+		publication_state: 'published'
+	});
+	expect(
+		db
+			.prepare('SELECT name, price_bdt, publication_state FROM products WHERE id = ?')
+			.get('test-shirt')
+	).toEqual({ name: shirt.name, price_bdt: 800, publication_state: 'published' });
+	// A live page may not lose the details a buyer relies on.
+	await expect(
+		updateProductDetails(d1, 'test-shirt', { ...shirt, condition_notes: null })
+	).rejects.toThrow('Incomplete product');
+	await expect(
+		updateProductDetails(d1, 'test-shirt', { ...shirt, measurements_json: null })
+	).rejects.toThrow('Incomplete product');
+	db.exec("UPDATE inventory SET state = 'reserved' WHERE product_id = 'test-shirt'");
+	await expect(updateProductDetails(d1, 'test-shirt', shirt)).rejects.toThrow('Product held');
+	db.close();
+});
+
+it('deletes a never-sold piece outright and archives one with sales history', async () => {
+	const { db: d1, sqlite: db } = localDatabase({ seed: true });
+	const removed: string[] = [];
+	const bucket = { delete: async (key: string) => void removed.push(key) };
+
+	expect(await removeProduct(d1, bucket, 'test-draft')).toEqual({ outcome: 'deleted' });
+	expect(db.prepare("SELECT COUNT(*) AS n FROM products WHERE id = 'test-draft'").get()).toEqual({
+		n: 0
+	});
+	expect(
+		db.prepare("SELECT COUNT(*) AS n FROM product_photos WHERE product_id = 'test-draft'").get()
+	).toEqual({ n: 0 });
+	expect(removed).toEqual(['test-only/unpublished-skirt.svg']);
+
+	removed.length = 0;
+	expect(await removeProduct(d1, bucket, 'test-sold')).toEqual({ outcome: 'archived' });
+	expect(
+		db
+			.prepare(
+				"SELECT publication_state, archived_at IS NOT NULL AS archived FROM products WHERE id = 'test-sold'"
+			)
+			.get()
+	).toEqual({ publication_state: 'draft', archived: 1 });
+	expect(removed).toEqual([]);
+	expect(await getStaffProduct(d1, 'test-sold')).toBeNull();
+	expect((await listStaffProducts(d1)).map((row) => row.id)).not.toContain('test-sold');
+	await expect(updateProductDetails(d1, 'test-sold', reworkedSkirt)).rejects.toThrow(
+		'Product not found'
+	);
+
+	// The featured piece stops leading the home page when it is archived or deleted.
+	expect(await removeProduct(d1, bucket, 'test-dress')).toEqual({ outcome: 'deleted' });
+	expect(db.prepare('SELECT COUNT(*) AS n FROM home_feature').get()).toEqual({ n: 0 });
+
+	db.exec("UPDATE inventory SET state = 'reserved' WHERE product_id = 'test-shirt'");
+	await expect(removeProduct(d1, bucket, 'test-shirt')).rejects.toThrow('Product held');
+	await expect(removeProduct(d1, bucket, 'missing')).rejects.toThrow('Product not found');
+	db.close();
+});
+
+it('archives rather than deletes a piece that was ever ordered or sold elsewhere', async () => {
+	const { db: d1, sqlite: db } = localDatabase({ seed: true });
+	const bucket = { delete: async () => undefined };
+	db.exec(
+		"INSERT INTO external_sales (id, product_id, actor_email, reason) VALUES ('s1', 'test-shirt', 'owner@example.com', 'TEST ONLY market stall')"
+	);
+	expect(await removeProduct(d1, bucket, 'test-shirt')).toEqual({ outcome: 'archived' });
+	expect(await getStaffProduct(d1, 'test-dress')).toMatchObject({ has_history: false });
 	db.close();
 });
 
@@ -120,7 +208,9 @@ it('lists every staff piece and reads one with ordered private photo metadata', 
 		expect.objectContaining({
 			id: 'test-draft',
 			publication_state: 'draft',
-			stock_state: 'available'
+			stock_state: 'available',
+			size_label: 'M',
+			cover_key: 'test-only/unpublished-skirt.svg'
 		})
 	);
 	expect(await getStaffProduct(db, 'test-draft')).toMatchObject({
