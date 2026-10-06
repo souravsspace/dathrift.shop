@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import AdminHeader from '../../lib/components/AdminHeader.svelte';
+	import AdminPager from '../../lib/components/AdminPager.svelte';
 	import { slugify } from '../../lib/slug';
 	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 
 	type ProductRow = {
 		id: string;
+		code: string | null;
 		slug: string;
 		name: string;
 		category: string;
@@ -19,6 +21,13 @@
 		cover_key?: string | null;
 	};
 	type Status = 'draft' | 'live' | 'sold' | 'held';
+	type Listing = {
+		items: ProductRow[];
+		total: number;
+		page: number;
+		page_size: number;
+		counts: Record<Status, number>;
+	};
 	type MeasurementSet = 'top' | 'bottom' | 'none';
 	type Category = { slug: string; name: string; measurement_set: MeasurementSet };
 
@@ -27,9 +36,23 @@
 		bottom: 'Waist and inseam',
 		none: 'No measurements'
 	};
+	const statusLabels: Record<Status, string> = {
+		draft: 'Draft',
+		live: 'Live',
+		sold: 'Sold',
+		held: 'Held'
+	};
+	const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+	const taka = new Intl.NumberFormat('en-BD');
 
 	let { data }: { data: PageData } = $props();
-	let products = $state<ProductRow[]>([]);
+	let listing = $state<Listing>({
+		items: [],
+		total: 0,
+		page: 1,
+		page_size: 20,
+		counts: { draft: 0, live: 0, sold: 0, held: 0 }
+	});
 	let categories = $state<Category[]>([]);
 	let loading = $state(true);
 	let listError = $state('');
@@ -48,8 +71,29 @@
 	let categoryError = $state('');
 	let filter = $state<Status | 'all'>('all');
 	let query = $state('');
+	let page = $state(1);
+	// Phones get the forms as sheets behind buttons; null until the screen size is known.
+	let compact = $state<boolean | null>(null);
+	let sheet = $state<'new' | 'categories' | null>(null);
+	let latestRequest = 0;
+	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
-	// One state per piece, in the order staff act on them.
+	let allCount = $derived(Object.values(listing.counts).reduce((sum, value) => sum + value, 0));
+	let filters = $derived(
+		(['all', 'draft', 'live', 'sold', 'held'] as const).filter(
+			(key) => key !== 'held' || listing.counts.held > 0
+		)
+	);
+	let summary = $derived(
+		[
+			plural(allCount, 'piece'),
+			`${listing.counts.live} live`,
+			plural(listing.counts.draft, 'draft'),
+			`${listing.counts.sold} sold`,
+			...(listing.counts.held ? [`${listing.counts.held} held`] : [])
+		].join(' · ')
+	);
+
 	const statusOf = (product: ProductRow): Status =>
 		product.stock_state === 'reserved'
 			? 'held'
@@ -58,55 +102,50 @@
 				: product.publication_state === 'published'
 					? 'live'
 					: 'draft';
-	const statusLabels: Record<Status, string> = {
-		draft: 'Draft',
-		live: 'Live',
-		sold: 'Sold',
-		held: 'Held'
-	};
-	const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
-	const taka = new Intl.NumberFormat('en-BD');
-
-	let counts = $derived(
-		products.reduce(
-			(total, product) => ({ ...total, [statusOf(product)]: total[statusOf(product)] + 1 }),
-			{ draft: 0, live: 0, sold: 0, held: 0 } as Record<Status, number>
-		)
-	);
-	let filters = $derived(
-		(['all', 'draft', 'live', 'sold', 'held'] as const).filter(
-			(key) => key === 'all' || key !== 'held' || counts.held > 0
-		)
-	);
-	let shown = $derived(
-		products.filter(
-			(product) =>
-				(filter === 'all' || statusOf(product) === filter) &&
-				product.name.toLowerCase().includes(query.trim().toLowerCase())
-		)
-	);
-	let summary = $derived(
+	const details = (product: ProductRow) =>
 		[
-			plural(products.length, 'piece'),
-			`${counts.live} live`,
-			plural(counts.draft, 'draft'),
-			`${counts.sold} sold`,
-			...(counts.held ? [`${counts.held} held`] : [])
-		].join(' · ')
-	);
+			product.code,
+			product.category_name ?? product.category,
+			product.size_label ? `Size ${product.size_label}` : null
+		]
+			.filter(Boolean)
+			.join(' · ');
 
 	async function loadProducts() {
+		const request = ++latestRequest;
 		loading = true;
 		listError = '';
 		try {
-			const response = await fetch('/admin/api/products');
+			const params = new URLSearchParams({ page: String(page), status: filter, q: query.trim() });
+			const response = await fetch(`/admin/api/products?${params}`);
 			if (!response.ok) throw new Error('Could not load products.');
-			products = await response.json();
+			const next = (await response.json()) as Listing;
+			// A slower, older response must not replace the list staff asked for last.
+			if (request === latestRequest) listing = next;
 		} catch {
-			listError = 'Could not load pieces. Refresh to try again.';
+			if (request === latestRequest) listError = 'Could not load pieces. Refresh to try again.';
 		} finally {
-			loading = false;
+			if (request === latestRequest) loading = false;
 		}
+	}
+
+	function showFilter(next: Status | 'all') {
+		filter = next;
+		page = 1;
+		void loadProducts();
+	}
+
+	function showPage(next: number) {
+		page = next;
+		void loadProducts();
+	}
+
+	function search() {
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(() => {
+			page = 1;
+			void loadProducts();
+		}, 250);
 	}
 
 	async function loadCategories() {
@@ -121,9 +160,26 @@
 	}
 
 	onMount(() => {
+		const phone = window.matchMedia('(max-width: 900px)');
+		const fit = () => {
+			compact = phone.matches;
+			if (!compact) sheet = null;
+		};
+		fit();
+		phone.addEventListener('change', fit);
 		void loadProducts();
 		void loadCategories();
+		return () => {
+			phone.removeEventListener('change', fit);
+			clearTimeout(searchTimer);
+		};
 	});
+
+	// A native modal dialog: focus moves in, Escape closes it, the page behind stays inert.
+	function openSheet(node: HTMLDialogElement) {
+		node.showModal();
+		node.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+	}
 
 	function nameInput() {
 		if (!slugTouched) slug = slugify(name);
@@ -214,72 +270,129 @@
 			</div>
 		{/if}
 
-		<div class="desk">
-			<section class="admin-panel desk-new" aria-labelledby="create-title">
-				<div class="admin-panel-heading">
-					<h2 id="create-title">New piece</h2>
-					<p>Start with the basics. Photos, measurements and the rest come next.</p>
-				</div>
-				<form onsubmit={createDraft}>
-					<label for="draft-name">Name</label>
+		{#snippet newPieceForm()}
+			<div class="admin-panel-heading">
+				<h2 id="create-title">New piece</h2>
+				<p>Start with the basics. Photos, measurements and the rest come next.</p>
+			</div>
+			<form onsubmit={createDraft}>
+				<label for="draft-name">Name</label>
+				<input
+					id="draft-name"
+					bind:value={name}
+					oninput={nameInput}
+					maxlength="160"
+					required
+					placeholder="e.g. Green linen shirt"
+					data-autofocus
+				/>
+				<label for="draft-slug">Slug</label>
+				<div class="admin-affix">
+					<span aria-hidden="true">/products/</span>
 					<input
-						id="draft-name"
-						bind:value={name}
-						oninput={nameInput}
+						id="draft-slug"
+						bind:value={slug}
+						oninput={() => (slugTouched = true)}
 						maxlength="160"
 						required
-						placeholder="e.g. Green linen shirt"
+						pattern="[a-z0-9]+(-[a-z0-9]+)*"
+						autocapitalize="none"
+						spellcheck="false"
+						aria-describedby="draft-slug-hint"
 					/>
-					<label for="draft-slug">Slug</label>
-					<div class="admin-affix">
-						<span aria-hidden="true">/products/</span>
-						<input
-							id="draft-slug"
-							bind:value={slug}
-							oninput={() => (slugTouched = true)}
-							maxlength="160"
-							required
-							pattern="[a-z0-9]+(-[a-z0-9]+)*"
-							autocapitalize="none"
-							spellcheck="false"
-							aria-describedby="draft-slug-hint"
-						/>
+				</div>
+				<p class="admin-hint" id="draft-slug-hint">
+					Made from the name. Change it freely until the piece goes live.
+				</p>
+				<div class="admin-form-pair">
+					<div>
+						<label for="draft-category">Category</label>
+						<select id="draft-category" bind:value={category} required>
+							{#each categories as item (item.slug)}
+								<option value={item.slug}>{item.name}</option>
+							{/each}
+						</select>
 					</div>
-					<p class="admin-hint" id="draft-slug-hint">
-						Made from the name. Change it freely until the piece goes live.
-					</p>
-					<div class="admin-form-pair">
-						<div>
-							<label for="draft-category">Category</label>
-							<select id="draft-category" bind:value={category} required>
-								{#each categories as item (item.slug)}
-									<option value={item.slug}>{item.name}</option>
-								{/each}
-							</select>
-						</div>
-						<div>
-							<label for="draft-price">Price (৳)</label>
-							<div class="admin-affix">
-								<span aria-hidden="true">৳</span>
-								<input
-									id="draft-price"
-									type="number"
-									inputmode="numeric"
-									min="1"
-									step="1"
-									bind:value={price}
-									required
-									placeholder="1200"
-								/>
-							</div>
+					<div>
+						<label for="draft-price">Price (৳)</label>
+						<div class="admin-affix">
+							<span aria-hidden="true">৳</span>
+							<input
+								id="draft-price"
+								type="number"
+								inputmode="numeric"
+								min="1"
+								step="1"
+								bind:value={price}
+								required
+								placeholder="1200"
+							/>
 						</div>
 					</div>
-					<button type="submit" disabled={saving || !category}
-						>{saving ? 'Creating…' : 'Create draft'}</button
-					>
-					{#if error}<p class="admin-error" role="alert">{error}</p>{/if}
-				</form>
-			</section>
+				</div>
+				<button type="submit" disabled={saving || !category}
+					>{saving ? 'Creating…' : 'Create draft'}</button
+				>
+				{#if error}<p class="admin-error" role="alert">{error}</p>{/if}
+			</form>
+		{/snippet}
+
+		{#snippet categoriesPanel()}
+			<div class="admin-panel-heading">
+				<h2 id="categories-title">Categories</h2>
+				<p>Each one asks for the measurements its pieces need before going live.</p>
+			</div>
+			<ul class="admin-categories">
+				{#each categories as item (item.slug)}
+					<li>
+						<strong>{item.name}</strong>
+						<small>{measurementLabels[item.measurement_set]}</small>
+					</li>
+				{/each}
+			</ul>
+			<form onsubmit={addCategory}>
+				<label for="category-name">Category name</label>
+				<input
+					id="category-name"
+					bind:value={categoryName}
+					maxlength="60"
+					required
+					placeholder="e.g. Sarees"
+				/>
+				<fieldset class="admin-choices">
+					<legend>Measurements</legend>
+					{#each Object.entries(measurementLabels) as [set, label] (set)}
+						<label class="admin-choice">
+							<input type="radio" name="measurement-set" value={set} bind:group={measurementSet} />
+							<span>{label}</span>
+						</label>
+					{/each}
+				</fieldset>
+				<button type="submit" class="admin-action-outline" disabled={addingCategory}
+					>{addingCategory ? 'Adding…' : 'Add category'}</button
+				>
+				{#if categoryMessage}<p class="admin-success" role="status">{categoryMessage}</p>{/if}
+				{#if categoryError}<p class="admin-error" role="alert">{categoryError}</p>{/if}
+			</form>
+		{/snippet}
+
+		{#if compact}
+			<div class="desk-actions">
+				<button type="button" class="desk-action-primary" onclick={() => (sheet = 'new')}
+					>New piece</button
+				>
+				<button type="button" class="desk-action-secondary" onclick={() => (sheet = 'categories')}
+					>Categories</button
+				>
+			</div>
+		{/if}
+
+		<div class="desk" class:desk-compact={compact}>
+			{#if compact === false}
+				<section class="admin-panel desk-new" aria-labelledby="create-title">
+					{@render newPieceForm()}
+				</section>
+			{/if}
 
 			<section class="admin-panel desk-list" aria-labelledby="list-title">
 				<div class="desk-toolbar">
@@ -288,8 +401,9 @@
 						class="desk-search"
 						type="search"
 						aria-label="Find a piece"
-						placeholder="Find a piece"
+						placeholder="Name or ID, e.g. OC2026001"
 						bind:value={query}
+						oninput={search}
 					/>
 					<button type="button" class="desk-refresh" onclick={loadProducts} disabled={loading}
 						>Refresh</button
@@ -297,23 +411,23 @@
 				</div>
 				<div class="desk-filters" role="group" aria-label="Show pieces">
 					{#each filters as key (key)}
-						<button type="button" aria-pressed={filter === key} onclick={() => (filter = key)}
+						<button type="button" aria-pressed={filter === key} onclick={() => showFilter(key)}
 							>{key === 'all' ? 'All' : statusLabels[key]}
-							<span>{key === 'all' ? products.length : counts[key]}</span></button
+							<span>{key === 'all' ? allCount : listing.counts[key]}</span></button
 						>
 					{/each}
 				</div>
-				{#if loading}
-					<p class="admin-list-state">Loading the rack…</p>
-				{:else if listError}
+				{#if listError}
 					<p class="admin-error" role="alert">{listError}</p>
-				{:else if products.length === 0}
+				{:else if loading && listing.items.length === 0}
+					<p class="admin-list-state">Loading the rack…</p>
+				{:else if allCount === 0}
 					<p class="admin-list-state">No pieces yet. Create the first draft.</p>
-				{:else if shown.length === 0}
+				{:else if listing.items.length === 0}
 					<p class="admin-list-state">No pieces match.</p>
 				{:else}
-					<ul class="desk-rows">
-						{#each shown as product (product.id)}
+					<ul class="desk-rows" aria-busy={loading}>
+						{#each listing.items as product (product.id)}
 							<li>
 								<a
 									class="desk-row"
@@ -329,7 +443,7 @@
 										/>{:else}<span class="desk-no-photo">No photo</span>{/if}
 									<span class="desk-row-text">
 										<strong>{product.name}</strong>
-										<small>{product.category_name ?? product.category} / {product.slug}</small>
+										<small>{details(product)}</small>
 									</span>
 									<span class="desk-row-price">৳{taka.format(product.price_bdt)}</span>
 									<span class="desk-row-state">
@@ -343,51 +457,32 @@
 						{/each}
 					</ul>
 				{/if}
+				<AdminPager
+					page={listing.page}
+					pageSize={listing.page_size}
+					total={listing.total}
+					label="Pieces"
+					onchange={showPage}
+				/>
 			</section>
 
-			<section class="admin-panel desk-categories" aria-labelledby="categories-title">
-				<div class="admin-panel-heading">
-					<h2 id="categories-title">Categories</h2>
-					<p>Each one asks for the measurements its pieces need before going live.</p>
-				</div>
-				<ul class="admin-categories">
-					{#each categories as item (item.slug)}
-						<li>
-							<strong>{item.name}</strong>
-							<small>{measurementLabels[item.measurement_set]}</small>
-						</li>
-					{/each}
-				</ul>
-				<form onsubmit={addCategory}>
-					<label for="category-name">Category name</label>
-					<input
-						id="category-name"
-						bind:value={categoryName}
-						maxlength="60"
-						required
-						placeholder="e.g. Sarees"
-					/>
-					<fieldset class="admin-choices">
-						<legend>Measurements</legend>
-						{#each Object.entries(measurementLabels) as [set, label] (set)}
-							<label class="admin-choice">
-								<input
-									type="radio"
-									name="measurement-set"
-									value={set}
-									bind:group={measurementSet}
-								/>
-								<span>{label}</span>
-							</label>
-						{/each}
-					</fieldset>
-					<button type="submit" class="admin-action-outline" disabled={addingCategory}
-						>{addingCategory ? 'Adding…' : 'Add category'}</button
-					>
-					{#if categoryMessage}<p class="admin-success" role="status">{categoryMessage}</p>{/if}
-					{#if categoryError}<p class="admin-error" role="alert">{categoryError}</p>{/if}
-				</form>
-			</section>
+			{#if compact === false}
+				<section class="admin-panel desk-categories" aria-labelledby="categories-title">
+					{@render categoriesPanel()}
+				</section>
+			{/if}
 		</div>
+
+		{#if sheet}
+			<dialog
+				class="desk-sheet admin-panel"
+				aria-labelledby={sheet === 'new' ? 'create-title' : 'categories-title'}
+				{@attach openSheet}
+				onclose={() => (sheet = null)}
+			>
+				<button type="button" class="desk-sheet-close" onclick={() => (sheet = null)}>Close</button>
+				{#if sheet === 'new'}{@render newPieceForm()}{:else}{@render categoriesPanel()}{/if}
+			</dialog>
+		{/if}
 	</main>
 </div>
