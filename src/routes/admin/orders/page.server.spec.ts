@@ -10,7 +10,9 @@ afterEach(() => {
 });
 
 const event = (url: string, setHeaders = vi.fn()) =>
-	({ request: new Request(url), setHeaders }) as unknown as Parameters<typeof load>[0];
+	({ request: new Request(url), url: new URL(url), setHeaders }) as unknown as Parameters<
+		typeof load
+	>[0];
 
 it('lists orders only for staff, uncached', async () => {
 	await expect(load(event('https://dathrift.shop/admin/orders'))).rejects.toMatchObject({
@@ -32,9 +34,15 @@ it('lists orders only for staff, uncached', async () => {
 	);
 	const setHeaders = vi.fn();
 	const data = (await load(event('http://127.0.0.1:5173/admin/orders', setHeaders))) as {
-		orders: { status: string; total_bdt: number }[];
+		items: { status: string; total_bdt: number }[];
+		total: number;
 	};
-	expect(data.orders).toHaveLength(1);
-	expect(data.orders[0]).toMatchObject({ status: 'pending_payment', total_bdt: 930 });
+	expect(data.total).toBe(1);
+	expect(data.items[0]).toMatchObject({ status: 'pending_payment', total_bdt: 930 });
+	const searched = (await load(event('http://127.0.0.1:5173/admin/orders?q=nobody&page=1'))) as {
+		items: unknown[];
+		query: string;
+	};
+	expect(searched).toMatchObject({ items: [], query: 'nobody' });
 	expect(setHeaders).toHaveBeenCalledWith({ 'Cache-Control': 'no-store' });
 });
