@@ -1,6 +1,14 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
-import { deliveryAreas, fulfillments, orderItems, orders, payments, products } from '../db/schema';
+import {
+	deliveryAreas,
+	fulfillments,
+	manualPayments,
+	orderItems,
+	orders,
+	payments,
+	products
+} from '../db/schema';
 import type { OrderStatus } from './lifecycle';
 
 export type OrderSummary = {
@@ -16,7 +24,18 @@ export type OrderSummary = {
 	expires_at: string;
 	fulfillment: { state: string; courier: string | null; tracking_code: string | null } | null;
 	items: { name: string; slug: string; price_bdt: number }[];
+	/** Manual bKash Send Money: where to pay and, once sent, what the buyer reported. */
+	manual: {
+		pay_to: string;
+		plan: 'full' | 'delivery' | null;
+		amount_bdt: number | null;
+		trx_id: string | null;
+		sender_hint: string | null;
+		submitted_at: string | null;
+	} | null;
 };
+
+const hint = (phone: string) => `${'•'.repeat(Math.max(phone.length - 3, 0))}${phone.slice(-3)}`;
 
 export const orderReference = (orderId: string) => orderId.slice(0, 8).toUpperCase();
 
@@ -40,7 +59,13 @@ export async function orderForStatusToken(
 			area: deliveryAreas.displayName,
 			fulfillmentState: fulfillments.state,
 			courier: fulfillments.courier,
-			trackingCode: fulfillments.trackingCode
+			trackingCode: fulfillments.trackingCode,
+			payTo: manualPayments.payTo,
+			plan: manualPayments.plan,
+			paidAmount: manualPayments.amountBdt,
+			trxId: manualPayments.trxId,
+			sender: manualPayments.senderNumber,
+			submittedAt: manualPayments.submittedAt
 		})
 		.from(orders)
 		.leftJoin(
@@ -51,6 +76,7 @@ export async function orderForStatusToken(
 			)
 		)
 		.leftJoin(fulfillments, eq(fulfillments.orderId, orders.id))
+		.leftJoin(manualPayments, eq(manualPayments.orderId, orders.id))
 		.where(eq(orders.statusToken, token))
 		.get();
 	if (!order) return null;
@@ -69,7 +95,7 @@ export async function orderForStatusToken(
 		total_bdt: order.total,
 		preview_only: order.previewOnly,
 		area: order.area ?? 'Delivery area',
-		phone_hint: `${'•'.repeat(Math.max(phone.length - 3, 0))}${phone.slice(-3)}`,
+		phone_hint: hint(phone),
 		created_at: order.createdAt,
 		expires_at: order.expiresAt,
 		fulfillment: order.fulfillmentState
@@ -79,7 +105,17 @@ export async function orderForStatusToken(
 					tracking_code: order.trackingCode
 				}
 			: null,
-		items
+		items,
+		manual: order.payTo
+			? {
+					pay_to: order.payTo,
+					plan: order.plan,
+					amount_bdt: order.paidAmount,
+					trx_id: order.trxId,
+					sender_hint: order.sender ? hint(order.sender) : null,
+					submitted_at: order.submittedAt
+				}
+			: null
 	};
 }
 
