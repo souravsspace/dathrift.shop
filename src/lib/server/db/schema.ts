@@ -32,7 +32,9 @@ export const products = sqliteTable('products', {
 	measurementsJson: text('measurements_json'),
 	fitNote: text('fit_note'),
 	updatedAt: text('updated_at'),
-	archivedAt: text('archived_at')
+	archivedAt: text('archived_at'),
+	// Assigned by the assign_product_code trigger, e.g. OC2026001.
+	code: text('code').unique()
 });
 
 export const inventory = sqliteTable('inventory', {
