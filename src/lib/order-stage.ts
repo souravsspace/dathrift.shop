@@ -1,5 +1,6 @@
-// One plain stage per order, in the words staff act on. Payment status comes only from bKash
-// verification; fulfillment only moves a paid order along.
+// One plain stage per order, in the words staff act on. Payment status comes from bKash
+// verification, or from staff checking a manual bKash Send Money in the bKash app; fulfillment
+// only moves a paid order along.
 export type OrderStatus = 'pending_payment' | 'paid' | 'payment_review' | 'cancelled' | 'expired';
 export type FulfillmentState = 'preparing' | 'dispatched' | 'delivered';
 export type OrderStage =
@@ -19,7 +20,7 @@ export function orderStage(status: string, fulfillment: string | null | undefine
 }
 
 export const stageLabels: Record<OrderStage, string> = {
-	review: 'Needs owner review',
+	review: 'Check payment',
 	awaiting: 'Awaiting payment',
 	to_ship: 'Paid · to ship',
 	dispatched: 'Dispatched',
@@ -39,7 +40,11 @@ export const filterLabels: Record<OrderFilter, string> = {
 const eventLabels: Record<string, string> = {
 	pending_payment: 'Order placed, waiting for payment',
 	paid: 'Payment verified with bKash',
-	payment_review: 'Sent to owner review',
+	payment_review: 'Waiting for a payment check',
+	manual_payment_sent: 'Buyer reported a bKash payment',
+	manual_payment_confirmed: 'bKash payment found and confirmed',
+	manual_payment_rejected: 'bKash payment not found, order closed',
+	closed_by_staff: 'Closed by staff',
 	cancelled: 'Order closed, pieces released',
 	expired: 'Hold expired, pieces released',
 	fulfillment_preparing: 'Preparing the parcel',
@@ -51,4 +56,10 @@ export const eventLabel = (action: string) =>
 	eventLabels[action] ?? action.replace(/_/g, ' ').replace(/^\w/, (letter) => letter.toUpperCase());
 
 export const actorLabel = (actor: string | null) =>
-	!actor || actor === 'system' ? 'System' : actor === 'local-preview' ? 'Local preview' : actor;
+	!actor || actor === 'system'
+		? 'System'
+		: actor === 'local-preview'
+			? 'Local preview'
+			: actor === 'buyer'
+				? 'Buyer'
+				: actor;
