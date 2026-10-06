@@ -58,10 +58,9 @@
 						{:else}
 							<span class="no-photo mono">Photo coming</span>
 						{/if}
-						{#if product.stock_state === 'sold'}
+						<!-- A piece held for a buyer's payment shows as sold out until staff decide. -->
+						{#if product.stock_state !== 'available'}
 							<span class="badge badge-sold state">Sold out</span>
-						{:else if product.stock_state === 'reserved'}
-							<span class="badge badge-held state">On hold</span>
 						{/if}
 					</div>
 					<div class="info">
