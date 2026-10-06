@@ -1,3 +1,4 @@
+import { phoneSchema } from '../../checkout/address';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import { deliveryAreas } from '../db/schema';
@@ -27,9 +28,9 @@ export function normalizeShippingAddress(value: unknown): Address {
 		!/^[a-z0-9-]{1,100}$/.test(address.area)
 	)
 		throw new Error('Invalid address');
-	const phone = address.phone.replace(/\s|-/g, '').replace(/^\+880/, '0');
-	if (!/^01[3-9]\d{8}$/.test(phone)) throw new Error('Invalid address');
-	return { ...address, phone };
+	const phone = phoneSchema.safeParse(address.phone);
+	if (!phone.success) throw new Error('Invalid address');
+	return { ...address, phone: phone.data };
 }
 
 export async function quoteShipping(db: Database, input: unknown) {
