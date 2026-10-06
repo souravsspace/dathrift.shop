@@ -39,7 +39,7 @@ it('lists orders with the buyer, payment and fulfillment state and links to each
 	await expect
 		.element(page.getByRole('link', { name: 'Open order ORDER1AB' }))
 		.toHaveAttribute('href', '/admin/orders/order-1');
-	await expect.element(page.getByText('Needs owner review')).toBeInTheDocument();
+	await expect.element(page.getByText('Check payment', { exact: true })).toBeInTheDocument();
 	await expect.element(page.getByText('৳2,380')).toBeInTheDocument();
 	await expect.element(page.getByText('Paid · to ship')).toBeInTheDocument();
 	await expect.element(page.getByText('6 Oct 2026, 4:00 pm').first()).toBeInTheDocument();
