@@ -138,6 +138,9 @@
 				<p class="tag-meta">
 					{product.category_name} · Size {product.size_label ?? 'not listed'} · 1 of 1
 				</p>
+				{#if product.code}<p class="tag-code">
+						Piece ID <span>{product.code}</span>
+					</p>{/if}
 				<p class="tag-price">{formatBdt(product.price_bdt)}</p>
 				<h1>{product.name}</h1>
 				{#if product.stock_state === 'sold'}
