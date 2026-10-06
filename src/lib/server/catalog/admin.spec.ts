@@ -60,16 +60,17 @@ it('publishes only a complete photographed draft and can unpublish any piece not
 	);
 	db.exec("INSERT INTO inventory (product_id) VALUES ('a')");
 	await expect(publishProduct(d1, 'a')).rejects.toThrow('Incomplete product');
-	db.exec(`UPDATE products SET description = 'Local fixture', condition_notes = 'Small mark',
-		size_label = 'S', measurements_json = '{"chest_in":35.2,"length_in":23.5}', fit_note = 'Regular'
-		WHERE id = 'a'`);
+	// Description, condition, size and fit note are optional; measurements are not.
+	db.exec(
+		`UPDATE products SET measurements_json = '{"chest_in":35.2,"length_in":23.5}' WHERE id = 'a'`
+	);
 	await expect(publishProduct(d1, 'a')).rejects.toThrow('Incomplete product');
 	db.exec(
 		`UPDATE products SET measurements_json = '{"chest_in":35.5,"length_in":23.5}' WHERE id = 'a'`
 	);
 	await expect(publishProduct(d1, 'a')).rejects.toThrow('Incomplete product');
 	db.exec(
-		"INSERT INTO product_photos (product_id, position, r2_key, alt_text) VALUES ('a', 1, 'test-only/top.webp', 'TEST ONLY top')"
+		"INSERT INTO product_photos (product_id, position, r2_key, alt_text) VALUES ('a', 1, 'test-only/top.webp', '')"
 	);
 	expect(await publishProduct(d1, 'a')).toEqual({ id: 'a', publication_state: 'published' });
 	expect(db.prepare("SELECT publication_state FROM products WHERE id = 'a'").get()).toEqual({
@@ -137,10 +138,16 @@ it('edits a live piece in place while it stays complete and is not held in check
 			.prepare('SELECT name, price_bdt, publication_state FROM products WHERE id = ?')
 			.get('test-shirt')
 	).toEqual({ name: shirt.name, price_bdt: 800, publication_state: 'published' });
-	// A live page may not lose the details a buyer relies on.
-	await expect(
-		updateProductDetails(d1, 'test-shirt', { ...shirt, condition_notes: null })
-	).rejects.toThrow('Incomplete product');
+	// Optional details may be cleared on a live page; measurements may not.
+	expect(
+		await updateProductDetails(d1, 'test-shirt', {
+			...shirt,
+			description: null,
+			condition_notes: null,
+			size_label: null,
+			fit_note: null
+		})
+	).toEqual({ id: 'test-shirt', publication_state: 'published' });
 	await expect(
 		updateProductDetails(d1, 'test-shirt', { ...shirt, measurements_json: null })
 	).rejects.toThrow('Incomplete product');
