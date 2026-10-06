@@ -41,7 +41,9 @@
 				"STAFF_HOST": "admin.dathrift.shop",
 				"ACCESS_TEAM_DOMAIN": "https://souravs.cloudflareaccess.com",
 				"ACCESS_AUD": "f59b2314cfce05db4da11f6391ac9440878d9ed6e07e4dd4bc810a3ac814df30",
-				"PAYMENT_PROVIDER": "off"
+				"PAYMENT_PROVIDER": "off",
+				"BKASH_MANUAL_PAYMENT": "on",
+				"BKASH_MANUAL_NUMBER": "01849584594"
 			}
 		}
 	}
