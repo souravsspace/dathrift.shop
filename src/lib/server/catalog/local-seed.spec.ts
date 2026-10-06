@@ -40,3 +40,44 @@ it('seeds unmistakably test-only stock locally, including available, sold, and d
 	]);
 	db.close();
 });
+
+it('adds test-only demo orders in every state through the real order rules, once', () => {
+	const db = new DatabaseSync(':memory:');
+	db.exec('PRAGMA foreign_keys = ON');
+	for (const file of readdirSync('db/migrations').sort()) {
+		db.exec('BEGIN');
+		db.exec(readFileSync(`db/migrations/${file}`, 'utf8'));
+		db.exec('COMMIT');
+	}
+	db.exec(readFileSync('db/seed/local.sql', 'utf8'));
+	const demo = readFileSync('db/seed/demo-orders.sql', 'utf8');
+	db.exec(demo);
+	const snapshot = () => ({
+		orders: db
+			.prepare('SELECT status, COUNT(*) AS n FROM orders GROUP BY status ORDER BY status')
+			.all(),
+		stock: db
+			.prepare(
+				"SELECT state, COUNT(*) AS n FROM inventory WHERE product_id LIKE 'demo-%' GROUP BY state ORDER BY state"
+			)
+			.all(),
+		fulfilled: db.prepare('SELECT COUNT(*) AS n FROM fulfillments').get()
+	});
+	const first = snapshot();
+	expect(first.orders).toEqual([
+		{ status: 'cancelled', n: 5 },
+		{ status: 'expired', n: 3 },
+		{ status: 'paid', n: 12 },
+		{ status: 'payment_review', n: 4 },
+		{ status: 'pending_payment', n: 6 }
+	]);
+	expect(first.fulfilled).toEqual({ n: 12 });
+	expect(
+		db.prepare("SELECT COUNT(*) AS n FROM products WHERE name NOT LIKE 'TEST ONLY%'").get()
+	).toEqual({ n: 0 });
+	expect(db.prepare('SELECT COUNT(*) AS n FROM orders WHERE preview_only = 0').get()).toEqual({
+		n: 0
+	});
+	db.exec(demo);
+	expect(snapshot()).toEqual(first);
+});
