@@ -12,7 +12,6 @@ const bytes = new Uint8Array([82, 73, 70, 70, 12, 0, 0, 0, 87, 69, 66, 80, 86, 8
 function event(url: string, origin?: string) {
 	const body = new FormData();
 	body.set('photo', new File([bytes], 'test.webp', { type: 'image/webp' }));
-	body.set('alt_text', 'TEST ONLY olive shirt');
 	body.set('position', '2');
 	return {
 		params: { id: 'test-draft' },
@@ -41,7 +40,7 @@ it('denies public and cross-origin photo upload', async () => {
 	).toBe(403);
 });
 
-it('saves a local photo using private R2 and D1 metadata', async () => {
+it('saves a local photo without a description using private R2 and D1 metadata', async () => {
 	const put = vi.fn(async () => ({}));
 	(env as { PRODUCT_IMAGES?: unknown }).PRODUCT_IMAGES = { put, delete: async () => undefined };
 	(env as { DB?: unknown }).DB = localD1().db;
@@ -50,7 +49,7 @@ it('saves a local photo using private R2 and D1 metadata', async () => {
 	);
 	expect(response.status).toBe(201);
 	expect(response.headers.get('Cache-Control')).toBe('no-store');
-	expect(await response.json()).toMatchObject({ position: 2, alt_text: 'TEST ONLY olive shirt' });
+	expect(await response.json()).toMatchObject({ position: 2, alt_text: '' });
 	expect(put).toHaveBeenCalledOnce();
 });
 
