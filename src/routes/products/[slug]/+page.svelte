@@ -155,14 +155,15 @@
 		</div>
 
 		<div class="info">
-			<p class="meta mono">
-				<span>{product.category_name}</span>
-				{#if product.size_label}<span class="size-pill">Size {product.size_label}</span>{/if}
-				<span>1 of 1</span>
-			</p>
 			<h1>{product.name}</h1>
 			{#if product.brand}<p class="brand">{product.brand}</p>{/if}
-			<p class="price big-price">{formatBdt(product.price_bdt)}</p>
+			<div class="price-row">
+				<p class="price big-price">{formatBdt(product.price_bdt)}</p>
+				<p class="meta mono">
+					{#if product.size_label}<span class="size-pill">Size {product.size_label}</span>{/if}
+					<span>1 of 1</span>
+				</p>
+			</div>
 
 			<div class="buy">
 				{#if product.stock_state === 'sold'}
@@ -446,7 +447,7 @@
 	}
 
 	h1 {
-		margin: 14px 0 0;
+		margin: 0;
 		font-size: var(--text-h2);
 		font-stretch: 85%;
 		font-weight: 720;
@@ -460,8 +461,16 @@
 		font-weight: 600;
 	}
 
+	.price-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px 16px;
+		margin-top: 14px;
+	}
+
 	.big-price {
-		margin: 14px 0 0;
+		margin: 0;
 		font-size: var(--text-h1);
 		font-stretch: 72%;
 		line-height: 1;
@@ -624,6 +633,13 @@
 
 		.thumbs button {
 			width: 56px;
+		}
+	}
+
+	/* A square photo on phones keeps the price and the bag action in the first screen. */
+	@media (max-width: 600px) {
+		.gallery-main {
+			aspect-ratio: 1;
 		}
 	}
 </style>
