@@ -16,7 +16,7 @@ Show the actual condition, fit and measurements of each unique garment, then let
 
 ## Operating Context
 
-SvelteKit on Cloudflare Workers, D1 for product/order state, R2 for product photos, Cloudflare Access for staff, and bKash PGW for eventual checkout. Local development may show unmistakably test-only fixtures. Live payments and delivery terms remain gated.
+SvelteKit on Cloudflare Workers, D1 for product/order state, R2 for product photos, Cloudflare Access for staff, and manual bKash Send Money for checkout until merchant API access arrives (staff confirm each payment; the bKash PGW adapter stays sandbox-only). Delivery charges follow Steadfast Regular rates for all 64 districts. Local development may show unmistakably test-only fixtures.
 
 ## Capabilities and Constraints
 
@@ -28,7 +28,7 @@ SvelteKit on Cloudflare Workers, D1 for product/order state, R2 for product phot
 
 ## Brand Commitments
 
-Use the supplied `static/brand/dathrift-logo.png`; its bottle green, ivory and muted gold are the brand colors and it is the favicon source. On 2026-10-06 the owner replaced the earlier editorial serif look with the "swing tag" world: each piece wears an ivory die-cut tag (price, size, measurements, flaws) on a deep green ground, condensed Archivo figures with Martian Mono tag data, spring-based tag motion, and a mobile-first two-column rack. The owner chooses the featured home piece.
+Use the supplied `static/brand/dathrift-logo.png`; its bottle green, ivory and muted gold are the brand colors and it is the favicon source. On 2026-10-07 the owner replaced the dark "swing tag" storefront with a light, photo-first shop: warm paper ground, white cards, logo ink for text and the one solid action, gold only for counts and accents, rust for sold and errors. Archivo and Martian Mono stay; the ivory swing tag survives only on the home hero, the error page and the footer rail. Shoppers get search, filters (size, price, fit in inches, available only) and a phone tab bar, since most of them shop on phones. Staff admin keeps the ivory ledger look. The owner chooses the featured home piece.
 
 ## Evidence on Hand
 
