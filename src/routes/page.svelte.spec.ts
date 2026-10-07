@@ -71,6 +71,8 @@ it('shows the light storefront with honest local fixture and sold labels', async
 });
 
 it('offers a search box, category tiles with counts, and the shop link', async () => {
+	// Phones search from the header and tab bar; the hero search field shows on wider screens.
+	await page.viewport(1280, 900);
 	render(Home, { data: { products: [shirt], facets, hero: null } });
 	await expect
 		.element(page.getByRole('searchbox', { name: 'Search pieces, brands or piece IDs' }).first())
@@ -103,6 +105,6 @@ it('leads with the featured piece on its swing tag', async () => {
 		.toHaveAttribute('src', '/media/products/shirt/1.webp');
 	await expect.element(page.getByText('৳850')).toBeInTheDocument();
 	await expect
-		.element(page.getByRole('link', { name: 'See the Olive cotton shirt' }))
+		.element(page.getByRole('link', { name: 'Olive cotton shirt', exact: true }))
 		.toHaveAttribute('href', '/products/olive-cotton-shirt');
 });
