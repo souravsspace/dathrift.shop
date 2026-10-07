@@ -332,9 +332,21 @@
 	}
 
 	.number-value {
-		font-size: clamp(1.5rem, 5vw, 2rem);
+		font-size: clamp(1.35rem, 5vw, 2rem);
 		font-weight: 600;
 		letter-spacing: 0.02em;
+		white-space: nowrap;
+	}
+
+	/* Buyers type this number, so on phones it keeps one line and Copy moves under it. */
+	@media (max-width: 480px) {
+		.number {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.copy {
+			justify-self: start;
+		}
 	}
 
 	.copy {
