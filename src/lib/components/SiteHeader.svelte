@@ -161,7 +161,7 @@
 				bind:value={query}
 				oninput={suggest}
 				aria-label="Search pieces, brands or piece IDs"
-				placeholder="Search pieces, brands or piece IDs"
+				placeholder="Name, brand or piece ID"
 				autocomplete="off"
 				enterkeyhint="search"
 				maxlength="80"
@@ -200,8 +200,7 @@
 								<span class="suggestion-text">
 									<span class="suggestion-name">{item.name}</span>
 									<span class="mono suggestion-meta"
-										>{item.category_name}{#if item.size_label}
-											· {item.size_label}{/if}</span
+										>{item.category_name}{#if item.size_label}&nbsp;· {item.size_label}{/if}</span
 									>
 								</span>
 								<span class="suggestion-price">
