@@ -153,8 +153,9 @@
 							</div>{/if}
 					</dl>
 					{#if dueOnDelivery}<p class="due">
-							<Icon name="hand-coins" size={18} />Pay <strong>{price(dueOnDelivery)}</strong> in cash
-							when the parcel arrives.
+							<Icon name="hand-coins" size={18} /><span
+								>Pay <strong>{price(dueOnDelivery)}</strong> in cash when the parcel arrives.</span
+							>
 						</p>{/if}
 				</section>
 			{/if}
