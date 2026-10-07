@@ -39,7 +39,6 @@
 		</div>
 		<div class="error-tag" aria-hidden="true">
 			<SwingTag>
-				<p class="tag-meta">Error · {page.status}</p>
 				<p class="tag-price">{page.status}</p>
 				<p class="tag-name">{missing ? 'Not on the rack' : 'Rack closed for a moment'}</p>
 			</SwingTag>
