@@ -450,15 +450,28 @@
 			flex: 1 1 auto;
 		}
 
-		/* On phones the header and tab bar already search, and the tag links the piece,
-		   so the photo and its price can reach the first screen. */
+		/* On phones the header and tab bar already search, and the tag links the piece. */
 		.hero-search,
 		.hero-actions .button-outline {
 			display: none;
 		}
 
+		/* The whole garment stays visible: the tag hangs below the photo, catching only its edge. */
+		.hero-piece {
+			justify-items: start;
+			padding-bottom: 0;
+		}
+
 		.hero-photo {
-			aspect-ratio: 1;
+			width: 100%;
+		}
+
+		.hero-tag {
+			position: relative;
+			bottom: auto;
+			left: auto;
+			width: min(64%, 240px);
+			margin: -28px 0 0 14px;
 		}
 
 		.promises li {
