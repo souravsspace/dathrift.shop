@@ -172,7 +172,7 @@
 					bind:this={searchBox}
 					bind:value={typed}
 					oninput={() => apply(300)}
-					placeholder="Search name, brand or piece ID"
+					placeholder="Name, brand or piece ID"
 					maxlength="80"
 					enterkeyhint="search"
 				/>
@@ -232,7 +232,7 @@
 					{/if}
 
 					<fieldset>
-						<legend><span class="legend-sign" aria-hidden="true">৳</span>Price</legend>
+						<legend><Icon name="wallet" size={16} />Price</legend>
 						<div class="range">
 							<label>
 								<span class="hint">Min</span>
@@ -606,13 +606,6 @@
 
 	legend + * {
 		clear: left;
-	}
-
-	.legend-sign {
-		display: grid;
-		width: 16px;
-		place-items: center;
-		font-weight: 700;
 	}
 
 	.sizes {
