@@ -84,12 +84,11 @@
 				</a>
 				<div class="hero-tag" {@attach hang}>
 					<SwingTag size="hero">
-						<p class="tag-meta">
-							{hero.category_name}{#if hero.size_label}
-								· Size {hero.size_label}{/if}
-						</p>
 						<p class="tag-price">{formatBdt(hero.price_bdt)}</p>
-						<p class="tag-name">{hero.name}</p>
+						<p class="tag-name"><a href="/products/{hero.slug}">{hero.name}</a></p>
+						<p class="tag-meta">
+							{hero.category_name}{#if hero.size_label}&nbsp;· Size {hero.size_label}{/if}
+						</p>
 					</SwingTag>
 				</div>
 				{#if hasTestPieces}<span class="badge badge-test test-note"
@@ -284,6 +283,23 @@
 		width: min(52%, 250px);
 	}
 
+	/* The tag's name is the featured piece's link; the gold underline marks it as one. */
+	.tag-name a {
+		color: inherit;
+		text-decoration: underline;
+		text-decoration-color: var(--color-gold);
+		text-decoration-thickness: 2px;
+		text-underline-offset: 0.2em;
+	}
+
+	.tag-name a:hover {
+		text-decoration-color: currentColor;
+	}
+
+	.hero-tag .tag-meta {
+		white-space: nowrap;
+	}
+
 	.hero-mark {
 		width: min(80%, 380px);
 		height: auto;
@@ -432,6 +448,17 @@
 
 		.hero-actions .button {
 			flex: 1 1 auto;
+		}
+
+		/* On phones the header and tab bar already search, and the tag links the piece,
+		   so the photo and its price can reach the first screen. */
+		.hero-search,
+		.hero-actions .button-outline {
+			display: none;
+		}
+
+		.hero-photo {
+			aspect-ratio: 1;
 		}
 
 		.promises li {
