@@ -108,10 +108,13 @@
 				</div>
 				<p class="admin-hint">
 					Open the bKash app for {manual.pay_to} and look for a Send Money of
-					<strong>{price(manual.amount_bdt ?? 0)}</strong>{#if manual.trx_id}
-						with transaction ID <code>{manual.trx_id}</code>{/if}{#if manual.sender_number}
-						{manual.trx_id ? 'or' : ''} from <strong>{manual.sender_number}</strong>{/if}. The
-					pieces stay held as sold out until you decide.
+					<strong>{price(manual.amount_bdt ?? 0)}</strong>{#if manual.trx_id}&nbsp;with transaction
+						ID
+						<code>{manual.trx_id}</code>{/if}{#if manual.sender_number}&nbsp;{manual.trx_id
+							? 'or '
+							: ''}from
+						<strong>{manual.sender_number}</strong>{/if}. The pieces stay held as sold out until you
+					decide.
 				</p>
 				<div class="order-review-actions">
 					<form method="POST" action="?/confirmManual" use:enhance>
