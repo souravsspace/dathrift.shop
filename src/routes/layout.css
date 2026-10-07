@@ -461,7 +461,7 @@ main {
 
 /* The ivory swing tag keeps its own lettering where it still hangs (home hero, error page). */
 .tag-meta {
-	margin: 0 0 10px;
+	margin: 8px 0 0;
 	color: var(--color-ink-soft);
 	font-family: var(--font-mono);
 	font-size: var(--text-label);
