@@ -635,11 +635,4 @@
 			width: 56px;
 		}
 	}
-
-	/* A square photo on phones keeps the price and the bag action in the first screen. */
-	@media (max-width: 600px) {
-		.gallery-main {
-			aspect-ratio: 1;
-		}
-	}
 </style>
