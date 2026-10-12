@@ -6,7 +6,7 @@
 	import SiteFooter from '../../../lib/components/SiteFooter.svelte';
 	import SiteHeader from '../../../lib/components/SiteHeader.svelte';
 	import { stampPress } from '../../../lib/motion';
-	import { productJsonLd } from '../../../lib/seo';
+	import { productDescription, productJsonLd, productTitle } from '../../../lib/seo';
 	import { SITE_ORIGIN, formatBdt } from '../../../lib/site';
 	import { onMount } from 'svelte';
 
@@ -32,10 +32,11 @@
 	}
 	// Split closing tag so the Svelte parser does not end this script block.
 	let jsonLdTag = $derived(
-		`<script type="application/ld+json">${productJsonLd({ ...data.product, category: data.product.category_name })}</` +
-			'script>'
+		`<script type="application/ld+json">${productJsonLd(data.product)}</` + 'script>'
 	);
 	let product = $derived(data.product);
+	let title = $derived(productTitle(product));
+	let summary = $derived(productDescription(product));
 	let related = $derived(data.related ?? []);
 	let testPiece = $derived(product.slug.startsWith('test-'));
 	const labels: Record<string, string> = {
@@ -57,18 +58,27 @@
 </script>
 
 <svelte:head>
-	<title>{product.name} | daThriftShop</title>
-	<meta name="description" content={product.description ?? product.name} />
+	<title>{title}</title>
+	<meta name="description" content={summary} />
 	<link rel="canonical" href="{SITE_ORIGIN}/products/{product.slug}" />
 	<meta property="og:type" content="product" />
-	<meta property="og:title" content={product.name} />
-	<meta property="og:description" content={product.description ?? product.name} />
+	<meta property="og:title" content={title} />
+	<meta property="og:description" content={summary} />
 	<meta property="og:url" content="{SITE_ORIGIN}/products/{product.slug}" />
 	{#if product.photos[0]}<meta
 			property="og:image"
 			content="{SITE_ORIGIN}/media/{product.photos[0].key}"
-		/>{/if}
+		/><meta property="og:image:alt" content={product.photos[0].alt} />{/if}
+	<meta property="product:price:amount" content={String(product.price_bdt)} />
+	<meta property="product:price:currency" content="BDT" />
+	<meta property="product:condition" content="used" />
+	<meta
+		property="product:availability"
+		content={product.stock_state === 'available' ? 'in stock' : 'out of stock'}
+	/>
 	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content={title} />
+	<meta name="twitter:description" content={summary} />
 	{#if testPiece}<meta name="robots" content="noindex, nofollow" />{/if}
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- escaped JSON-LD built from server data -->
 	{@html jsonLdTag}
