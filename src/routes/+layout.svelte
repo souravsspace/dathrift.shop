@@ -38,6 +38,8 @@
 	<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 	<link rel="manifest" href="/site.webmanifest" />
 	<meta name="theme-color" content="#04241a" />
+	<meta property="og:site_name" content="daThriftShop" />
+	<meta property="og:locale" content="en_BD" />
 </svelte:head>
 
 {@render children()}
