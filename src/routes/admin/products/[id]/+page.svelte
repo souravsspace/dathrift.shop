@@ -5,6 +5,7 @@
 	import AdminToast from '../../../../lib/components/AdminToast.svelte';
 	import StatusStamp from '../../../../lib/components/StatusStamp.svelte';
 	import { toWebp } from '../../../../lib/images/to-webp';
+	import { slugInput, slugify } from '../../../../lib/slug';
 	import type { PageData } from './$types';
 
 	type Photo = { position: number; r2_key: string; alt_text: string };
@@ -363,13 +364,18 @@
 		event.preventDefault();
 		if (!product) return;
 		const draft = product.publication_state === 'draft';
+		const slug = slugify(draft ? draftSlug : newSlug);
+		if (!slug) {
+			error = 'Type a slug with English letters or numbers, like green-linen-shirt.';
+			return;
+		}
 		busy = true;
 		message = error = '';
 		try {
 			const response = await fetch(`/admin/api/products/${data.id}/slug`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ slug: draft ? draftSlug : newSlug })
+				body: JSON.stringify({ slug })
 			});
 			if (!response.ok) throw new Error(await response.text());
 			product = { ...product, slug: ((await response.json()) as { slug: string }).slug };
@@ -727,9 +733,9 @@
 										<input
 											id="draft-slug"
 											bind:value={draftSlug}
+											oninput={() => (draftSlug = slugInput(draftSlug))}
 											required
 											maxlength="160"
-											pattern="[a-z0-9]+(-[a-z0-9]+)*"
 											autocapitalize="none"
 											spellcheck="false"
 										/>
@@ -746,9 +752,11 @@
 									<input
 										id="corrected-slug"
 										bind:value={newSlug}
+										oninput={() => (newSlug = slugInput(newSlug))}
 										required
 										maxlength="160"
-										pattern="[a-z0-9]+(-[a-z0-9]+)*"
+										autocapitalize="none"
+										spellcheck="false"
 										placeholder={product.slug}
 									/>
 									<p class="admin-hint">
