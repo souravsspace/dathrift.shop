@@ -30,12 +30,25 @@ it('creates one private draft and available unit atomically, rejecting invalid i
 			)
 			.all()
 	).toEqual([{ slug: input.slug, publication_state: 'draft', state: 'available' }]);
-	await expect(createDraft(d1, input)).rejects.toThrow('Slug unavailable');
-	expect(db.prepare('SELECT COUNT(*) AS n FROM inventory').get()).toEqual({ n: 1 });
+	// A second piece with the same name gets the next free slug instead of an error.
+	expect(await createDraft(d1, input)).toMatchObject({ slug: 'test-new-jacket-2' });
+	expect(await createDraft(d1, input)).toMatchObject({ slug: 'test-new-jacket-3' });
+	expect(db.prepare('SELECT COUNT(*) AS n FROM inventory').get()).toEqual({ n: 3 });
 	const saree = { ...input, slug: 'test-red-saree', category: 'sarees' };
 	await expect(createDraft(d1, saree)).rejects.toThrow('Unknown category');
 	await createCategory(d1, { name: 'Sarees', measurement_set: 'none' });
 	expect(await createDraft(d1, saree)).toMatchObject({ slug: 'test-red-saree' });
+	db.close();
+});
+
+it('skips slugs kept as redirects for live pieces', async () => {
+	const { db: d1, sqlite: db } = localDatabase({ seed: false });
+	const input = { slug: 'linen-shirt', name: 'Linen shirt', category: 'tops', price_bdt: 900 };
+	const first = await createDraft(d1, input);
+	db.exec(
+		`INSERT INTO slug_redirects (old_slug, product_id) VALUES ('linen-shirt-2', '${first.id}')`
+	);
+	expect(await createDraft(d1, input)).toMatchObject({ slug: 'linen-shirt-3' });
 	db.close();
 });
 
