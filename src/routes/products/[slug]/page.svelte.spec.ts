@@ -66,10 +66,14 @@ it('shows every photo with alt text and publishes canonical product metadata', a
 		'https://dathrift.shop/products/olive-cotton-shirt'
 	);
 	const jsonLd = document.head.querySelector('script[type="application/ld+json"]')?.textContent;
-	expect(JSON.parse(jsonLd ?? '{}')).toMatchObject({
+	expect(JSON.parse(jsonLd ?? '{}')['@graph'][0]).toMatchObject({
 		'@type': 'Product',
 		offers: { priceCurrency: 'BDT', availability: 'https://schema.org/InStock' }
 	});
+	expect(document.title).toMatch(/ — .*thrift .*৳.* \| daThriftShop$/);
+	expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toMatch(
+		/^Pre-loved .*a thrift clothing shop in Bangladesh/
+	);
 	expect(document.head.querySelector('meta[property="og:image"]')?.getAttribute('content')).toBe(
 		'https://dathrift.shop/media/products/p/front.webp'
 	);
