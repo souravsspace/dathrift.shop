@@ -105,6 +105,30 @@ it('fills the slug from the name, keeps a typed slug, and opens the new draft to
 	});
 });
 
+it('turns a typed slug into a valid one and sends it without a loose hyphen', async () => {
+	const fetch = desk();
+	await page.getByRole('textbox', { name: 'Name', exact: true }).fill('TEST ONLY — Blue shirt');
+	const slug = page.getByRole('textbox', { name: 'Slug' });
+	await slug.fill('Blue Shirt 2 ');
+	await expect.element(slug).toHaveValue('blue-shirt-2-');
+	await page.getByRole('spinbutton', { name: 'Price (৳)' }).fill('900');
+	await page.getByRole('button', { name: 'Create draft' }).click();
+	await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/admin/products/test-new'));
+	const sent = fetch.mock.calls.find(([, options]) => options?.method === 'POST')?.[1]?.body;
+	expect(JSON.parse(String(sent))).toMatchObject({ slug: 'blue-shirt-2' });
+});
+
+it('uses the name again when the slug is cleared', async () => {
+	const fetch = desk();
+	await page.getByRole('textbox', { name: 'Name', exact: true }).fill('TEST ONLY — Red top');
+	await page.getByRole('textbox', { name: 'Slug' }).fill('');
+	await page.getByRole('spinbutton', { name: 'Price (৳)' }).fill('900');
+	await page.getByRole('button', { name: 'Create draft' }).click();
+	await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+	const sent = fetch.mock.calls.find(([, options]) => options?.method === 'POST')?.[1]?.body;
+	expect(JSON.parse(String(sent))).toMatchObject({ slug: 'test-only-red-top' });
+});
+
 it('says plainly when the slug is already used', async () => {
 	desk({
 		'POST /admin/api/products': () => new Response('Slug unavailable', { status: 409 })
