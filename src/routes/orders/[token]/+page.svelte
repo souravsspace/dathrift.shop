@@ -83,7 +83,18 @@
 			note: 'We found your bKash payment. We will contact you about dispatch.'
 		}
 	};
-	let copy = $derived((manual && manualCopy[order.status]) || statusCopy[order.status]);
+	// Once staff start the parcel, "we will contact you" no longer fits a paid order.
+	const parcelNote: Record<string, string> = {
+		preparing: 'We are packing your parcel now.',
+		dispatched: 'Your parcel is on its way. The courier tracking code is below.',
+		delivered: 'Your parcel was delivered. Thank you for shopping with us.'
+	};
+	let copy = $derived.by(() => {
+		const base = (manual && manualCopy[order.status]) || statusCopy[order.status];
+		const note =
+			order.status === 'paid' && order.fulfillment ? parcelNote[order.fulfillment.state] : null;
+		return note ? { ...base, note } : base;
+	});
 	const fulfillmentCopy: Record<string, string> = {
 		preparing: 'Preparing your parcel',
 		dispatched: 'Dispatched',
