@@ -1,5 +1,13 @@
-import { expect, it, vi } from 'vitest';
+import { env } from 'cloudflare:workers';
+import { afterEach, expect, it, vi } from 'vitest';
 import { handle } from './hooks.server';
+import { startManualPayment } from './lib/server/payments/manual';
+import { reserveCheckout } from './lib/server/reservation/reserve';
+import { localDatabase } from './lib/server/testing/local-d1';
+
+afterEach(() => {
+	delete (env as { DB?: unknown }).DB;
+});
 
 type HandleInput = Parameters<typeof handle>[0];
 
@@ -46,4 +54,28 @@ it('leaves local development on plain HTTP alone and without HSTS', async () => 
 	expect(result.status).toBe(200);
 	expect(result.headers.get('strict-transport-security')).toBeNull();
 	expect(result.headers.get('x-content-type-options')).toBe('nosniff');
+});
+
+it('releases lapsed bKash holds before a page reads stock', async () => {
+	const local = localDatabase();
+	(env as { DB?: unknown }).DB = local.d1;
+	const address = {
+		name: 'Test Buyer',
+		phone: '01712345678',
+		line1: 'Test building',
+		district: 'test-dhaka',
+		area: 'test-central'
+	};
+	const order = await reserveCheckout(local.db, ['test-shirt'], address, true);
+	await startManualPayment(local.db, order.id, '01849584594');
+	local.sqlite.exec(
+		`UPDATE orders SET expires_at = datetime('now', '-1 minute') WHERE id = '${order.id}'`
+	);
+	const { response, resolve } = run('https://dathrift.shop/shop');
+	expect((await response).status).toBe(200);
+	expect(resolve).toHaveBeenCalledOnce();
+	expect(local.sqlite.prepare('SELECT status FROM orders').get()).toEqual({ status: 'expired' });
+	expect(
+		local.sqlite.prepare("SELECT state FROM inventory WHERE product_id = 'test-shirt'").get()
+	).toEqual({ state: 'available' });
 });
