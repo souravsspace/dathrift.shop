@@ -6,6 +6,7 @@
 	import SwingTag from '../lib/components/SwingTag.svelte';
 	import { hang } from '../lib/motion';
 	import { SITE_ORIGIN, formatBdt } from '../lib/site';
+	import { STORE_DESCRIPTION, storeJsonLd } from '../lib/seo';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -14,20 +15,24 @@
 		[...data.products, ...(hero ? [hero] : [])].some((product) => product.slug.startsWith('test-'))
 	);
 	let total = $derived(data.facets.categories.reduce((sum, item) => sum + item.count, 0));
+	const TITLE = 'daThriftShop — thrift clothing in Bangladesh, every piece one of one';
+	// Split closing tag so the Svelte parser does not end this script block.
+	const jsonLdTag = `<script type="application/ld+json">${storeJsonLd()}</` + 'script>';
 </script>
 
 <svelte:head>
-	<title>daThriftShop — one-of-a-kind pre-loved clothing</title>
-	<meta
-		name="description"
-		content="Explore one-of-a-kind pre-loved clothing with honest condition notes and garment measurements."
-	/>
+	<title>{TITLE}</title>
+	<meta name="description" content={STORE_DESCRIPTION} />
 	<link rel="canonical" href="{SITE_ORIGIN}/" />
 	<meta property="og:type" content="website" />
-	<meta property="og:title" content="daThriftShop — one-of-a-kind pre-loved clothing" />
+	<meta property="og:title" content={TITLE} />
+	<meta property="og:description" content={STORE_DESCRIPTION} />
 	<meta property="og:url" content="{SITE_ORIGIN}/" />
 	<meta property="og:image" content="{SITE_ORIGIN}/brand/dathrift-logo.png" />
+	<meta name="twitter:card" content="summary" />
 	{#if hasTestPieces}<meta name="robots" content="noindex, nofollow" />{/if}
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- escaped JSON-LD built from constants -->
+	{@html jsonLdTag}
 </svelte:head>
 
 <SiteHeader preview={hasTestPieces} current="home" />
