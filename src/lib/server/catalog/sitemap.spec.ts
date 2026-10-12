@@ -26,3 +26,19 @@ it('lists indexable published pieces, including sold ones, with their real chang
 	expect(xml).toContain('<loc>https://dathrift.shop/products/a&amp;b</loc>');
 	expect(xml).toContain('<lastmod>2026-09-01</lastmod>');
 });
+
+it('lists each piece photo for image search, cover first', async () => {
+	const { db, sqlite } = localDatabase();
+	sqlite.exec(`INSERT INTO products (id, slug, name, category, price_bdt, publication_state)
+		VALUES ('real-1', 'linen-shirt', 'Linen shirt', 'tops', 900, 'published');
+		INSERT INTO inventory (product_id, state) VALUES ('real-1', 'available');
+		INSERT INTO product_photos (product_id, position, r2_key, alt_text)
+		VALUES ('real-1', 2, 'products/real-1/back.webp', ''), ('real-1', 1, 'products/real-1/front.webp', '');`);
+	const shirt = (await sitemapEntries(db)).find((entry) => entry.path === '/products/linen-shirt');
+	expect(shirt?.images).toEqual(['products/real-1/front.webp', 'products/real-1/back.webp']);
+	const xml = sitemapXml([shirt!]);
+	expect(xml).toContain('xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"');
+	expect(xml).toContain(
+		'<image:image><image:loc>https://dathrift.shop/media/products/real-1/front.webp</image:loc></image:image>'
+	);
+});
