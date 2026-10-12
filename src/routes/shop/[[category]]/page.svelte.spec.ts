@@ -159,6 +159,14 @@ it('gives each category a heading, canonical URL and its own measurement filter'
 	expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
 		'https://dathrift.shop/shop/tops'
 	);
+	expect(document.title).toBe(
+		'Thrift tops in Bangladesh — one-of-a-kind pre-loved tops | daThriftShop'
+	);
+	const jsonLd = document.head.querySelector('script[type="application/ld+json"]')?.textContent;
+	expect(JSON.parse(jsonLd ?? '{}')['@graph'][0]).toMatchObject({
+		'@type': 'CollectionPage',
+		url: 'https://dathrift.shop/shop/tops'
+	});
 	await expect
 		.element(page.getByRole('link', { name: 'Tops 30' }))
 		.toHaveAttribute('aria-current', 'page');
