@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNull, like, or, sql } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import {
 	categories,
@@ -50,14 +50,36 @@ function isDraftInput(value: unknown): value is DraftInput {
 	);
 }
 
+// Two pieces can share a name, so a taken slug (or one kept as a redirect) gets the next free
+// number: linen-shirt, linen-shirt-2, linen-shirt-3.
+async function freeSlug(db: Database, base: string) {
+	const family = (column: typeof products.slug | typeof slugRedirects.oldSlug) =>
+		or(eq(column, base), like(column, `${base}-%`));
+	const [live, kept] = await Promise.all([
+		db.select({ slug: products.slug }).from(products).where(family(products.slug)),
+		db
+			.select({ slug: slugRedirects.oldSlug })
+			.from(slugRedirects)
+			.where(family(slugRedirects.oldSlug))
+	]);
+	const taken = new Set([...live, ...kept].map((row) => row.slug));
+	if (!taken.has(base)) return base;
+	for (let n = 2; ; n++) {
+		const suffix = `-${n}`;
+		const slug = `${base.slice(0, 160 - suffix.length).replace(/-+$/, '')}${suffix}`;
+		if (!taken.has(slug)) return slug;
+	}
+}
+
 export async function createDraft(db: Database, input: unknown) {
 	if (!isDraftInput(input)) throw new Error('Invalid draft');
 	const id = crypto.randomUUID();
+	const slug = await freeSlug(db, input.slug);
 	try {
 		await db.batch([
 			db.insert(products).values({
 				id,
-				slug: input.slug,
+				slug,
 				name: input.name.trim(),
 				category: input.category,
 				priceBdt: input.price_bdt
@@ -67,7 +89,7 @@ export async function createDraft(db: Database, input: unknown) {
 	} catch (error) {
 		throw catalogWriteError(error);
 	}
-	return { id, slug: input.slug, publication_state: 'draft' as const };
+	return { id, slug, publication_state: 'draft' as const };
 }
 
 type ProductDetails = {
