@@ -90,6 +90,11 @@ it('offers a search box, category tiles with counts, and the shop link', async (
 		'https://dathrift.shop/'
 	);
 	expect(document.head.querySelector('meta[name="robots"]')).toBeNull();
+	const jsonLd = document.head.querySelector('script[type="application/ld+json"]')?.textContent;
+	expect(
+		JSON.parse(jsonLd ?? '{}')['@graph'].map((node: { '@type': string }) => node['@type'])
+	).toEqual(['OnlineStore', 'WebSite']);
+	expect(document.title).toContain('thrift clothing in Bangladesh');
 });
 
 it('leads with the featured piece on its swing tag', async () => {
