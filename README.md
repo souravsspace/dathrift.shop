@@ -26,3 +26,9 @@ bun run lint           # Prettier and ESLint
 bunx vitest --run      # server, component and local D1 engine tests
 npx playwright test    # guest journey on a throwaway local state (.wrangler/e2e)
 ```
+
+## License
+
+daThriftShop is free software under the [GNU Affero General Public License v3.0 or later](LICENSE). Anyone may use, study, change and share it. Any changed version that is shared, or run as a website for others to use, must publish its full source code under the same license, so the project stays open source.
+
+The license covers the code. The daThriftShop name and logo identify this shop; a fork that runs its own store should use its own name and logo.
