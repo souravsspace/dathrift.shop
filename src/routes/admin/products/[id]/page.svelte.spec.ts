@@ -128,7 +128,8 @@ it('changes a draft slug without a redirect', async () => {
 	await openRow('Page link');
 	const slug = page.getByRole('textbox', { name: 'Slug' });
 	await expect.element(slug).toHaveValue('test-skirt');
-	await slug.fill('test-red-skirt');
+	await slug.fill('Test Red Skirt ');
+	await expect.element(slug).toHaveValue('test-red-skirt-');
 	await page.getByRole('button', { name: 'Change slug' }).click();
 	await expect.element(page.getByText('Slug changed')).toBeInTheDocument();
 	await expect.element(page.getByText('/products/test-red-skirt')).toBeInTheDocument();
