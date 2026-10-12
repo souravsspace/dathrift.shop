@@ -33,6 +33,12 @@ it('reports a provider-verified payment, totals and dispatch tracking', async ()
 	await expect.element(page.getByText('TEST ONLY order — no real delivery.')).toBeInTheDocument();
 });
 
+it('stops promising to get in touch once the parcel has left', async () => {
+	render(OrderPage, { data: { order, token }, form: null });
+	await expect.element(page.getByText(/Your parcel is on its way/)).toBeInTheDocument();
+	await expect.element(page.getByText(/contact you about dispatch/)).not.toBeInTheDocument();
+});
+
 it('never presents an unverified or held payment as paid', async () => {
 	render(OrderPage, {
 		data: { order: { ...order, status: 'payment_review' as const, fulfillment: null }, token },
