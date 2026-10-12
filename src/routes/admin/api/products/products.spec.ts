@@ -72,7 +72,7 @@ it('allows only local preview draft creation with D1 bound', async () => {
 	expect(await response.json()).toMatchObject({ slug: input.slug, publication_state: 'draft' });
 });
 
-it('says when a draft slug is taken or its category does not exist', async () => {
+it('numbers a taken draft slug and says when its category does not exist', async () => {
 	(env as { DB?: unknown }).DB = localD1().db;
 	const post = (body: object) =>
 		POST({
@@ -83,7 +83,8 @@ it('says when a draft slug is taken or its category does not exist', async () =>
 			})
 		} as Parameters<typeof POST>[0]);
 	const taken = await post({ slug: 'test-olive-cotton-shirt' });
-	expect([taken.status, await taken.text()]).toEqual([409, 'Slug unavailable']);
+	expect(taken.status).toBe(201);
+	expect(await taken.json()).toMatchObject({ slug: 'test-olive-cotton-shirt-2' });
 	const unknown = await post({ category: 'sarees' });
 	expect([unknown.status, await unknown.text()]).toEqual([400, 'Unknown category']);
 });
