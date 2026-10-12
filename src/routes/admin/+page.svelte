@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import AdminHeader from '../../lib/components/AdminHeader.svelte';
 	import AdminPager from '../../lib/components/AdminPager.svelte';
-	import { slugify } from '../../lib/slug';
+	import { slugInput, slugify } from '../../lib/slug';
 	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 
@@ -197,8 +197,19 @@
 		if (!slugTouched) slug = slugify(name);
 	}
 
+	// Typed text becomes a valid slug as it is typed; clearing it hands the slug back to the name.
+	function slugTyped() {
+		slug = slugInput(slug);
+		slugTouched = slug !== '';
+	}
+
 	async function createDraft(event: SubmitEvent) {
 		event.preventDefault();
+		slug = slugify(slug) || slugify(name);
+		if (!slug) {
+			error = 'Type a slug with English letters or numbers, like green-linen-shirt.';
+			return;
+		}
 		saving = true;
 		error = '';
 		try {
@@ -302,17 +313,16 @@
 					<input
 						id="draft-slug"
 						bind:value={slug}
-						oninput={() => (slugTouched = true)}
+						oninput={slugTyped}
 						maxlength="160"
-						required
-						pattern="[a-z0-9]+(-[a-z0-9]+)*"
 						autocapitalize="none"
 						spellcheck="false"
 						aria-describedby="draft-slug-hint"
 					/>
 				</div>
 				<p class="admin-hint" id="draft-slug-hint">
-					Made from the name. Change it freely until the piece goes live.
+					Made from the name. Change it freely until the piece goes live. A name already in use gets
+					a number, like -2.
 				</p>
 				<div class="admin-form-pair">
 					<div>
