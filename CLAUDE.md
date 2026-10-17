@@ -73,3 +73,11 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 - Commit each changed file separately with a conventional, human-readable message. Never put an AI or assistant name, `Co-Authored-By` line, or any other assistant attribution in commits or files.
 - Use the Impeccable and ui-ux-pro-max skills for every design or UI task (storefront and admin).
+
+<!-- claude-reflect: learned rules (saved from the band; edit freely) -->
+
+## Learned rules
+
+- Never add the assistant's name or any AI attribution to commit messages.
+
+<!-- end claude-reflect -->
