@@ -204,16 +204,16 @@ it('stops taking photos at ten and accepts HEIC files', async () => {
 	document.body.innerHTML = '';
 	editor(piece({ photos: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(photo) }));
 	await expect.element(page.getByText('10 of 10 photos')).toBeInTheDocument();
-	await expect.element(page.getByLabelText('Add photo')).not.toBeInTheDocument();
+	await expect.element(page.getByLabelText('Add photos')).not.toBeInTheDocument();
 });
 
-async function pngFile() {
+async function pngFile(name = 'hem.png') {
 	const canvas = document.createElement('canvas');
 	canvas.width = 2400;
 	canvas.height = 3000;
 	canvas.getContext('2d')!.fillRect(0, 0, 2400, 3000);
 	const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/png'));
-	return new File([blob], 'hem.png', { type: 'image/png' });
+	return new File([blob], name, { type: 'image/png' });
 }
 
 it('converts any picked image to WebP before uploading it', async () => {
@@ -227,13 +227,77 @@ it('converts any picked image to WebP before uploading it', async () => {
 			);
 		}
 	});
-	await page.getByLabelText('Add photo').upload(await pngFile());
-	await expect.element(page.getByText(/WebP · 1600 × 2000/)).toBeInTheDocument();
+	await page.getByLabelText('Add photos').upload(await pngFile());
+	await expect.element(page.getByText('1 new photo ready', { exact: false })).toBeInTheDocument();
 	await page.getByRole('button', { name: 'Upload photo' }).click();
 	await expect.element(page.getByText('Photo uploaded')).toBeInTheDocument();
 	expect(uploaded).not.toBeNull();
 	expect(uploaded!.type).toBe('image/webp');
 	expect(uploaded!.name).toBe('hem.webp');
+});
+
+it('uploads several picked photos in order and keeps a failed one for retry', async () => {
+	const positions: string[] = [];
+	let failSecond = true;
+	editor(piece(), {
+		'POST /admin/api/products/test-draft/photos': (options) => {
+			const position = (options.body as FormData).get('position') as string;
+			if (position === '2' && failSecond) {
+				failSecond = false;
+				return new Response('Photo storage unavailable', { status: 503 });
+			}
+			positions.push(position);
+			return Response.json(
+				{
+					position: Number(position),
+					r2_key: `products/test-draft/${position}.webp`,
+					alt_text: ''
+				},
+				{ status: 201 }
+			);
+		}
+	});
+	await page
+		.getByLabelText('Add photos')
+		.upload([await pngFile('a.png'), await pngFile('b.png'), await pngFile('c.png')]);
+	await expect.element(page.getByText('0 of 10 photos · 3 new')).toBeInTheDocument();
+	await page.getByRole('button', { name: 'Upload all 3' }).click();
+	await expect
+		.element(page.getByText('One photo did not upload', { exact: false }))
+		.toBeInTheDocument();
+	await expect.element(page.getByText('2 of 10 photos · 1 new')).toBeInTheDocument();
+	await page.getByRole('button', { name: 'Retry' }).click();
+	await expect.element(page.getByText('Photo uploaded')).toBeInTheDocument();
+	await expect.element(page.getByText('3 of 10 photos')).toBeInTheDocument();
+	expect(positions).toEqual(['1', '2', '3']);
+});
+
+it('drops a picked photo before upload and refuses more than ten', async () => {
+	editor(piece({ photos: [1, 2, 3, 4, 5, 6, 7, 8].map(photo) }));
+	await page
+		.getByLabelText('Add photos')
+		.upload([await pngFile('a.png'), await pngFile('b.png'), await pngFile('c.png')]);
+	await expect
+		.element(page.getByText('A piece holds 10 photos, so only the first 2 were added.'))
+		.toBeInTheDocument();
+	await expect.element(page.getByText('8 of 10 photos · 2 new')).toBeInTheDocument();
+	await page.getByRole('button', { name: 'Drop new photo a.png' }).click();
+	await expect.element(page.getByText('8 of 10 photos · 1 new')).toBeInTheDocument();
+});
+
+it('shows the social post kit on unsold pieces only', async () => {
+	editor(piece());
+	await expect.element(page.getByRole('heading', { name: 'Social posts' })).toBeInTheDocument();
+	await expect
+		.element(page.getByText('This piece is a draft', { exact: false }))
+		.toBeInTheDocument();
+	vi.unstubAllGlobals();
+	document.body.innerHTML = '';
+	editor(piece({ publication_state: 'published', stock_state: 'sold', has_history: true }));
+	await expect
+		.element(page.getByRole('heading', { name: 'TEST ONLY — Skirt' }))
+		.toBeInTheDocument();
+	await expect.element(page.getByRole('heading', { name: 'Social posts' })).not.toBeInTheDocument();
 });
 
 it('features a published piece on the home page and removes it again', async () => {
