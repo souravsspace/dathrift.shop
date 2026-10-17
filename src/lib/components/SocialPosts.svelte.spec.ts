@@ -18,6 +18,8 @@ const product = {
 	size_label: 'M',
 	measurements_json: '{"chest_in":21,"length_in":28}',
 	condition_notes: 'Small mark',
+	description: 'Washed soft, faded just right.',
+	fit_note: null,
 	price_bdt: 1200,
 	publication_state: 'published' as const,
 	photos: [{ r2_key: 'test-only/a.webp' }, { r2_key: 'test-only/b.webp' }]
@@ -39,7 +41,7 @@ function panel(routes: Record<string, Handler> = {}) {
 	return { fetch, onmessage, onerror };
 }
 
-it('offers seven formats and writes each caption from the listing', async () => {
+it('offers eight formats and writes each caption from the listing', async () => {
 	panel();
 	for (const name of [
 		'Instagram post 1:1',
@@ -48,7 +50,8 @@ it('offers seven formats and writes each caption from the listing', async () => 
 		'Facebook post 1:1',
 		'Facebook post 16:9',
 		'Facebook story',
-		'Facebook Marketplace'
+		'Facebook Marketplace',
+		'Original size'
 	])
 		await expect
 			.element(page.getByRole('button', { name: new RegExp(`^${name}, `) }))
@@ -98,7 +101,14 @@ it('saves an edited caption with the listing text it started from, then resets i
 it('warns when the listing changed after a caption was saved', async () => {
 	panel({
 		'GET /admin/api/products/test-shirt/social': () =>
-			Response.json([{ format: 'ig-square', caption: 'Old caption ৳900', basis: 'older listing' }])
+			Response.json([
+				{
+					format: 'ig-square',
+					variant: 'classic',
+					caption: 'Old caption ৳900',
+					basis: 'older listing'
+				}
+			])
 	});
 	await expect
 		.element(page.getByLabelText('Caption for Instagram post 1:1'))
@@ -106,4 +116,51 @@ it('warns when the listing changed after a caption was saved', async () => {
 	await expect
 		.element(page.getByText('The listing changed after this caption was saved', { exact: false }))
 		.toBeInTheDocument();
+});
+
+it('switches caption variants, saves each one apart and adds an original-size tab', async () => {
+	let body: Record<string, string> = {};
+	panel({
+		'PUT /admin/api/products/test-shirt/social': (options) => {
+			body = JSON.parse(options.body as string);
+			return Response.json(body);
+		}
+	});
+	await expect
+		.element(page.getByRole('button', { name: /^Original size, up to 2000 px/ }))
+		.toBeInTheDocument();
+	for (const name of [
+		'Classic',
+		'Short',
+		'English only',
+		'Bangla only',
+		'Fit details',
+		'New drop',
+		'Storytelling'
+	])
+		await expect.element(page.getByRole('button', { name, exact: true })).toBeInTheDocument();
+	const caption = page.getByLabelText('Caption for Instagram post 1:1');
+	await page.getByRole('button', { name: 'New drop', exact: true }).click();
+	await expect.element(caption).toHaveValue(expect.stringMatching(/^New drop\. One piece only\./));
+	await caption.fill('Drop edit');
+	await page.getByRole('button', { name: 'Save text' }).click();
+	await expect.element(page.getByText('Your edit is saved')).toBeInTheDocument();
+	expect(body).toMatchObject({ format: 'ig-square', variant: 'drop', caption: 'Drop edit' });
+	await page.getByRole('button', { name: 'Storytelling', exact: true }).click();
+	await expect
+		.element(caption)
+		.toHaveValue(expect.stringMatching(/^Washed soft, faded just right\./));
+	await expect
+		.element(page.getByRole('button', { name: 'New drop, edited caption saved' }))
+		.toBeInTheDocument();
+});
+
+it('lets staff turn the price tag off for every image', async () => {
+	panel();
+	await expect.element(page.getByText('Photo 1 carries the price tag.')).toBeInTheDocument();
+	await page.getByRole('button', { name: 'Off', exact: true }).click();
+	await expect.element(page.getByText('No price tag on any photo.')).toBeInTheDocument();
+	await expect
+		.element(page.getByRole('button', { name: 'Off', exact: true }))
+		.toHaveAttribute('aria-pressed', 'true');
 });
