@@ -1,10 +1,11 @@
 // The post sizes staff prepare for Instagram and Facebook, in the order the editor shows them.
-export type SocialKind = 'post' | 'story' | 'marketplace';
+// The original format keeps each photo at its stored size, so its width and height are 0 here.
+export type SocialKind = 'post' | 'story' | 'marketplace' | 'original';
 
 export type SocialFormat = {
 	id: string;
 	label: string;
-	platform: 'instagram' | 'facebook';
+	platform: 'instagram' | 'facebook' | 'any';
 	kind: SocialKind;
 	width: number;
 	height: number;
@@ -66,6 +67,14 @@ export const SOCIAL_FORMATS = [
 		kind: 'marketplace',
 		width: 1080,
 		height: 1080
+	},
+	{
+		id: 'original',
+		label: 'Original size',
+		platform: 'any',
+		kind: 'original',
+		width: 0,
+		height: 0
 	}
 ] as const satisfies readonly SocialFormat[];
 
