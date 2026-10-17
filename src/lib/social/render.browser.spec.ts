@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { SOCIAL_FORMATS } from './formats';
-import { containRect, renderSocialImage } from './render';
+import { containRect, frameFor, renderSocialImage } from './render';
 
 const format = (id: string) => SOCIAL_FORMATS.find((item) => item.id === id)!;
 
@@ -38,7 +38,7 @@ it('fits the whole photo inside the frame, centred', () => {
 
 it('exports every format at its exact size as PNG and JPEG', async () => {
 	const source = await photo(1500, 2000);
-	for (const item of SOCIAL_FORMATS) {
+	for (const item of SOCIAL_FORMATS.filter((format) => format.kind !== 'original')) {
 		const png = await renderSocialImage(item, source, null, 'image/png');
 		expect(png.type).toBe('image/png');
 		const image = await pixels(png);
@@ -72,4 +72,19 @@ it('draws the swing tag in the bottom-left corner only when asked', async () => 
 	expect(plain.at(80, 1010)).toEqual([166, 61, 38]);
 	expect(tagged.at(80, 1010)).toEqual([251, 235, 214]);
 	expect(tagged.at(1000, 80)).toEqual(plain.at(1000, 80));
+});
+
+it('keeps the original format at the photo size with nothing added, and scales previews', async () => {
+	const source = await photo(1500, 2000);
+	const original = await pixels(
+		await renderSocialImage(format('original'), source, null, 'image/png')
+	);
+	expect([original.width, original.height]).toEqual([1500, 2000]);
+	expect(original.at(2, 2)).toEqual([19, 69, 51]);
+	expect(original.at(750, 1000)).toEqual([166, 61, 38]);
+	expect(frameFor(format('original'), source, 0.4)).toMatchObject({ width: 600, height: 800 });
+	const preview = await pixels(
+		await renderSocialImage(format('ig-story'), source, null, 'image/png', 0.95, 0.4)
+	);
+	expect([preview.width, preview.height]).toEqual([432, 768]);
 });
