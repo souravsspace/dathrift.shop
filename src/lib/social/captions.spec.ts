@@ -1,6 +1,8 @@
 import { expect, it } from 'vitest';
 import {
+	CAPTION_VARIANTS,
 	generatedText,
+	isCaptionVariant,
 	hashtags,
 	marketplaceFields,
 	parseMarketplaceText,
@@ -20,6 +22,8 @@ const shirt: CaptionPiece = {
 	size_label: 'M',
 	measurements: { chest_in: 21, length_in: 28.5 },
 	condition_notes: 'Small mark on left cuff',
+	description: 'Soft, sun-faded denim with a worn-in collar.',
+	fit_note: 'Boxy, a little cropped',
 	price_bdt: 1200
 };
 
@@ -80,4 +84,35 @@ it('fills Marketplace fields and keeps title and description editable as JSON', 
 		description: expect.stringContaining('Chest 21 in')
 	});
 	expect(parseMarketplaceText('plain words')).toEqual({ title: '', description: 'plain words' });
+});
+
+it('words post captions seven different ways', () => {
+	const texts = CAPTION_VARIANTS.map((variant) =>
+		generatedText(format('fb-square'), shirt, variant.id)
+	);
+	expect(new Set(texts).size).toBe(7);
+	const [classic, short, english, bangla, fit, drop, storytelling] = texts;
+	expect(classic).toBe(generatedText(format('fb-square'), shirt));
+	expect(short.length).toBeLessThan(classic.length / 2);
+	expect(short).toContain('৳1,200 · Size M');
+	expect(english).not.toMatch(/[ঀ-৿]{2}/);
+	expect(english).toContain('Order here: https://dathrift.shop/products/levis-denim-shirt');
+	expect(bangla).toContain('দাম: ৳1,200');
+	expect(bangla).not.toContain('Condition:');
+	expect(fit).toContain('Chest: 21 in');
+	expect(fit).toContain('Fit: Boxy, a little cropped');
+	expect(drop.startsWith('New drop. One piece only.')).toBe(true);
+	expect(drop).toContain('#newdrop');
+	expect(storytelling.startsWith('Soft, sun-faded denim')).toBe(true);
+	expect(
+		generatedText(format('ig-square'), { ...shirt, description: null }, 'storytelling')
+	).toMatch(/^A pre-loved shirts from Levi's/);
+});
+
+it('gives the original-size format a caption with the link and inbox line', () => {
+	const caption = generatedText(format('original'), shirt);
+	expect(caption).toContain('Order here: https://dathrift.shop/products/levis-denim-shirt');
+	expect(caption).toContain('Or inbox us to order.');
+	expect(isCaptionVariant('drop')).toBe(true);
+	expect(isCaptionVariant('loud')).toBe(false);
 });
