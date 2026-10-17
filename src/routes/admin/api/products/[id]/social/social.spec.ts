@@ -48,7 +48,7 @@ it('saves, lists and resets a staff caption', async () => {
 	const listed = await GET(request('test-shirt', 'GET'));
 	expect(await listed.json()).toMatchObject([{ format: 'fb-square', caption: 'Olive shirt' }]);
 	const reset = await DELETE(request('test-shirt', 'DELETE', { format: 'fb-square' }));
-	expect(await reset.json()).toEqual({ format: 'fb-square' });
+	expect(await reset.json()).toEqual({ format: 'fb-square', variant: 'classic' });
 	expect(await (await GET(request('test-shirt', 'GET'))).json()).toEqual([]);
 });
 
