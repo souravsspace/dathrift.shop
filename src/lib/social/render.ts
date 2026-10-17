@@ -146,20 +146,37 @@ export async function loadPhoto(url: string) {
 	return createImageBitmap(await response.blob());
 }
 
+// The pixel size a format draws at: fixed for platform sizes, the photo's own for the original.
+export function frameFor(
+	format: SocialFormat,
+	photo: { width: number; height: number },
+	scale = 1
+) {
+	const base = format.kind === 'original' ? photo : format;
+	return {
+		...format,
+		width: Math.round(base.width * scale),
+		height: Math.round(base.height * scale)
+	};
+}
+
+// Previews pass a scale below 1 and get the same picture, smaller.
 export async function renderSocialImage(
 	format: SocialFormat,
 	photo: ImageBitmap,
 	tag: TagFacts | null,
 	type: 'image/png' | 'image/jpeg',
-	quality = JPEG_QUALITY
+	quality = JPEG_QUALITY,
+	scale = 1
 ): Promise<Blob> {
 	await loadFonts();
+	const frame = frameFor(format, photo, scale);
 	const canvas = document.createElement('canvas');
-	canvas.width = format.width;
-	canvas.height = format.height;
+	canvas.width = frame.width;
+	canvas.height = frame.height;
 	const context = canvas.getContext('2d');
 	if (!context) throw new Error('Canvas unavailable');
-	drawSocialImage(context, format, photo, tag);
+	drawSocialImage(context, frame, photo, tag);
 	const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
 	if (!blob) throw new Error('Could not export image');
 	return blob;
