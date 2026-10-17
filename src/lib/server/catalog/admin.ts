@@ -7,6 +7,7 @@ import {
 	inventory,
 	orderItems,
 	productPhotos,
+	productSocialPosts,
 	products,
 	slugRedirects
 } from '../db/schema';
@@ -471,6 +472,7 @@ export async function removeProduct(db: Database, bucket: PhotoStore, id: string
 	await db.batch([
 		unfeature,
 		db.delete(slugRedirects).where(eq(slugRedirects.productId, id)),
+		db.delete(productSocialPosts).where(eq(productSocialPosts.productId, id)),
 		db.delete(productPhotos).where(eq(productPhotos.productId, id)),
 		db.delete(inventory).where(and(eq(inventory.productId, id), eq(inventory.state, 'available'))),
 		db.delete(products).where(eq(products.id, id))
