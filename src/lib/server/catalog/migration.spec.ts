@@ -246,3 +246,39 @@ it('gives every piece a month code that restarts each month and never reuses a n
 	expect(() => db.exec("UPDATE products SET code = 'OC2026001' WHERE id = 'new-2'")).toThrow();
 	db.close();
 });
+
+it('keeps saved social captions as the classic variant when variants arrive', () => {
+	const db = new DatabaseSync(':memory:');
+	db.exec('PRAGMA foreign_keys = ON');
+	const files = readdirSync('db/migrations').sort();
+	migrate(
+		db,
+		files.filter((file) => file < '0022')
+	);
+	db.exec(
+		"INSERT INTO products (id, slug, name, category, price_bdt) VALUES ('p1', 'test-only-top', 'Test-only top', 'tops', 900)"
+	);
+	db.exec(
+		"INSERT INTO product_social_posts (product_id, format, caption, basis, updated_at) VALUES ('p1', 'ig-square', 'Saved caption', 'basis', '2026-10-18 00:00:00')"
+	);
+	migrate(
+		db,
+		files.filter((file) => file >= '0022')
+	);
+	expect(db.prepare('SELECT * FROM product_social_posts').all()).toEqual([
+		{
+			product_id: 'p1',
+			format: 'ig-square',
+			variant: 'classic',
+			caption: 'Saved caption',
+			basis: 'basis',
+			updated_at: '2026-10-18 00:00:00'
+		}
+	]);
+	const add = db.prepare(
+		"INSERT INTO product_social_posts (product_id, format, variant, caption, basis) VALUES ('p1', ?, ?, 'x', '')"
+	);
+	add.run('original', 'drop');
+	expect(() => add.run('original', 'shouty')).toThrow();
+	expect(() => add.run('tiktok', 'classic')).toThrow();
+});
