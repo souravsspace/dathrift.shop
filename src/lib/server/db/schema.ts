@@ -209,6 +209,22 @@ export const slugRedirects = sqliteTable('slug_redirects', {
 		.default(sql`CURRENT_TIMESTAMP`)
 });
 
+export const productSocialPosts = sqliteTable(
+	'product_social_posts',
+	{
+		productId: text('product_id')
+			.notNull()
+			.references(() => products.id),
+		format: text('format').notNull(),
+		caption: text('caption').notNull(),
+		basis: text('basis').notNull(),
+		updatedAt: text('updated_at')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`)
+	},
+	(table) => [primaryKey({ columns: [table.productId, table.format] })]
+);
+
 export const homeFeature = sqliteTable('home_feature', {
 	slot: text('slot', { enum: ['hero'] }).primaryKey(),
 	productId: text('product_id')
