@@ -3,13 +3,15 @@
 	import { formatBdt } from '../site';
 	import { SOCIAL_FORMATS, type SocialFormat, type SocialFormatId } from '../social/formats';
 	import {
+		CAPTION_VARIANTS,
 		INSTAGRAM_CAPTION_LIMIT,
 		generatedText,
 		marketplaceFields,
 		parseMarketplaceText,
-		type CaptionPiece
+		type CaptionPiece,
+		type CaptionVariant
 	} from '../social/captions';
-	import { loadPhoto, renderSocialImage, type TagFacts } from '../social/render';
+	import { frameFor, loadPhoto, renderSocialImage, type TagFacts } from '../social/render';
 	import { canShareFiles, saveBlob, shareFiles, zipFiles } from '../social/download';
 
 	type Piece = {
@@ -22,12 +24,14 @@
 		size_label: string | null;
 		measurements_json: string | null;
 		condition_notes: string | null;
+		description: string | null;
+		fit_note: string | null;
 		price_bdt: number;
 		publication_state: 'draft' | 'published';
 		photos: { r2_key: string }[];
 	};
-	type Saved = { format: string; caption: string; basis: string };
-	type Preview = { key: string; url: string; failed: boolean };
+	type Saved = { format: string; variant: string; caption: string; basis: string };
+	type Preview = { key: string; url: string; failed: boolean; width: number; height: number };
 	type FileType = 'image/jpeg' | 'image/png';
 
 	let {
@@ -39,8 +43,11 @@
 
 	const platforms = [
 		{ id: 'instagram', name: 'Instagram' },
-		{ id: 'facebook', name: 'Facebook' }
+		{ id: 'facebook', name: 'Facebook' },
+		{ id: 'any', name: 'Any platform' }
 	] as const;
+	const sizeLabel = (format: SocialFormat) =>
+		format.kind === 'original' ? 'up to 2000 px' : `${format.width}×${format.height}`;
 	const shortLabel = (format: SocialFormat) => {
 		const label = format.label.replace(/^(Instagram|Facebook) /, '');
 		return label[0].toUpperCase() + label.slice(1);
@@ -48,6 +55,8 @@
 
 	let active = $state<SocialFormatId>('ig-square');
 	let fileType = $state<FileType>('image/jpeg');
+	let showTag = $state(true);
+	let variant = $state<CaptionVariant>('classic');
 	let saved = $state<Record<string, Saved>>({});
 	let drafts = $state<Record<string, string>>({});
 	let working = $state(false);
@@ -64,11 +73,17 @@
 		size_label: product.size_label,
 		measurements: parseMeasurements(product.measurements_json),
 		condition_notes: product.condition_notes,
+		description: product.description,
+		fit_note: product.fit_note,
 		price_bdt: product.price_bdt
 	});
-	let generated = $derived(generatedText(format, piece));
-	let savedPost = $derived<Saved | undefined>(saved[active]);
-	let text = $derived(drafts[active] ?? savedPost?.caption ?? generated);
+	// Post captions come in variants; stories and Marketplace have one text, kept as classic.
+	let hasVariants = $derived(format.kind === 'post' || format.kind === 'original');
+	let activeVariant = $derived<CaptionVariant>(hasVariants ? variant : 'classic');
+	let slot = $derived(`${active}:${activeVariant}`);
+	let generated = $derived(generatedText(format, piece, activeVariant));
+	let savedPost = $derived<Saved | undefined>(saved[slot]);
+	let text = $derived(drafts[slot] ?? savedPost?.caption ?? generated);
 	let unsaved = $derived(text !== (savedPost?.caption ?? generated));
 	// The listing changed after this caption was edited and saved.
 	let stale = $derived(!!savedPost && savedPost.basis !== generated);
@@ -93,6 +108,10 @@
 		code: product.code ?? '',
 		cta: target.platform === 'instagram' ? 'Link in bio · DM to order' : 'Inbox to order'
 	});
+	const tagFor = (target: SocialFormat, index: number) =>
+		showTag && index === 0 ? tagFacts(target) : null;
+	const savedIn = (formatId: string) =>
+		Object.keys(saved).some((key) => key.startsWith(`${formatId}:`));
 
 	// Each photo is fetched once and reused for every format.
 	const bitmaps: Record<string, Promise<ImageBitmap>> = {};
@@ -112,7 +131,7 @@
 		const blob = await renderSocialImage(
 			target,
 			await bitmap(key),
-			index === 0 ? tagFacts(target) : null,
+			tagFor(target, index),
 			fileType
 		);
 		return new File([blob], fileName(target, index), { type: fileType });
@@ -122,32 +141,25 @@
 	$effect(() => {
 		const target = format;
 		const keys = product.photos.map((photo) => photo.r2_key);
-		const tag = tagFacts(target);
-		const small = {
-			...target,
-			width: Math.round(target.width * 0.4),
-			height: Math.round(target.height * 0.4)
-		};
+		const tags = keys.map((_, index) => tagFor(target, index));
 		const urls: string[] = [];
 		let cancelled = false;
-		previews = keys.map((key) => ({ key, url: '', failed: false }));
+		// Original-size images take each photo's own shape once it loads; 4:5 until then.
+		const shape = { width: target.width || 4, height: target.height || 5 };
+		previews = keys.map((key) => ({ key, url: '', failed: false, ...shape }));
 		void (async () => {
 			for (const [index, key] of keys.entries()) {
 				try {
-					const blob = await renderSocialImage(
-						small,
-						await bitmap(key),
-						index === 0 ? tag : null,
-						'image/jpeg',
-						0.85
-					);
+					const photo = await bitmap(key);
+					const blob = await renderSocialImage(target, photo, tags[index], 'image/jpeg', 0.85, 0.4);
 					if (cancelled) return;
 					const url = URL.createObjectURL(blob);
 					urls.push(url);
-					previews[index] = { key, url, failed: false };
+					const { width, height } = frameFor(target, photo);
+					previews[index] = { key, url, failed: false, width, height };
 				} catch {
 					if (cancelled) return;
-					previews[index] = { key, url: '', failed: true };
+					previews[index] = { key, url: '', failed: true, ...shape };
 				}
 			}
 		})();
@@ -164,7 +176,7 @@
 				const response = await fetch(`/admin/api/products/${product.id}/social`);
 				if (!response.ok) return;
 				const rows = (await response.json()) as Saved[];
-				saved = Object.fromEntries(rows.map((row) => [row.format, row]));
+				saved = Object.fromEntries(rows.map((row) => [`${row.format}:${row.variant}`, row]));
 			} catch {
 				// Generated captions still show; only saved edits are missing.
 			}
@@ -228,21 +240,26 @@
 	}
 
 	function edit(value: string) {
-		drafts[active] = value;
+		drafts[slot] = value;
 	}
 
 	function editMarket(field: 'title' | 'description', value: string) {
-		drafts[active] = JSON.stringify({ ...marketText, [field]: value });
+		drafts[slot] = JSON.stringify({ ...marketText, [field]: value });
 	}
 
 	async function save() {
-		const target = active;
+		const target = slot;
 		working = true;
 		try {
 			const response = await fetch(`/admin/api/products/${product.id}/social`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ format: target, caption: text, basis: generated })
+				body: JSON.stringify({
+					format: active,
+					variant: activeVariant,
+					caption: text,
+					basis: generated
+				})
 			});
 			if (!response.ok) throw new Error(await response.text());
 			saved[target] = await response.json();
@@ -260,7 +277,7 @@
 	}
 
 	async function reset() {
-		const target = active;
+		const target = slot;
 		if (!saved[target]) {
 			delete drafts[target];
 			return;
@@ -270,7 +287,7 @@
 			const response = await fetch(`/admin/api/products/${product.id}/social`, {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ format: target })
+				body: JSON.stringify({ format: active, variant: activeVariant })
 			});
 			if (!response.ok) throw new Error('Reset failed');
 			delete saved[target];
@@ -300,7 +317,7 @@
 	</div>
 	<p class="admin-hint">
 		Images and captions ready for Instagram and Facebook. Every photo is fitted whole, never
-		cropped; the cover carries the price tag.
+		cropped; the price tag on the cover can be turned off.
 	</p>
 	{#if product.publication_state === 'draft'}<p class="social-note">
 			This piece is a draft. Its shop link starts working once you publish it.
@@ -317,11 +334,11 @@
 					{#each SOCIAL_FORMATS.filter((item) => item.platform === platform.id) as item (item.id)}<button
 							type="button"
 							aria-pressed={active === item.id}
-							aria-label="{item.label}, {item.width} by {item.height}{saved[item.id]
+							aria-label="{item.label}, {sizeLabel(item).replace('×', ' by ')}{savedIn(item.id)
 								? ', edited caption saved'
 								: ''}"
 							onclick={() => (active = item.id)}
-							>{shortLabel(item)}<small>{item.width}×{item.height}</small>{#if saved[item.id]}<span
+							>{shortLabel(item)}<small>{sizeLabel(item)}</small>{#if savedIn(item.id)}<span
 									class="social-edited"
 									aria-hidden="true"
 								></span>{/if}</button
@@ -332,10 +349,25 @@
 
 	<div class="social-body">
 		<div class="social-images">
-			<h3>Images <small>{format.width} × {format.height} px</small></h3>
+			<h3>
+				Images <small
+					>{format.kind === 'original'
+						? 'stored size, up to 2000 px'
+						: `${format.width} × ${format.height} px`}</small
+				>
+			</h3>
 			{#if !count}<p class="social-empty">Add a photo above to make post images.</p>
 			{:else}
 				<div class="social-toolbar">
+					<div class="social-type" role="group" aria-label="Price tag on the cover">
+						<span class="social-type-name" aria-hidden="true">Tag</span><button
+							type="button"
+							aria-pressed={showTag}
+							onclick={() => (showTag = true)}>On</button
+						><button type="button" aria-pressed={!showTag} onclick={() => (showTag = false)}
+							>Off</button
+						>
+					</div>
 					<div class="social-type" role="group" aria-label="File type">
 						<button
 							type="button"
@@ -363,11 +395,11 @@
 					{fileType === 'image/png'
 						? 'PNG is lossless and larger.'
 						: 'JPEG at 95% quality: just as sharp, much smaller.'}
-					Photo 1 carries the price tag.
+					{showTag ? 'Photo 1 carries the price tag.' : 'No price tag on any photo.'}
 				</p>
 				<ol class="social-previews" class:social-previews-wide={format.width > format.height}>
 					{#each previews as preview, index (preview.key)}<li>
-							<div class="social-frame" style:aspect-ratio="{format.width} / {format.height}">
+							<div class="social-frame" style:aspect-ratio="{preview.width} / {preview.height}">
 								{#if preview.url}<img
 										src={preview.url}
 										alt="{shortLabel(format)} image {index + 1} of {count}"
@@ -376,7 +408,12 @@
 									>{/if}
 							</div>
 							<div class="social-frame-foot">
-								<span>{index + 1}{index === 0 ? ' · Cover' : ''}</span>
+								<span
+									>{index + 1}{index === 0 ? ' · Cover' : ''}{format.kind === 'original' &&
+									preview.url
+										? ` · ${preview.width}×${preview.height}`
+										: ''}</span
+								>
 								<button
 									type="button"
 									class="social-icon-button"
@@ -441,6 +478,23 @@
 				</div>
 			{:else}
 				<h3>{format.kind === 'story' ? 'Sticker text' : 'Caption'}</h3>
+				{#if hasVariants}<div class="social-variants" role="group" aria-label="Caption style">
+						{#each CAPTION_VARIANTS as option (option.id)}<button
+								type="button"
+								aria-pressed={variant === option.id}
+								aria-label="{option.label}{saved[`${active}:${option.id}`]
+									? ', edited caption saved'
+									: ''}"
+								onclick={() => (variant = option.id)}
+								>{option.label}{#if saved[`${active}:${option.id}`]}<span
+										class="social-edited"
+										aria-hidden="true"
+									></span>{/if}</button
+							>{/each}
+					</div>
+					<p class="admin-hint">
+						{CAPTION_VARIANTS.find((option) => option.id === variant)?.hint}
+					</p>{/if}
 				{#if format.kind === 'story'}<p class="admin-hint">
 						Stories have no caption. The image shows a bigger tag; paste this as a text or link
 						sticker.
