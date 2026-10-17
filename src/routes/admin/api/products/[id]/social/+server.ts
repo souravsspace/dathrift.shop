@@ -69,7 +69,10 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
 	const db = databaseFrom(env);
 	if (!db) return new Response('Catalog unavailable', { status: 503, headers });
 	try {
-		return Response.json(await resetSocialPost(db, params.id, body.format), { headers });
+		return Response.json(
+			await resetSocialPost(db, params.id, { format: body.format, variant: body.variant }),
+			{ headers }
+		);
 	} catch (error) {
 		return failure(error);
 	}
