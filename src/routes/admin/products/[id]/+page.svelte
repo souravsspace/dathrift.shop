@@ -3,12 +3,22 @@
 	import { goto } from '$app/navigation';
 	import AdminHeader from '../../../../lib/components/AdminHeader.svelte';
 	import AdminToast from '../../../../lib/components/AdminToast.svelte';
+	import SocialPosts from '../../../../lib/components/SocialPosts.svelte';
 	import StatusStamp from '../../../../lib/components/StatusStamp.svelte';
 	import { toWebp } from '../../../../lib/images/to-webp';
 	import { slugInput, slugify } from '../../../../lib/slug';
 	import type { PageData } from './$types';
 
 	type Photo = { position: number; r2_key: string; alt_text: string };
+	// A picked photo waits in the tray until it is converted and uploaded.
+	type Pending = {
+		id: string;
+		name: string;
+		status: 'converting' | 'ready' | 'uploading' | 'failed';
+		webp: File | null;
+		preview: string;
+		note: string;
+	};
 	type MeasurementSet = 'top' | 'bottom' | 'none';
 	type Category = { slug: string; name: string; measurement_set: MeasurementSet };
 	type Product = {
@@ -63,10 +73,12 @@
 	let length = $state('');
 	let waist = $state('');
 	let inseam = $state('');
-	let photoFile = $state<File | null>(null);
-	let photoPreview = $state('');
-	let photoNote = $state('');
-	let converting = $state(false);
+	let pending = $state<Pending[]>([]);
+	let dragging = $state(false);
+	let converting = $derived(pending.some((item) => item.status === 'converting'));
+	let uploading = $derived(pending.some((item) => item.status === 'uploading'));
+	let ready = $derived(pending.filter((item) => item.webp && item.status !== 'uploading'));
+	let room = $derived(MAX_PHOTOS - (product?.photos.length ?? 0) - pending.length);
 	let saleReason = $state('');
 	let newSlug = $state('');
 	let draftSlug = $state('');
@@ -179,7 +191,14 @@
 				name: name.trim(),
 				category,
 				category_name: categoryLabel,
-				measurement_set: measurementSet
+				measurement_set: measurementSet,
+				price_bdt: Number(price),
+				brand: brand || null,
+				description: description || null,
+				condition_notes: condition || null,
+				size_label: size || null,
+				measurements_json: measurements && JSON.stringify(measurements),
+				fit_note: fit || null
 			};
 			savedFields = fields;
 			message = live ? 'Live page updated' : 'Draft details saved';
@@ -204,23 +223,93 @@
 			? `${(bytes / 1024 / 1024).toFixed(1)} MB`
 			: `${Math.round(bytes / 1024)} KB`;
 
-	// Any readable image is converted to WebP here, so the server only ever stores WebP.
-	async function choosePhoto(file: File | undefined) {
-		if (photoPreview) URL.revokeObjectURL(photoPreview);
-		photoFile = null;
-		photoPreview = photoNote = error = '';
-		if (!file) return;
-		converting = true;
-		try {
-			const converted = await toWebp(file);
-			photoFile = converted.file;
-			photoPreview = URL.createObjectURL(converted.file);
-			photoNote = `${megabytes(file.size)} → ${megabytes(converted.file.size)} WebP · ${converted.width} × ${converted.height}`;
-		} catch (reason) {
-			error = reason instanceof Error ? reason.message : 'Could not read that image.';
-		} finally {
-			converting = false;
+	// Any readable image is converted to WebP here, so the server only ever stores WebP. Photos
+	// convert one at a time: HEIC decoding is heavy and phones run out of memory doing several.
+	async function addPhotos(files: File[]) {
+		if (!product || held || !files.length) return;
+		message = error = '';
+		const taken = files.slice(0, Math.max(0, room));
+		if (taken.length < files.length)
+			error =
+				room > 0
+					? `A piece holds ${MAX_PHOTOS} photos, so only the first ${taken.length} were added.`
+					: `A piece holds ${MAX_PHOTOS} photos. Remove one before adding more.`;
+		const added = taken.map((file) => ({
+			id: crypto.randomUUID(),
+			name: file.name,
+			status: 'converting' as const,
+			webp: null,
+			preview: '',
+			note: ''
+		}));
+		pending.push(...added);
+		for (const [index, file] of taken.entries()) {
+			const item = pending.find((entry) => entry.id === added[index].id);
+			if (!item) continue;
+			try {
+				const converted = await toWebp(file);
+				item.webp = converted.file;
+				item.preview = URL.createObjectURL(converted.file);
+				item.note = `${converted.width} × ${converted.height} · ${megabytes(converted.file.size)}`;
+				item.status = 'ready';
+			} catch (reason) {
+				item.status = 'failed';
+				item.note = reason instanceof Error ? reason.message : 'Could not read that image.';
+			}
 		}
+	}
+
+	function dropPending(id: string) {
+		const item = pending.find((entry) => entry.id === id);
+		if (item?.preview) URL.revokeObjectURL(item.preview);
+		pending = pending.filter((entry) => entry.id !== id);
+	}
+
+	// Uploads run in order because each photo takes the next position; a failed one stays in the
+	// tray with a Retry while the rest carry on.
+	async function uploadPhotos(items: Pending[]) {
+		if (!product) return;
+		busy = true;
+		message = error = '';
+		let done = 0;
+		let failed = 0;
+		for (const item of items) {
+			if (!product || !item.webp) continue;
+			item.status = 'uploading';
+			const body = new FormData();
+			body.set('photo', item.webp);
+			body.set('position', String(product.photos.length + 1));
+			try {
+				const response = await fetch(`/admin/api/products/${data.id}/photos`, {
+					method: 'POST',
+					body
+				});
+				if (response.status === 409) {
+					item.status = 'failed';
+					item.note = 'Held by a buyer';
+					error = heldMessage;
+					break;
+				}
+				if (!response.ok) throw new Error('Upload failed');
+				product = { ...product, photos: [...product.photos, await response.json()] };
+				dropPending(item.id);
+				done += 1;
+			} catch {
+				item.status = 'failed';
+				item.note = 'Upload failed';
+				failed += 1;
+			}
+		}
+		if (failed)
+			error = `${failed === 1 ? 'One photo' : `${failed} photos`} did not upload. Check your connection, then tap Retry.`;
+		else if (done) message = done === 1 ? 'Photo uploaded' : `${done} photos uploaded`;
+		busy = false;
+	}
+
+	function dropFiles(event: DragEvent) {
+		event.preventDefault();
+		dragging = false;
+		void addPhotos([...(event.dataTransfer?.files ?? [])]);
 	}
 
 	async function setFeatured(featured: boolean) {
@@ -238,32 +327,6 @@
 			message = featured ? 'Now leading the home page' : 'Removed from the home page';
 		} catch {
 			error = 'Could not change the home page. Only published, available pieces can lead it.';
-		} finally {
-			busy = false;
-		}
-	}
-
-	async function uploadPhoto(event: SubmitEvent) {
-		event.preventDefault();
-		if (!product || !photoFile) return;
-		busy = true;
-		message = error = '';
-		const body = new FormData();
-		body.set('photo', photoFile);
-		body.set('position', String(product.photos.length + 1));
-		try {
-			const response = await fetch(`/admin/api/products/${data.id}/photos`, {
-				method: 'POST',
-				body
-			});
-			if (response.status === 409) throw new Error(heldMessage);
-			if (!response.ok)
-				throw new Error('Could not upload photo. Check your connection and try again.');
-			product = { ...product, photos: [...product.photos, await response.json()] };
-			await choosePhoto(undefined);
-			message = 'Photo uploaded';
-		} catch (reason) {
-			error = reason instanceof Error ? reason.message : 'Could not upload photo.';
 		} finally {
 			busy = false;
 		}
@@ -455,10 +518,28 @@
 					<section class="admin-panel" aria-labelledby="photos-title">
 						<div class="admin-panel-head">
 							<h2 id="photos-title">Photos</h2>
-							<p>{product.photos.length} of {MAX_PHOTOS} photos</p>
+							<p>
+								{product.photos.length} of {MAX_PHOTOS} photos{pending.length
+									? ` · ${pending.length} new`
+									: ''}
+							</p>
 						</div>
 						<p class="admin-hint">The cover shows first in the shop. Show every flaw.</p>
-						<div class="editor-photos">
+						<div
+							class="editor-photos"
+							class:editor-dragging={dragging}
+							role="group"
+							aria-label="Photos of this piece"
+							ondragover={(event) => {
+								if (held || room <= 0) return;
+								event.preventDefault();
+								dragging = true;
+							}}
+							ondragleave={(event) => {
+								if (!event.currentTarget.contains(event.relatedTarget as Node)) dragging = false;
+							}}
+							ondrop={dropFiles}
+						>
 							{#each product.photos as photo (photo.r2_key)}<figure class="editor-photo">
 									<div class="editor-photo-frame">
 										<img
@@ -501,41 +582,86 @@
 											onclick={() => makeCover(photo)}>Make cover</button
 										>{/if}
 								</figure>{/each}
-							{#if !held && product.photos.length < MAX_PHOTOS}<input
+							{#each pending as item (item.id)}<figure
+									class="editor-photo editor-pending"
+									data-status={item.status}
+								>
+									<div class="editor-photo-frame">
+										{#if item.preview}<img
+												src={item.preview}
+												alt="New photo {item.name}"
+											/>{:else}<span class="editor-pending-blank" aria-hidden="true"></span>{/if}
+										<span class="editor-pending-state" role="status"
+											>{item.status === 'converting'
+												? 'Converting…'
+												: item.status === 'uploading'
+													? 'Uploading…'
+													: item.status === 'ready'
+														? 'Ready'
+														: item.webp
+															? 'Not uploaded'
+															: 'Unreadable'}</span
+										>
+										{#if item.status !== 'uploading'}<button
+												type="button"
+												class="editor-photo-remove"
+												disabled={busy}
+												aria-label="Drop new photo {item.name}"
+												onclick={() => dropPending(item.id)}
+												><svg viewBox="0 0 16 16" aria-hidden="true"
+													><path d="M4 4l8 8M12 4l-8 8" /></svg
+												></button
+											>{/if}
+									</div>
+									{#if item.status === 'failed' && item.webp}<button
+											type="button"
+											class="admin-cover-button"
+											disabled={busy}
+											onclick={() => uploadPhotos([item])}>Retry</button
+										>{:else if item.status === 'failed'}<small class="editor-pending-note"
+											>{item.note}</small
+										>{/if}
+								</figure>{/each}
+							{#if !held && room > 0}<input
 									id="photo-file"
 									class="admin-drop-input"
 									type="file"
-									form="photo-upload"
 									accept="image/*,.heic,.heif"
-									onchange={(event) => choosePhoto(event.currentTarget.files?.[0])}
-									required
+									multiple
+									onchange={(event) => {
+										void addPhotos([...(event.currentTarget.files ?? [])]);
+										event.currentTarget.value = '';
+									}}
 								/><label class="editor-add" for="photo-file">
-									{#if photoPreview}<img src={photoPreview} alt="" />{:else}<svg
-											viewBox="0 0 24 24"
-											aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg
-										>{/if}
-									<span>Add photo</span>
+									<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+									<span>Add photos</span>
 								</label>{/if}
 						</div>
 						{#if live && !held && product.photos.length === 1}<p class="admin-hint">
 								A live piece keeps at least one photo.
 							</p>{/if}
-						{#if !held && product.photos.length < MAX_PHOTOS}<form
-								id="photo-upload"
-								class="editor-upload"
-								onsubmit={uploadPhoto}
-							>
+						{#if !held}<div class="editor-upload">
 								<p aria-live="polite">
 									{converting
 										? 'Converting to WebP…'
-										: photoNote ||
-											'Any photo up to 10 MB, iPhone HEIC included. It is resized and converted to WebP.'}
+										: uploading
+											? 'Uploading in order, one at a time…'
+											: ready.length
+												? `${ready.length} new ${ready.length === 1 ? 'photo' : 'photos'} ready. Tap X to drop one before uploading.`
+												: 'Pick several photos at once, or drop them here. Up to 10 MB each, iPhone HEIC included; each is resized and converted to WebP.'}
 								</p>
-								{#if photoFile || converting}<button
-										type="submit"
-										disabled={busy || converting || !photoFile}>Upload photo</button
+								{#if pending.length}<button
+										type="button"
+										class="admin-action"
+										disabled={busy || converting || !ready.length}
+										onclick={() => uploadPhotos(ready)}
+										>{uploading
+											? 'Uploading…'
+											: ready.length > 1
+												? `Upload all ${ready.length}`
+												: 'Upload photo'}</button
 									>{/if}
-							</form>{/if}
+							</div>{/if}
 					</section>
 					<section class="admin-panel" aria-labelledby="details-title">
 						<div class="admin-panel-head">
@@ -827,6 +953,12 @@
 					</section>
 				</aside>
 			</div>
+			<!-- Sold pieces are not advertised, so they get no post kit. -->
+			{#if product.stock_state !== 'sold'}<SocialPosts
+					{product}
+					onmessage={(text) => ((error = ''), (message = text))}
+					onerror={(text) => ((message = ''), (error = text))}
+				/>{/if}
 			{#if error}<AdminToast kind="error" text={error} onclose={() => (error = '')} />
 			{:else if message}<AdminToast text={message} onclose={() => (message = '')} />{/if}
 		{:else}
