@@ -216,13 +216,14 @@ export const productSocialPosts = sqliteTable(
 			.notNull()
 			.references(() => products.id),
 		format: text('format').notNull(),
+		variant: text('variant').notNull().default('classic'),
 		caption: text('caption').notNull(),
 		basis: text('basis').notNull(),
 		updatedAt: text('updated_at')
 			.notNull()
 			.default(sql`CURRENT_TIMESTAMP`)
 	},
-	(table) => [primaryKey({ columns: [table.productId, table.format] })]
+	(table) => [primaryKey({ columns: [table.productId, table.format, table.variant] })]
 );
 
 export const homeFeature = sqliteTable('home_feature', {
